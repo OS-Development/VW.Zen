@@ -36,6 +36,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <boost/lambda/core.hpp>
 
 #include "llagent.h"
 #include "llagentcamera.h"
@@ -198,6 +199,7 @@
 #include "llfloaternotificationsconsole.h"
 
 #include "llnearbychat.h"
+#include "llwindowlistener.h"
 #include "llviewerwindowlistener.h"
 #include "llpaneltopinfobar.h"
 
@@ -239,8 +241,6 @@ BOOL				gDisplayBadge = FALSE;
 
 static const U8 NO_FACE = 255;
 BOOL gQuietSnapshot = FALSE;
-
-const F32 MIN_AFK_TIME = 2.f; // minimum time after setting away state before coming back
 
 static const F32 MIN_DISPLAY_SCALE = 0.75f;
 
@@ -528,8 +528,8 @@ public:
 				addText(xpos,ypos, llformat("%s streaming cost: %.1f", label, cost));
 				ypos += y_inc;
 
-				addText(xpos, ypos, llformat("    %.1f KTris, %.1f/%.1f KB, %d objects",
-										count/1024.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
+				addText(xpos, ypos, llformat("    %.3f KTris, %.1f/%.1f KB, %d objects",
+										count/1000.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
 				ypos += y_inc;
 			
 			}
@@ -662,6 +662,17 @@ public:
 			addText(xpos, ypos, llformat("%d %d %d %d", color[0], color[1], color[2], color[3]));
 			ypos += y_inc;
 		}
+
+		if (gSavedSettings.getBOOL("DebugShowPrivateMem"))
+		{
+			LLPrivateMemoryPoolManager::getInstance()->updateStatistics() ;
+			addText(xpos, ypos, llformat("Total Reserved(KB): %d", LLPrivateMemoryPoolManager::getInstance()->mTotalReservedSize / 1024));
+			ypos += y_inc;
+
+			addText(xpos, ypos, llformat("Total Allocated(KB): %d", LLPrivateMemoryPoolManager::getInstance()->mTotalAllocatedSize / 1024));
+			ypos += y_inc;
+		}
+
 		// only display these messages if we are actually rendering beacons at this moment
 		if (LLPipeline::getRenderBeacons(NULL) && LLFloaterReg::instanceVisible("beacons"))
 		{
@@ -726,19 +737,6 @@ public:
 			}
 		}				
 
-		if (gSavedSettings.getBOOL("DebugShowUploadCost"))
-		{
-			addText(xpos, ypos, llformat("       Meshes: L$%d", gPipeline.mDebugMeshUploadCost));
-			ypos += y_inc/2;
-			addText(xpos, ypos, llformat("    Sculpties: L$%d", gPipeline.mDebugSculptUploadCost));
-			ypos += y_inc/2;
-			addText(xpos, ypos, llformat("     Textures: L$%d", gPipeline.mDebugTextureUploadCost));
-			ypos += y_inc/2;
-			addText(xpos, ypos, "Upload Cost: ");
-						
-			ypos += y_inc;
-		}
-
 		//temporary hack to give feedback on mesh upload progress
 		if (!gMeshRepo.mUploads.empty())
 		{
@@ -747,10 +745,8 @@ public:
 			{
 				LLMeshUploadThread* thread = *iter;
 
-				addText(xpos, ypos, llformat("Mesh Upload -- price quote: %d:%d | upload: %d:%d | create: %d", 
-								thread->mPendingConfirmations, thread->mUploadQ.size()+thread->mTextureQ.size(),
-								thread->mPendingUploads, thread->mConfirmedQ.size()+thread->mConfirmedTextureQ.size(),
-								thread->mInstanceQ.size()));
+				addText(xpos, ypos, llformat("Mesh Uploads: %d", 
+								thread->mPendingUploads));
 				ypos += y_inc;
 			}
 		}
@@ -1218,7 +1214,7 @@ void LLViewerWindow::handleMouseMove(LLWindow *window,  LLCoordGL pos, MASK mask
 
 	mWindow->showCursorFromMouseMove();
 
-	if (gAwayTimer.getElapsedTimeF32() > MIN_AFK_TIME)
+	if (gAwayTimer.getElapsedTimeF32() > LLAgent::MIN_AFK_TIME)
 	{
 		gAgent.clearAFK();
 	}
@@ -1306,7 +1302,7 @@ BOOL LLViewerWindow::handleTranslatedKeyDown(KEY key,  MASK mask, BOOL repeated)
 	// Let the voice chat code check for its PTT key.  Note that this never affects event processing.
 	LLVoiceClient::getInstance()->keyDown(key, mask);
 	
-	if (gAwayTimer.getElapsedTimeF32() > MIN_AFK_TIME)
+	if (gAwayTimer.getElapsedTimeF32() > LLAgent::MIN_AFK_TIME)
 	{
 		gAgent.clearAFK();
 	}
@@ -1356,6 +1352,7 @@ BOOL LLViewerWindow::handleActivate(LLWindow *window, BOOL activated)
 	{
 		mActive = FALSE;
 				
+		// if the user has chosen to go Away automatically after some time, then go Away when minimizing
 		if (gSavedSettings.getS32("AFKTimeout"))
 		{
 			gAgent.setAFK();
@@ -1552,7 +1549,12 @@ LLViewerWindow::LLViewerWindow(
 	mResDirty(false),
 	mStatesDirty(false),
 	mCurrResolutionIndex(0),
-    mViewerWindowListener(new LLViewerWindowListener(this)),
+	// gKeyboard is still NULL, so it doesn't do LLWindowListener any good to
+	// pass its value right now. Instead, pass it a nullary function that
+	// will, when we later need it, return the value of gKeyboard.
+	// boost::lambda::var() constructs such a functor on the fly.
+	mWindowListener(new LLWindowListener(this, boost::lambda::var(gKeyboard))),
+	mViewerWindowListener(new LLViewerWindowListener(this)),
 	mProgressView(NULL)
 {
 	LLNotificationChannel::buildChannel("VW_alerts", "Visible", LLNotificationFilters::filterBy<std::string>(&LLNotification::getType, "alert"));
@@ -1578,6 +1580,25 @@ LLViewerWindow::LLViewerWindow(
 		ignore_pixel_depth,
 		gSavedSettings.getBOOL("RenderDeferred") ? 0 : gSavedSettings.getU32("RenderFSAASamples")); //don't use window level anti-aliasing if FBOs are enabled
 
+	if (NULL == mWindow)
+	{
+		LLSplashScreen::update(LLTrans::getString("StartupRequireDriverUpdate"));
+	
+		LL_WARNS("Window") << "Failed to create window, to be shutting Down, be sure your graphics driver is updated." << llendl ;
+
+		ms_sleep(5000) ; //wait for 5 seconds.
+
+		LLSplashScreen::update(LLTrans::getString("ShuttingDown"));
+#if LL_LINUX || LL_SOLARIS
+		llwarns << "Unable to create window, be sure screen is set at 32-bit color and your graphics driver is configured correctly.  See README-linux.txt or README-solaris.txt for further information."
+				<< llendl;
+#else
+		LL_WARNS("Window") << "Unable to create window, be sure screen is set at 32-bit color in Control Panels->Display->Settings"
+				<< LL_ENDL;
+#endif
+        LLAppViewer::instance()->fastQuit(1);
+	}
+	
 	if (!LLAppViewer::instance()->restoreErrorTrap())
 	{
 		LL_WARNS("Window") << " Someone took over my signal/exception handler (post createWindow)!" << LL_ENDL;
@@ -1593,19 +1614,6 @@ LLViewerWindow::LLViewerWindow(
 		gSavedSettings.setS32("FullScreenHeight",scr.mY);
     }
 
-	if (NULL == mWindow)
-	{
-		LLSplashScreen::update(LLTrans::getString("ShuttingDown"));
-#if LL_LINUX || LL_SOLARIS
-		llwarns << "Unable to create window, be sure screen is set at 32-bit color and your graphics driver is configured correctly.  See README-linux.txt or README-solaris.txt for further information."
-				<< llendl;
-#else
-		LL_WARNS("Window") << "Unable to create window, be sure screen is set at 32-bit color in Control Panels->Display->Settings"
-				<< LL_ENDL;
-#endif
-        LLAppViewer::instance()->fastQuit(1);
-	}
-	
 	// Get the real window rect the window was created with (since there are various OS-dependent reasons why
 	// the size of a window or fullscreen context may have been adjusted slightly...)
 	F32 ui_scale_factor = gSavedSettings.getF32("UIScaleFactor");
@@ -1639,6 +1647,7 @@ LLViewerWindow::LLViewerWindow(
 	}
 	LLVertexBuffer::initClass(gSavedSettings.getBOOL("RenderVBOEnable"), gSavedSettings.getBOOL("RenderVBOMappingDisable"));
 	LL_INFOS("RenderInit") << "LLVertexBuffer initialization done." << LL_ENDL ;
+	gGL.init() ;
 
 	if (LLFeatureManager::getInstance()->isSafe()
 		|| (gSavedSettings.getS32("LastFeatureVersion") != LLFeatureManager::getInstance()->getVersion())
@@ -2035,15 +2044,17 @@ void LLViewerWindow::shutdownGL()
 	llinfos << "All textures and llimagegl images are destroyed!" << llendl ;
 
 	llinfos << "Cleaning up select manager" << llendl;
-	LLSelectMgr::getInstance()->cleanup();
-
-	LLVertexBuffer::cleanupClass();
+	LLSelectMgr::getInstance()->cleanup();	
 
 	llinfos << "Stopping GL during shutdown" << llendl;
 	stopGL(FALSE);
 	stop_glerror();
 
 	gGL.shutdown();
+
+	LLVertexBuffer::cleanupClass();
+
+	llinfos << "LLVertexBuffer cleaned." << llendl ;
 }
 
 // shutdownViews() and shutdownGL() need to be called first
@@ -2296,6 +2307,11 @@ void LLViewerWindow::draw()
 	// Draw all nested UI views.
 	// No translation needed, this view is glued to 0,0
 
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
+
 	gGL.pushMatrix();
 	LLUI::pushMatrix();
 	{
@@ -2369,6 +2385,11 @@ void LLViewerWindow::draw()
 	}
 	LLUI::popMatrix();
 	gGL.popMatrix();
+
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.unbind();
+	}
 
 //#if LL_DEBUG
 	LLView::sIsDrawing = FALSE;
@@ -3143,6 +3164,12 @@ void LLViewerWindow::updateLayout()
 			gFloaterTools->setVisible(FALSE);
 		}
 		//gMenuBarView->setItemVisible("BuildTools", gFloaterTools->getVisible());
+	}
+
+	LLFloaterBuildOptions* build_options_floater = LLFloaterReg::getTypedInstance<LLFloaterBuildOptions>("build_options");
+	if (build_options_floater && build_options_floater->getVisible())
+	{
+		build_options_floater->updateGridMode();
 	}
 
 	// Always update console
@@ -4141,6 +4168,19 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 	{
 		return FALSE;
 	}
+	//check if there is enough memory for the snapshot image
+	if(LLPipeline::sMemAllocationThrottled)
+	{
+		return FALSE ; //snapshot taking is disabled due to memory restriction.
+	}
+	if(image_width * image_height > (1 << 22)) //if snapshot image is larger than 2K by 2K
+	{
+		if(!LLMemory::tryToAlloc(NULL, image_width * image_height * 3))
+		{
+			llwarns << "No enough memory to take the snapshot with size (w : h): " << image_width << " : " << image_height << llendl ;
+			return FALSE ; //there is no enough memory for taking this snapshot.
+		}
+	}
 
 	// PRE SNAPSHOT
 	gDisplaySwapBuffers = FALSE;
@@ -4528,6 +4568,14 @@ void LLViewerWindow::setShowProgress(const BOOL show)
 	if (mProgressView)
 	{
 		mProgressView->setVisible(show);
+	}
+}
+
+void LLViewerWindow::setStartupComplete()
+{
+	if (mProgressView)
+	{
+		mProgressView->setStartupComplete();
 	}
 }
 

@@ -113,9 +113,11 @@ public:
 	void resetVertexBuffers();
 	void resizeScreenTexture();
 	void releaseGLBuffers();
+	void releaseScreenBuffers();
 	void createGLBuffers();
 
 	void allocateScreenBuffer(U32 resX, U32 resY);
+	bool allocateScreenBuffer(U32 resX, U32 resY, U32 samples);
 	void allocatePhysicsBuffer();
 	
 	void resetVertexBuffers(LLDrawable* drawable);
@@ -360,6 +362,8 @@ public:
 	static void updateRenderDeferred();
 	static void refreshRenderDeferred();
 
+	static void throttleNewMemoryAllocation(BOOL disable);
+
 	void addDebugBlip(const LLVector3& position, const LLColor4& color);
 
 private:
@@ -457,6 +461,7 @@ public:
 		RENDER_DEBUG_PHYSICS_SHAPES     = 0x1000000,
 		RENDER_DEBUG_NORMALS	        = 0x2000000,
 		RENDER_DEBUG_LOD_INFO	        = 0x4000000,
+		RENDER_DEBUG_RENDER_COMPLEXITY  = 0x8000000
 	};
 
 public:
@@ -515,8 +520,9 @@ public:
 	static BOOL				sRenderAttachedLights;
 	static BOOL				sRenderAttachedParticles;
 	static BOOL				sRenderDeferred;
+	static BOOL             sMemAllocationThrottled;
 	static S32				sVisibleLightCount;
-	static F32				sMinRenderSize;
+	static F32				sMinRenderSize;	
 
 	//screen texture
 	U32 					mScreenWidth;
