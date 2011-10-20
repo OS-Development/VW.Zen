@@ -28,18 +28,15 @@
 #define LL_LLPANELMARKETPLACEINBOX_H
 
 #include "llpanel.h"
-#include "llsidetray.h"
 
 class LLInventoryPanel;
 
-class LLPanelMarketplaceInbox : public LLPanel, public LLSideTrayTabBadgeDriver
+class LLPanelMarketplaceInbox : public LLPanel
 {
 public:
 
 	struct Params :	public LLInitParam::Block<Params, LLPanel::Params>
-	{
-		Params() {}
-	};
+	{};
 
 	LOG_CLASS(LLPanelMarketplaceInbox);
 
@@ -55,7 +52,7 @@ public:
 
 	/*virtual*/ void draw();
 	
-	void setupInventoryPanel();
+	LLInventoryPanel * setupInventoryPanel();
 
 	U32 getFreshItemCount() const;
 	U32 getTotalItemCount() const;
@@ -63,7 +60,6 @@ public:
 	std::string getBadgeString() const;
 
 private:
-	void handleLoginComplete();
 
 	void onSelectionChange();
 

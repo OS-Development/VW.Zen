@@ -79,7 +79,6 @@ LLMediaCtrl::Params::Params()
 	trusted_content("trusted_content", false),
 	focus_on_click("focus_on_click", true)
 {
-	tab_stop(false);
 }
 
 LLMediaCtrl::LLMediaCtrl( const Params& p) :
@@ -319,6 +318,11 @@ BOOL LLMediaCtrl::handleRightMouseDown( S32 x, S32 y, MASK mask )
 
 	if (mContextMenu)
 	{
+		// hide/show debugging options
+		bool media_plugin_debugging_enabled = gSavedSettings.getBOOL("MediaPluginDebugging");
+		mContextMenu->setItemVisible("open_webinspector", media_plugin_debugging_enabled );
+		mContextMenu->setItemVisible("debug_separator", media_plugin_debugging_enabled );
+
 		mContextMenu->show(x, y);
 		LLMenuGL::showPopup(this, mContextMenu, x, y);
 	}
@@ -385,10 +389,20 @@ void LLMediaCtrl::onFocusLost()
 //
 BOOL LLMediaCtrl::postBuild ()
 {
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registar;
+	registar.add("Open.WebInspector", boost::bind(&LLMediaCtrl::onOpenWebInspector, this));
+
 	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
 		"menu_media_ctrl.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
 	setVisibleCallback(boost::bind(&LLMediaCtrl::onVisibilityChange, this, _2));
+
 	return TRUE;
+}
+
+void LLMediaCtrl::onOpenWebInspector()
+{
+	if (mMediaSource && mMediaSource->hasMedia())
+		mMediaSource->getMediaPlugin()->showWebInspector( true );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1065,6 +1079,12 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 			mHoverTextChanged = true;
 		};
 		break;
+
+		case MEDIA_EVENT_DEBUG_MESSAGE:
+		{
+			LL_INFOS("media") << self->getDebugMessageText() << LL_ENDL; 
+		};
+		break;
 	};
 
 	// chain all events to any potential observers of this object.
@@ -1102,16 +1122,7 @@ void LLMediaCtrl::onPopup(const LLSD& notification, const LLSD& response)
 			lldebugs << "No gFloaterView for onPopuup()" << llendl;
 		};
 
-		// (for now) open web content floater if that's our parent, otherwise, open the current media floater
-		// (this will change soon)
-		if ( floater_name == "web_content" )
-		{
-			LLWeb::loadWebURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
-		}
-		else
-		{
-			LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
-		}
+		LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
 	}
 	else
 	{
@@ -1162,5 +1173,14 @@ void LLMediaCtrl::hideNotification()
 	if (mWindowShade)
 	{
 		mWindowShade->hide();
+	}
+}
+
+void LLMediaCtrl::setTrustedContent(bool trusted)
+{
+	mTrusted = trusted;
+	if (mMediaSource)
+	{
+		mMediaSource->setTrustedBrowser(trusted);
 	}
 }

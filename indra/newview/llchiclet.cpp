@@ -29,7 +29,7 @@
 
 #include "llagent.h"
 #include "llavataractions.h"
-#include "llbottomtray.h"
+#include "llchicletbar.h"
 #include "lleventtimer.h"
 #include "llgroupactions.h"
 #include "lliconctrl.h"
@@ -126,9 +126,9 @@ LLSysWellChiclet::Params::Params()
 , unread_notifications("unread_notifications")
 , max_displayed_count("max_displayed_count", 99)
 {
-	button.name("button");
-	button.tab_stop(FALSE);
-	button.label(LLStringUtil::null);
+	button.name = "button";
+	button.tab_stop = FALSE;
+	button.label = LLStringUtil::null;
 }
 
 LLSysWellChiclet::LLSysWellChiclet(const Params& p)
@@ -214,10 +214,10 @@ void LLSysWellChiclet::updateWidget(bool is_window_empty)
 {
 	mButton->setEnabled(!is_window_empty);
 
-	LLSD params;
-	params["well_empty"] = is_window_empty;
-	params["well_name"] = getName();
-	notifyParent(params);
+	if (LLChicletBar::instanceExists())
+	{
+		LLChicletBar::getInstance()->showWellButton(getName(), !is_window_empty);
+	}
 }
 // virtual
 BOOL LLSysWellChiclet::handleRightMouseDown(S32 x, S32 y, MASK mask)
@@ -297,7 +297,7 @@ void LLIMWellChiclet::createMenu()
 void LLIMWellChiclet::messageCountChanged(const LLSD& session_data)
 {
 	const LLUUID& session_id = session_data["session_id"];
-	const S32 counter = LLBottomTray::getInstance()->getTotalUnreadIMCount();
+	const S32 counter = LLChicletBar::getInstance()->getTotalUnreadIMCount();
 	const bool im_not_visible = !LLFloaterReg::instanceVisible("im_container")
 		&& !LLFloaterReg::instanceVisible("impanel", session_id);
 
