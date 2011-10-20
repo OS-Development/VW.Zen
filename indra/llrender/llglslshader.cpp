@@ -51,6 +51,7 @@ using std::string;
 
 GLhandleARB LLGLSLShader::sCurBoundShader = 0;
 LLGLSLShader* LLGLSLShader::sCurBoundShaderPtr = NULL;
+S32 LLGLSLShader::sIndexedTextureChannels = 0;
 bool LLGLSLShader::sNoFixedFunction = false;
 
 //UI shader -- declared here so llui_libtest will link properly
@@ -125,13 +126,6 @@ BOOL LLGLSLShader::createShader(vector<string> * attributes,
 	// Create program
 	mProgramObject = glCreateProgramObjectARB();
 	
-#if !LL_DARWIN
-	if (gGLManager.mGLVersion < 3.1f)
-	{ //force indexed texture channels to 1 if GL version is old (performance improvement for drivers with poor branching shader model support)
-		mFeatures.mIndexedTextureChannels = llmin(mFeatures.mIndexedTextureChannels, 1);
-	}
-#endif // !LL_DARWIN
-
 	//compile new source
 	vector< pair<string,GLenum> >::iterator fileIter = mShaderFiles.begin();
 	for ( ; fileIter != mShaderFiles.end(); fileIter++ )
@@ -326,7 +320,7 @@ void LLGLSLShader::mapUniform(GLint index, const vector<string> * uniforms)
 		for (S32 i = 0; i < (S32) LLShaderMgr::instance()->mReservedUniforms.size(); i++)
 		{
 			if ( (mUniform[i] == -1)
-				&& (LLShaderMgr::instance()->mReservedUniforms[i].compare(0, length, name, LLShaderMgr::instance()->mReservedUniforms[i].length()) == 0))
+				&& (LLShaderMgr::instance()->mReservedUniforms[i] == name))
 			{
 				//found it
 				mUniform[i] = location;
@@ -340,7 +334,7 @@ void LLGLSLShader::mapUniform(GLint index, const vector<string> * uniforms)
 			for (U32 i = 0; i < uniforms->size(); i++)
 			{
 				if ( (mUniform[i+LLShaderMgr::instance()->mReservedUniforms.size()] == -1)
-					&& ((*uniforms)[i].compare(0, length, name, (*uniforms)[i].length()) == 0))
+					&& ((*uniforms)[i] == name))
 				{
 					//found it
 					mUniform[i+LLShaderMgr::instance()->mReservedUniforms.size()] = location;
@@ -441,9 +435,12 @@ void LLGLSLShader::unbind()
 void LLGLSLShader::bindNoShader(void)
 {
 	LLVertexBuffer::unbind();
-	glUseProgramObjectARB(0);
-	sCurBoundShader = 0;
-	sCurBoundShaderPtr = NULL;
+	if (gGLManager.mHasShaderObjects)
+	{
+		glUseProgramObjectARB(0);
+		sCurBoundShader = 0;
+		sCurBoundShaderPtr = NULL;
+	}
 }
 
 S32 LLGLSLShader::enableTexture(S32 uniform, LLTexUnit::eTextureType mode)
@@ -789,13 +786,17 @@ GLint LLGLSLShader::getUniformLocation(const string& uniform)
 		}
 	}
 
-	/*if (gDebugGL)
+	return ret;
+}
+
+GLint LLGLSLShader::getUniformLocation(U32 index)
+{
+	GLint ret = -1;
+	if (mProgramObject > 0)
 	{
-		if (ret == -1 && ret != glGetUniformLocationARB(mProgramObject, uniform.c_str()))
-		{
-			llerrs << "Uniform map invalid." << llendl;
-		}
-	}*/
+		llassert(index < mUniform.size());
+		return mUniform[index];
+	}
 
 	return ret;
 }

@@ -1275,11 +1275,10 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 
 	U32 data_mask = face->getRiggedVertexBufferDataMask();
 	
-	S32 num_verts = (vol_face.mNumVertices + 0xF) & ~0xF;
 	if (buffer.isNull() || 
 		buffer->getTypeMask() != data_mask ||
-		buffer->getRequestedVerts() != num_verts ||
-		buffer->getRequestedIndices() != vol_face.mNumIndices ||
+		buffer->getNumVerts() != vol_face.mNumVertices ||
+		buffer->getNumIndices() != vol_face.mNumIndices ||
 		(drawable && drawable->isState(LLDrawable::REBUILD_ALL)))
 	{
 		face->setGeomIndex(0);
@@ -1317,6 +1316,16 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		  m.m[8], m.m[9], m.m[10] };
 
 		LLMatrix3 mat_normal(mat3);				
+
+		//let getGeometryVolume know if alpha should override shiny
+		if (face->getFaceColor().mV[3] < 1.f)
+		{
+			face->setPoolType(LLDrawPool::POOL_ALPHA);
+		}
+		else
+		{
+			face->setPoolType(LLDrawPool::POOL_AVATAR);
+		}
 
 		face->getGeometryVolume(*volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
 
@@ -1357,7 +1366,7 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		LLMatrix4a bind_shape_matrix;
 		bind_shape_matrix.loadu(skin->mBindShapeMatrix);
 
-		for (U32 j = 0; j < buffer->getRequestedVerts(); ++j)
+		for (U32 j = 0; j < buffer->getNumVerts(); ++j)
 		{
 			LLMatrix4a final_mat;
 			final_mat.clear();

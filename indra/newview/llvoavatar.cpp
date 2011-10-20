@@ -2117,8 +2117,8 @@ void LLVOAvatar::updateMeshData()
 			}
 			else
 			{
-				if (buff->getRequestedIndices() == num_indices &&
-					buff->getRequestedVerts() == num_vertices)
+				if (buff->getNumIndices() == num_indices &&
+					buff->getNumVerts() == num_vertices)
 				{
 					terse_update = true;
 				}
@@ -7524,7 +7524,8 @@ void LLVOAvatar::useBakedTexture( const LLUUID& id )
 // static
 void LLVOAvatar::dumpArchetypeXML( void* )
 {
-	LLAPRFile outfile(gDirUtilp->getExpandedFilename(LL_PATH_CHARACTER, "new archetype.xml"), LL_APR_WB);
+	LLAPRFile outfile;
+	outfile.open(gDirUtilp->getExpandedFilename(LL_PATH_CHARACTER,"new archetype.xml"), LL_APR_WB );
 	apr_file_t* file = outfile.getFileHandle() ;
 	if (!file)
 	{

@@ -33,6 +33,7 @@ class LLViewerShaderMgr: public LLShaderMgr
 {
 public:
 	static BOOL sInitialized;
+	static bool sSkipReload;
 
 	LLViewerShaderMgr();
 	/* virtual */ ~LLViewerShaderMgr();
@@ -70,67 +71,6 @@ public:
 		SHADER_DEFERRED,
 		SHADER_COUNT
 	};
-
-	typedef enum
-	{
-		DIFFUSE_MAP = 0,
-		SPECULAR_MAP,
-		BUMP_MAP,
-		ENVIRONMENT_MAP,
-		CLOUD_NOISE_MAP,
-		FULLBRIGHT,
-		LIGHTNORM,
-		SUNLIGHT_COLOR,
-		AMBIENT,
-		BLUE_HORIZON,
-		BLUE_DENSITY,
-		HAZE_HORIZON,
-		HAZE_DENSITY,
-		CLOUD_SHADOW,
-		DENSITY_MULTIPLIER,
-		DISTANCE_MULTIPLIER,
-		MAX_Y,
-		GLOW,
-		CLOUD_COLOR,
-		CLOUD_POS_DENSITY1,
-		CLOUD_POS_DENSITY2,
-		CLOUD_SCALE,
-		GAMMA,
-		SCENE_LIGHT_STRENGTH,
-		DEFERRED_DEPTH,
-		DEFERRED_SHADOW0,
-		DEFERRED_SHADOW1,
-		DEFERRED_SHADOW2,
-		DEFERRED_SHADOW3,
-		DEFERRED_SHADOW4,
-		DEFERRED_SHADOW5,
-		DEFERRED_NORMAL,
-		DEFERRED_POSITION,
-		DEFERRED_DIFFUSE,
-		DEFERRED_SPECULAR,
-		DEFERRED_NOISE,
-		DEFERRED_LIGHTFUNC,
-		DEFERRED_LIGHT,
-		DEFERRED_LUMINANCE,
-		DEFERRED_GI_LIGHT,
-		DEFERRED_GI_MIP,
-		DEFERRED_EDGE,
-		DEFERRED_BLOOM,
-		DEFERRED_SUN_LIGHT,
-		DEFERRED_LOCAL_LIGHT,
-		DEFERRED_PROJECTION,
-		DEFERRED_GI_DIFFUSE,
-		DEFERRED_GI_SPECULAR,
-		DEFERRED_GI_NORMAL,
-		DEFERRED_GI_MIN_POS,
-		DEFERRED_GI_MAX_POS,
-		DEFERRED_GI_DEPTH,
-		DEFERRED_GI_LAST_DIFFUSE,
-		DEFERRED_GI_LAST_NORMAL,
-		DEFERRED_GI_LAST_MIN_POS,
-		DEFERRED_GI_LAST_MAX_POS,
-		END_RESERVED_UNIFORMS
-	} eGLSLReservedUniforms;
 
 	typedef enum
 	{
@@ -290,6 +230,8 @@ extern LLGLSLShader			gObjectSimpleAlphaMaskProgram;
 extern LLGLSLShader			gObjectSimpleWaterProgram;
 extern LLGLSLShader			gObjectSimpleWaterAlphaMaskProgram;
 extern LLGLSLShader			gObjectSimpleNonIndexedProgram;
+extern LLGLSLShader			gObjectSimpleNonIndexedTexGenProgram;
+extern LLGLSLShader			gObjectSimpleNonIndexedTexGenWaterProgram;
 extern LLGLSLShader			gObjectSimpleNonIndexedWaterProgram;
 extern LLGLSLShader			gObjectAlphaMaskNonIndexedProgram;
 extern LLGLSLShader			gObjectAlphaMaskNonIndexedWaterProgram;
@@ -364,7 +306,6 @@ extern LLGLSLShader			gPostNightVisionProgram;
 
 // Deferred rendering shaders
 extern LLGLSLShader			gDeferredImpostorProgram;
-extern LLGLSLShader			gDeferredEdgeProgram;
 extern LLGLSLShader			gDeferredWaterProgram;
 extern LLGLSLShader			gDeferredDiffuseProgram;
 extern LLGLSLShader			gDeferredDiffuseAlphaMaskProgram;
@@ -383,15 +324,13 @@ extern LLGLSLShader			gDeferredMultiLightProgram;
 extern LLGLSLShader			gDeferredSpotLightProgram;
 extern LLGLSLShader			gDeferredMultiSpotLightProgram;
 extern LLGLSLShader			gDeferredSunProgram;
-extern LLGLSLShader			gDeferredGIProgram;
-extern LLGLSLShader			gDeferredGIFinalProgram;
 extern LLGLSLShader			gDeferredBlurLightProgram;
 extern LLGLSLShader			gDeferredAvatarProgram;
 extern LLGLSLShader			gDeferredSoftenProgram;
 extern LLGLSLShader			gDeferredShadowProgram;
 extern LLGLSLShader			gDeferredShadowAlphaMaskProgram;
-extern LLGLSLShader			gDeferredPostGIProgram;
 extern LLGLSLShader			gDeferredPostProgram;
+extern LLGLSLShader			gFXAAProgram;
 extern LLGLSLShader			gDeferredPostNoDoFProgram;
 extern LLGLSLShader			gDeferredAvatarShadowProgram;
 extern LLGLSLShader			gDeferredAttachmentShadowProgram;
@@ -403,7 +342,6 @@ extern LLGLSLShader			gDeferredAvatarAlphaProgram;
 extern LLGLSLShader			gDeferredWLSkyProgram;
 extern LLGLSLShader			gDeferredWLCloudProgram;
 extern LLGLSLShader			gDeferredStarProgram;
-extern LLGLSLShader			gLuminanceGatherProgram;
-
+extern LLGLSLShader			gNormalMapGenProgram;
 
 #endif

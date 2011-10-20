@@ -389,7 +389,7 @@ mCalculateBtn(NULL)
 	mLastMouseX = 0;
 	mLastMouseY = 0;
 	mGLName = 0;
-	mStatusLock = new LLMutex();
+	mStatusLock = new LLMutex(NULL);
 	mModelPreview = NULL;
 
 	mLODMode[LLModel::LOD_HIGH] = 0;
@@ -3078,7 +3078,7 @@ LLColor4 LLModelLoader::getDaeColor(daeElement* element)
 //-----------------------------------------------------------------------------
 
 LLModelPreview::LLModelPreview(S32 width, S32 height, LLFloater* fmp)
-: LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE), LLMutex()
+: LLViewerDynamicTexture(width, height, 3, ORDER_MIDDLE, FALSE), LLMutex(NULL)
 , mPelvisZOffset( 0.0f )
 , mLegacyRigValid( false )
 , mRigValidJointUpload( false )
@@ -5409,7 +5409,16 @@ BOOL LLModelPreview::render()
 
 			if (joint_positions)
 			{
+				LLGLSLShader* shader = LLGLSLShader::sCurBoundShaderPtr;
+				if (shader)
+				{
+					gDebugProgram.bind();
+				}
 				getPreviewAvatar()->renderCollisionVolumes();
+				if (shader)
+				{
+					shader->bind();
+				}
 			}
 
 			for (LLModelLoader::scene::iterator iter = mScene[mPreviewLOD].begin(); iter != mScene[mPreviewLOD].end(); ++iter)
@@ -5448,7 +5457,7 @@ BOOL LLModelPreview::render()
 								}
 							}
 
-							for (U32 j = 0; j < buffer->getRequestedVerts(); ++j)
+							for (U32 j = 0; j < buffer->getNumVerts(); ++j)
 							{
 								LLMatrix4 final_mat;
 								final_mat.mMatrix[0][0] = final_mat.mMatrix[1][1] = final_mat.mMatrix[2][2] = final_mat.mMatrix[3][3] = 0.f;

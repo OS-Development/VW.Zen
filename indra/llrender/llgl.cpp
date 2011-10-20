@@ -81,7 +81,14 @@ void APIENTRY gl_debug_callback(GLenum source,
                                 const GLchar* message,
                                 GLvoid* userParam)
 {
-	llwarns << "----- GL ERROR --------" << llendl;
+	if (severity == GL_DEBUG_SEVERITY_HIGH_ARB)
+	{
+		llwarns << "----- GL ERROR --------" << llendl;
+	}
+	else
+	{
+		llwarns << "----- GL WARNING -------" << llendl;
+	}
 	llwarns << "Type: " << std::hex << type << llendl;
 	llwarns << "ID: " << std::hex << id << llendl;
 	llwarns << "Severity: " << std::hex << severity << llendl;
@@ -623,6 +630,8 @@ bool LLGLManager::initGL()
 	initExtensions();
 	stop_glerror();
 
+	S32 old_vram = mVRAM;
+
 	if (mHasATIMemInfo)
 	{ //ask the gl how much vram is free at startup and attempt to use no more than half of that
 		S32 meminfo[4];
@@ -635,6 +644,11 @@ bool LLGLManager::initGL()
 		S32 dedicated_memory;
 		glGetIntegerv(GL_GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX, &dedicated_memory);
 		mVRAM = dedicated_memory/1024;
+	}
+
+	if (mVRAM < 256)
+	{ //something likely went wrong using the above extensions, fall back to old method
+		mVRAM = old_vram;
 	}
 
 	stop_glerror();
@@ -686,7 +700,7 @@ bool LLGLManager::initGL()
 #if LL_WINDOWS
 	if (mHasDebugOutput && gDebugGL)
 	{ //setup debug output callback
-		glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, GL_TRUE);
+		//glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, NULL, GL_TRUE);
 		glDebugMessageCallbackARB((GLDEBUGPROCARB) gl_debug_callback, NULL);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}

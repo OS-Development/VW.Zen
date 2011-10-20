@@ -777,13 +777,17 @@ void LLViewerObjectList::renderObjectBeacons()
 
 	LLGLSUIDefault gls_ui;
 
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
+
 	{
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
 		S32 last_line_width = -1;
 		// gGL.begin(LLRender::LINES); // Always happens in (line_width != last_line_width)
 		
-		BOOL flush = FALSE;
 		for (std::vector<LLDebugBeacon>::iterator iter = mDebugBeacons.begin(); iter != mDebugBeacons.end(); ++iter)
 		{
 			const LLDebugBeacon &debug_beacon = *iter;
@@ -792,18 +796,14 @@ void LLViewerObjectList::renderObjectBeacons()
 			S32 line_width = debug_beacon.mLineWidth;
 			if (line_width != last_line_width)
 			{
-				if (flush)
-				{
-					gGL.end();
-				}
-				flush = TRUE;
 				gGL.flush();
 				glLineWidth( (F32)line_width );
 				last_line_width = line_width;
-				gGL.begin(LLRender::LINES);
 			}
 
 			const LLVector3 &thisline = debug_beacon.mPositionAgent;
+		
+			gGL.begin(LLRender::LINES);
 			gGL.color4fv(color.mV);
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY],thisline.mV[VZ] - 50.f);
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY],thisline.mV[VZ] + 50.f);
@@ -813,8 +813,9 @@ void LLViewerObjectList::renderObjectBeacons()
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY] + 2.f,thisline.mV[VZ]);
 
 			draw_line_cube(0.10f, thisline);
+			
+			gGL.end();
 		}
-		gGL.end();
 	}
 
 	{
@@ -824,7 +825,6 @@ void LLViewerObjectList::renderObjectBeacons()
 		S32 last_line_width = -1;
 		// gGL.begin(LLRender::LINES); // Always happens in (line_width != last_line_width)
 		
-		BOOL flush = FALSE;
 		for (std::vector<LLDebugBeacon>::iterator iter = mDebugBeacons.begin(); iter != mDebugBeacons.end(); ++iter)
 		{
 			const LLDebugBeacon &debug_beacon = *iter;
@@ -832,18 +832,13 @@ void LLViewerObjectList::renderObjectBeacons()
 			S32 line_width = debug_beacon.mLineWidth;
 			if (line_width != last_line_width)
 			{
-				if (flush)
-				{
-					gGL.end();
-				}
-				flush = TRUE;
 				gGL.flush();
 				glLineWidth( (F32)line_width );
 				last_line_width = line_width;
-				gGL.begin(LLRender::LINES);
 			}
 
 			const LLVector3 &thisline = debug_beacon.mPositionAgent;
+			gGL.begin(LLRender::LINES);
 			gGL.color4fv(debug_beacon.mColor.mV);
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY],thisline.mV[VZ] - 0.5f);
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY],thisline.mV[VZ] + 0.5f);
@@ -853,9 +848,10 @@ void LLViewerObjectList::renderObjectBeacons()
 			gGL.vertex3f(thisline.mV[VX],thisline.mV[VY] + 0.5f,thisline.mV[VZ]);
 
 			draw_line_cube(0.10f, thisline);
+
+			gGL.end();
 		}
 		
-		gGL.end();
 		gGL.flush();
 		glLineWidth(1.f);
 

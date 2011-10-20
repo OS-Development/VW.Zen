@@ -349,6 +349,9 @@ BOOL LLVOWLSky::updateGeometry(LLDrawable * drawable)
 
 		mStripsVerts.resize(strips_segments, NULL);
 
+		LLTimer timer;
+		timer.start();
+
 		for (U32 i = 0; i < strips_segments ;++i)
 		{
 			LLVertexBuffer * segment = new LLVertexBuffer(LLDrawPoolWLSky::SKY_VERTEX_DATA_MASK, GL_STATIC_DRAW_ARB);
@@ -390,6 +393,8 @@ BOOL LLVOWLSky::updateGeometry(LLDrawable * drawable)
 			// and unlock the buffer
 			segment->flush();
 		}
+	
+		llinfos << "completed in " << llformat("%.2f", timer.getElapsedTimeF32()) << "seconds" << llendl;
 	}
 #else
 	mStripsVerts = new LLVertexBuffer(LLDrawPoolWLSky::SKY_VERTEX_DATA_MASK, GL_STATIC_DRAW_ARB);
@@ -511,9 +516,9 @@ void LLVOWLSky::drawDome(void)
 
 		strips_segment->drawRange(
 			LLRender::TRIANGLE_STRIP, 
-			0, strips_segment->getRequestedVerts()-1, strips_segment->getRequestedIndices(), 
+			0, strips_segment->getNumVerts()-1, strips_segment->getNumIndices(), 
 			0);
-		gPipeline.addTrianglesDrawn(strips_segment->getRequestedIndices(), LLRender::TRIANGLE_STRIP);
+		gPipeline.addTrianglesDrawn(strips_segment->getNumIndices(), LLRender::TRIANGLE_STRIP);
 	}
 
 #else
