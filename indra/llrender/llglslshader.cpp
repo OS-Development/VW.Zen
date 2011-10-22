@@ -49,6 +49,12 @@ using std::make_pair;
 using std::string;
 
 GLhandleARB LLGLSLShader::sCurBoundShader = 0;
+LLGLSLShader* LLGLSLShader::sCurBoundShaderPtr = NULL;
+bool LLGLSLShader::sNoFixedFunction = false;
+
+//UI shader -- declared here so llui_libtest will link properly
+LLGLSLShader	gUIProgram;
+LLGLSLShader	gSolidColorProgram;
 
 BOOL shouldChange(const LLVector4& v1, const LLVector4& v2)
 {
@@ -58,7 +64,8 @@ BOOL shouldChange(const LLVector4& v1, const LLVector4& v2)
 LLShaderFeatures::LLShaderFeatures()
 : calculatesLighting(false), isShiny(false), isFullbright(false), hasWaterFog(false),
 hasTransport(false), hasSkinning(false), hasObjectSkinning(false), hasAtmospherics(false), isSpecular(false),
-hasGamma(false), hasLighting(false), calculatesAtmospherics(false), mIndexedTextureChannels(0), disableTextureIndex(false)
+hasGamma(false), hasLighting(false), calculatesAtmospherics(false), mIndexedTextureChannels(0), disableTextureIndex(false),
+hasAlphaMask(false)
 {
 }
 
@@ -376,10 +383,12 @@ BOOL LLGLSLShader::link(BOOL suppress_errors)
 
 void LLGLSLShader::bind()
 {
+	gGL.flush();
 	if (gGLManager.mHasShaderObjects)
 	{
 		glUseProgramObjectARB(mProgramObject);
 		sCurBoundShader = mProgramObject;
+		sCurBoundShaderPtr = this;
 		if (mUniformsDirty)
 		{
 			LLShaderMgr::instance()->updateShaderUniforms(this);
@@ -390,6 +399,7 @@ void LLGLSLShader::bind()
 
 void LLGLSLShader::unbind()
 {
+	gGL.flush();
 	if (gGLManager.mHasShaderObjects)
 	{
 		stop_glerror();
@@ -403,6 +413,7 @@ void LLGLSLShader::unbind()
 		}
 		glUseProgramObjectARB(0);
 		sCurBoundShader = 0;
+		sCurBoundShaderPtr = NULL;
 		stop_glerror();
 	}
 }
@@ -411,6 +422,7 @@ void LLGLSLShader::bindNoShader(void)
 {
 	glUseProgramObjectARB(0);
 	sCurBoundShader = 0;
+	sCurBoundShaderPtr = NULL;
 }
 
 S32 LLGLSLShader::enableTexture(S32 uniform, LLTexUnit::eTextureType mode)
@@ -971,4 +983,10 @@ void LLGLSLShader::vertexAttrib4fv(U32 index, GLfloat* v)
 	{
 		glVertexAttrib4fvARB(mAttribute[index], v);
 	}
+}
+
+void LLGLSLShader::setAlphaRange(F32 minimum, F32 maximum)
+{
+	uniform1f("minimum_alpha", minimum);
+	uniform1f("maximum_alpha", maximum);
 }

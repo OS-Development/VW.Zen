@@ -1,6 +1,10 @@
-version 30
+version 32
+// The version number above should be implemented IF AND ONLY IF some
+// change has been made that is sufficiently important to justify
+// resetting the graphics preferences of all users to the recommended
+// defaults.  This should be as rare an event as we can manage.
 
-// NOTE: This is mostly identical to featuretable_mac.txt with a few differences
+// NOTE: This is mostly identical to featuretable_mac.txt with a few differences 
 // Should be combined into one table
 
 //
@@ -88,7 +92,7 @@ RenderTerrainLODFactor		1	1
 RenderTransparentWater		1	0
 RenderTreeLODFactor			1	0
 RenderUseImpostors			1	1
-RenderVolumeLODFactor		1	0.5
+RenderVolumeLODFactor		1	1.125
 VertexShaderEnable			1	0
 WindLightUseAtmosShaders	1	0
 WLSkyDetail					1	48
@@ -244,10 +248,10 @@ RenderDeferredSSAO			0	0
 RenderShadowDetail			0	0
 
 //
-// No GL_ARB_map_buffer_range
+// GL_ARB_map_buffer_range exists
 //
-list NoMapBufferRange
-RenderVBOMappingDisable		1	0
+list MapBufferRange
+RenderVBOMappingDisable		1	1
 
 
 //

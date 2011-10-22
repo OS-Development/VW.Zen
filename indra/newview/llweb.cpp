@@ -81,19 +81,20 @@ void LLWeb::initClass()
 // static
 void LLWeb::loadURL(const std::string& url, const std::string& target, const std::string& uuid)
 {
-	if(target == "_internal")
-	{
-		// Force load in the internal browser, as if with a blank target.
-		loadURLInternal(url, "", uuid);
-	}
-	else if (gSavedSettings.getBOOL("UseExternalBrowser") || (target == "_external"))
-	{
-		loadURLExternal(url);
-	}
-	else
-	{
-		loadURLInternal(url, target, uuid);
-	}
+	loadWebURL(url, target, uuid);
+	//if(target == "_internal")
+	//{
+	//	// Force load in the internal browser, as if with a blank target.
+	//	loadURLInternal(url, "", uuid);
+	//}
+	//else if (gSavedSettings.getBOOL("UseExternalBrowser") || (target == "_external"))
+	//{
+	//	loadURLExternal(url);
+	//}
+	//else
+	//{
+	//	loadURLInternal(url, target, uuid);
+	//}
 }
 
 // static
@@ -124,16 +125,16 @@ void LLWeb::loadURLInternal(const std::string &url, const std::string& target, c
 // Explicitly open a Web URL using the Web content floater
 void LLWeb::loadWebURLInternal(const std::string &url, const std::string& target, const std::string& uuid)
 {
-	LLFloaterWebContent::create(url, target, uuid);
+	LLFloaterWebContent::Params p;
+	p.url(url).target(target).id(uuid);
+	LLFloaterReg::showInstance("web_content", p);
 }
-
 
 // static
 void LLWeb::loadURLExternal(const std::string& url, const std::string& uuid)
 {
 	loadURLExternal(url, true, uuid);
 }
-
 
 // static
 void LLWeb::loadURLExternal(const std::string& url, bool async, const std::string& uuid)
@@ -209,6 +210,7 @@ std::string LLWeb::expandURLSubstitutions(const std::string &url,
 	substitution["VERSION_BUILD"] = LLVersionInfo::getBuild();
 	substitution["CHANNEL"] = LLVersionInfo::getChannel();
 	substitution["GRID"] = LLGridManager::getInstance()->getGridLabel();
+	substitution["GRID_LOWERCASE"] = utf8str_tolower(LLGridManager::getInstance()->getGridLabel());
 	substitution["OS"] = LLAppViewer::instance()->getOSInfo().getOSStringSimple();
 	substitution["SESSION_ID"] = gAgent.getSessionID();
 	substitution["FIRST_LOGIN"] = gAgent.isFirstLogin();

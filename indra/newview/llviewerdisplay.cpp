@@ -114,8 +114,8 @@ void render_disconnected_background();
 void display_startup()
 {
 	if (   !gViewerWindow->getActive()
-		|| !gViewerWindow->mWindow->getVisible() 
-		|| gViewerWindow->mWindow->getMinimized() )
+		|| !gViewerWindow->getWindow()->getVisible() 
+		|| gViewerWindow->getWindow()->getMinimized() )
 	{
 		return; 
 	}
@@ -157,7 +157,7 @@ void display_startup()
 	LLGLState::checkStates();
 	LLGLState::checkTextureChannels();
 
-	gViewerWindow->mWindow->swapBuffers();
+	gViewerWindow->getWindow()->swapBuffers();
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
@@ -202,6 +202,7 @@ void display_stats()
 		gMemoryAllocated = LLMemory::getCurrentRSS();
 		U32 memory = (U32)(gMemoryAllocated / (1024*1024));
 		llinfos << llformat("MEMORY: %d MB", memory) << llendl;
+		LLMemory::logMemoryInfo(TRUE) ;
 		gRecentMemoryTime.reset();
 	}
 }
@@ -222,7 +223,7 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 	{ //skip render on frames where window has been resized
 		gGL.flush();
 		glClear(GL_COLOR_BUFFER_BIT);
-		gViewerWindow->mWindow->swapBuffers();
+		gViewerWindow->getWindow()->swapBuffers();
 		gPipeline.resizeScreenTexture();
 		gResizeScreenTexture = FALSE;
 		gWindowResized = FALSE;
@@ -259,8 +260,8 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 	// In fact, must explicitly check the minimized state before drawing.
 	// Attempting to draw into a minimized window causes a GL error. JC
 	if (   !gViewerWindow->getActive()
-		|| !gViewerWindow->mWindow->getVisible() 
-		|| gViewerWindow->mWindow->getMinimized() )
+		|| !gViewerWindow->getWindow()->getVisible() 
+		|| gViewerWindow->getWindow()->getMinimized() )
 	{
 		// Clean up memory the pools may have allocated
 		if (rebuild)
@@ -616,6 +617,7 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 				&& LLFeatureManager::getInstance()->isFeatureAvailable("UseOcclusion") 
 				&& gSavedSettings.getBOOL("UseOcclusion") 
 				&& gGLManager.mHasOcclusionQuery) ? 2 : 0;
+		LLTexUnit::sWhiteTexture = LLViewerFetchedTexture::sWhiteImagep->getTexName();
 
 		/*if (LLPipeline::sUseOcclusion && LLPipeline::sRenderDeferred)
 		{ //force occlusion on for all render types if doing deferred render (tighter shadow frustum)
@@ -691,7 +693,11 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 				glh::matrix4f mod = glh_get_current_modelview();
 				glViewport(0,0,512,512);
 				LLVOAvatar::updateFreezeCounter() ;
-				LLVOAvatar::updateImpostors();
+
+				if(!LLPipeline::sMemAllocationThrottled)
+				{		
+					LLVOAvatar::updateImpostors();
+				}
 
 				glh_set_current_projection(proj);
 				glh_set_current_modelview(mod);
@@ -709,6 +715,9 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		}
 
+		LLGLState::checkStates();
+		LLGLState::checkClientArrays();
+
 		//if (!for_snapshot)
 		{
 			LLMemType mt_gw(LLMemType::MTYPE_DISPLAY_GEN_REFLECTION);
@@ -716,6 +725,9 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			gPipeline.generateWaterReflection(*LLViewerCamera::getInstance());
 			gPipeline.generateHighlight(*LLViewerCamera::getInstance());
 		}
+
+		LLGLState::checkStates();
+		LLGLState::checkClientArrays();
 
 		//////////////////////////////////////
 		//
@@ -743,6 +755,10 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			LLImageGL::deleteDeadTextures();
 			stop_glerror();
 		}
+
+		LLGLState::checkStates();
+		LLGLState::checkClientArrays();
+
 		///////////////////////////////////
 		//
 		// StateSort
@@ -769,6 +785,9 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 				stop_glerror();
 			}
 		}
+
+		LLGLState::checkStates();
+		LLGLState::checkClientArrays();
 
 		LLPipeline::sUseOcclusion = occlusion;
 
@@ -828,6 +847,9 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 		LLPipeline::sUnderWaterRender = LLViewerCamera::getInstance()->cameraUnderWater() ? TRUE : FALSE;
 		LLPipeline::refreshRenderDeferred();
 		
+		LLGLState::checkStates();
+		LLGLState::checkClientArrays();
+
 		stop_glerror();
 
 		if (to_texture)
@@ -878,6 +900,14 @@ void display(BOOL rebuild, F32 zoom_factor, int subfield, BOOL for_snapshot)
 			stop_glerror();
 		}
 
+		for (U32 i = 0; i < gGLManager.mNumTextureImageUnits; i++)
+		{ //dummy cleanup of any currently bound textures
+			if (gGL.getTexUnit(i)->getCurrType() != LLTexUnit::TT_NONE)
+			{
+				gGL.getTexUnit(i)->unbind(gGL.getTexUnit(i)->getCurrType());
+				gGL.getTexUnit(i)->disable();
+			}
+		}
 		LLAppViewer::instance()->pingMainloopTimeout("Display:RenderFlush");		
 		
 		if (to_texture)
@@ -1207,7 +1237,7 @@ void render_ui(F32 zoom_factor, int subfield)
 	if (gDisplaySwapBuffers)
 	{
 		LLFastTimer t(FTM_SWAP);
-		gViewerWindow->mWindow->swapBuffers();
+		gViewerWindow->getWindow()->swapBuffers();
 	}
 	gDisplaySwapBuffers = TRUE;
 }
@@ -1339,7 +1369,7 @@ void render_ui_2d()
 	}
 
 	stop_glerror();
-	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+	//gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
 
 	// render outline for HUD
 	if (isAgentAvatarValid() && gAgentCamera.mHUDCurZoom < 0.98f)
