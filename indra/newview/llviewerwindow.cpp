@@ -1663,7 +1663,7 @@ LLViewerWindow::LLViewerWindow(
 
 	if (LLFeatureManager::getInstance()->isSafe()
 		|| (gSavedSettings.getS32("LastFeatureVersion") != LLFeatureManager::getInstance()->getVersion())
-		|| (gSavedSettings.getS32("LastGPUClass") != LLFeatureManager::getInstance()->getGPUClass())
+		|| (gSavedSettings.getString("LastGPUString") != LLFeatureManager::getInstance()->getGPUString())
 		|| (gSavedSettings.getBOOL("ProbeHardwareOnStartup")))
 	{
 		LLFeatureManager::getInstance()->applyRecommendedSettings();
@@ -3186,7 +3186,7 @@ void LLViewerWindow::updateLayout()
 		//gMenuBarView->setItemVisible("BuildTools", gFloaterTools->getVisible());
 	}
 
-	LLFloaterBuildOptions* build_options_floater = LLFloaterReg::getTypedInstance<LLFloaterBuildOptions>("build_options");
+	LLFloaterBuildOptions* build_options_floater = LLFloaterReg::findTypedInstance<LLFloaterBuildOptions>("build_options");
 	if (build_options_floater && build_options_floater->getVisible())
 	{
 		build_options_floater->updateGridMode();
