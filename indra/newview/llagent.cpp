@@ -36,10 +36,10 @@
 #include "llagentwearables.h"
 #include "llagentui.h"
 #include "llanimationstates.h"
-#include "llbottomtray.h"
 #include "llcallingcard.h"
 #include "llcapabilitylistener.h"
 #include "llchannelmanager.h"
+#include "llchicletbar.h"
 #include "llconsole.h"
 #include "llenvmanager.h"
 #include "llfirstuse.h"
@@ -68,9 +68,11 @@
 #include "llstatusbar.h"
 #include "llteleportflags.h"
 #include "lltool.h"
+#include "lltoolbarview.h"
 #include "lltoolpie.h"
 #include "lltoolmgr.h"
 #include "lltrans.h"
+#include "lluictrl.h"
 #include "llurlentry.h"
 #include "llviewercontrol.h"
 #include "llviewerdisplay.h"
@@ -107,13 +109,15 @@ const F64 CHAT_AGE_FAST_RATE = 3.0;
 const F32 MIN_FIDGET_TIME = 8.f; // seconds
 const F32 MAX_FIDGET_TIME = 20.f; // seconds
 
-
 // The agent instance.
 LLAgent gAgent;
 
 //--------------------------------------------------------------------
 // Statics
 //
+
+/// minimum time after setting away state before coming back based on movement
+const F32 LLAgent::MIN_AFK_TIME = 10.0f;
 
 const F32 LLAgent::TYPING_TIMEOUT_SECS = 5.f;
 
@@ -150,6 +154,62 @@ bool handleSlowMotionAnimation(const LLSD& newvalue)
 	return true;
 }
 
+// static
+void LLAgent::parcelChangedCallback()
+{
+	bool can_edit = LLToolMgr::getInstance()->canEdit();
+
+	gAgent.mCanEditParcel = can_edit;
+}
+
+// static
+bool LLAgent::isActionAllowed(const LLSD& sdname)
+{
+	bool retval = false;
+
+	const std::string& param = sdname.asString();
+
+	if (param == "build")
+	{
+		retval = gAgent.canEditParcel();
+	}
+	else if (param == "speak")
+	{
+		if ( gAgent.isVoiceConnected() && 
+			LLViewerParcelMgr::getInstance()->allowAgentVoice() &&
+				! LLVoiceClient::getInstance()->inTuningMode() )
+		{
+			retval = true;
+		}
+		else
+		{
+			retval = false;
+		}
+	}
+
+	return retval;
+}
+
+// static 
+void LLAgent::pressMicrophone(const LLSD& name)
+{
+	LLFirstUse::speak(false);
+
+	 LLVoiceClient::getInstance()->inputUserControlState(true);
+}
+
+// static 
+void LLAgent::releaseMicrophone(const LLSD& name)
+{
+	LLVoiceClient::getInstance()->inputUserControlState(false);
+}
+
+// static
+bool LLAgent::isMicrophoneOn(const LLSD& sdname)
+{
+	return LLVoiceClient::getInstance()->getUserPTTState();
+}
+
 // ************************************************************
 // Enabled this definition to compile a 'hacked' viewer that
 // locally believes the end user has godlike powers.
@@ -181,6 +241,7 @@ LLAgent::LLAgent() :
 	mbTeleportKeepsLookAt(false),
 
 	mAgentAccess(new LLAgentAccess(gSavedSettings)),
+	mCanEditParcel(false),
 	mTeleportSourceSLURL(new LLSLURL),
 	mTeleportState( TELEPORT_NONE ),
 	mRegionp(NULL),
@@ -229,6 +290,8 @@ LLAgent::LLAgent() :
 	mCurrentFidget(0),
 	mFirstLogin(FALSE),
 	mGenderChosen(FALSE),
+	
+	mVoiceConnected(false),
 
 	mAppearanceSerialNum(0),
 
@@ -265,6 +328,14 @@ void LLAgent::init()
 
 	gSavedSettings.getControl("PreferredMaturity")->getValidateSignal()->connect(boost::bind(&LLAgent::validateMaturity, this, _2));
 	gSavedSettings.getControl("PreferredMaturity")->getSignal()->connect(boost::bind(&LLAgent::handleMaturity, this, _2));
+
+	LLViewerParcelMgr::getInstance()->addAgentParcelChangedCallback(boost::bind(&LLAgent::parcelChangedCallback));
+
+	LLUICtrl::EnableCallbackRegistry::currentRegistrar().add("Agent.IsActionAllowed", boost::bind(&LLAgent::isActionAllowed, _2));
+	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Agent.PressMicrophone", boost::bind(&LLAgent::pressMicrophone, _2));
+	LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Agent.ReleaseMicrophone", boost::bind(&LLAgent::releaseMicrophone, _2));
+	LLUICtrl::EnableCallbackRegistry::currentRegistrar().add("Agent.IsMicrophoneOn", boost::bind(&LLAgent::isMicrophoneOn, _2));
+
 	
 	mInitialized = TRUE;
 }
@@ -1165,6 +1236,7 @@ void LLAgent::setAFK()
 	{
 		sendAnimationRequest(ANIM_AGENT_AWAY, ANIM_REQUEST_START);
 		setControlFlags(AGENT_CONTROL_AWAY | AGENT_CONTROL_STOP);
+		LL_INFOS("AFK") << "Setting Away" << LL_ENDL;
 		gAwayTimer.start();
 		if (gAFKMenu)
 		{
@@ -1188,6 +1260,7 @@ void LLAgent::clearAFK()
 	{
 		sendAnimationRequest(ANIM_AGENT_AWAY, ANIM_REQUEST_STOP);
 		clearControlFlags(AGENT_CONTROL_AWAY);
+		LL_INFOS("AFK") << "Clearing Away" << LL_ENDL;
 		if (gAFKMenu)
 		{
 			gAFKMenu->setLabel(LLTrans::getString("AvatarSetAway"));
@@ -1793,11 +1866,12 @@ void LLAgent::endAnimationUpdateUI()
 	// clean up UI from mode we're leaving
 	if (gAgentCamera.getLastCameraMode() == CAMERA_MODE_MOUSELOOK )
 	{
+		gToolBarView->setToolBarsVisible(true);
 		// show mouse cursor
 		gViewerWindow->showCursor();
 		// show menus
 		gMenuBarView->setVisible(TRUE);
-		LLNavigationBar::getInstance()->setVisible(TRUE);
+		LLNavigationBar::getInstance()->setVisible(TRUE && gSavedSettings.getBOOL("ShowNavbarNavigationPanel"));
 		gStatusBar->setVisibleForMouselook(true);
 
 		if (gSavedSettings.getBOOL("ShowMiniLocationPanel"))
@@ -1805,7 +1879,7 @@ void LLAgent::endAnimationUpdateUI()
 			LLPanelTopInfoBar::getInstance()->setVisible(TRUE);
 		}
 
-		LLBottomTray::getInstance()->onMouselookModeOut();
+		LLChicletBar::getInstance()->setVisible(TRUE);
 
 		LLPanelStandStopFlying::getInstance()->setVisible(TRUE);
 
@@ -1902,14 +1976,19 @@ void LLAgent::endAnimationUpdateUI()
 	//---------------------------------------------------------------------
 	if (gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK)
 	{
-		// hide menus
+		// clean up UI
+		// first show anything hidden by UI toggle
+		gViewerWindow->setUIVisibility(TRUE);
+
+		// then hide stuff we want hidden for mouselook 
+		gToolBarView->setToolBarsVisible(false);
 		gMenuBarView->setVisible(FALSE);
 		LLNavigationBar::getInstance()->setVisible(FALSE);
 		gStatusBar->setVisibleForMouselook(false);
 
 		LLPanelTopInfoBar::getInstance()->setVisible(FALSE);
 
-		LLBottomTray::getInstance()->onMouselookModeIn();
+		LLChicletBar::getInstance()->setVisible(FALSE);
 
 		LLPanelStandStopFlying::getInstance()->setVisible(FALSE);
 
@@ -3356,8 +3435,15 @@ bool LLAgent::teleportCore(bool is_local)
 	// hide the Region/Estate floater
 	LLFloaterReg::hideInstance("region_info");
 
-	// hide the search floater (EXT-8276)
-	LLFloaterReg::hideInstance("search");
+	// minimize the Search floater (STORM-1474)
+	{
+		LLFloater* instance = LLFloaterReg::getInstance("search");
+
+		if (instance && instance->getVisible())
+		{
+			instance->setMinimized(TRUE);
+		}
+	}
 
 	LLViewerParcelMgr::getInstance()->deselectLand();
 	LLViewerMediaFocus::getInstance()->clearFocus();

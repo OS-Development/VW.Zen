@@ -66,8 +66,6 @@ namespace LLInitParam
 	BaseBlock::BaseBlock() {}
 	BaseBlock::~BaseBlock() {}
 
-	S32 Parser::sNextParseGeneration = 0;
-
 	BlockDescriptor::BlockDescriptor() {}
 	ParamDescriptor::ParamDescriptor(param_handle_t p, 
 						merge_func_t merge_func, 
@@ -98,8 +96,8 @@ namespace LLInitParam
 		mEnclosingBlockOffset = 0x7FFFffff & ((U32)(my_addr - block_addr));
 	}
 
-	bool BaseBlock::deserializeBlock(Parser& p, Parser::name_stack_range_t name_stack, S32 generation){ return true; }
-	void BaseBlock::serializeBlock(Parser& parser, Parser::name_stack_t name_stack, const LLInitParam::BaseBlock* diff_block) const {}
+	bool BaseBlock::deserializeBlock(Parser& p, Parser::name_stack_range_t name_stack, bool new_name){ return true; }
+	void BaseBlock::serializeBlock(Parser& parser, Parser::name_stack_t& name_stack, const LLInitParam::BaseBlock* diff_block) const {}
 	bool BaseBlock::inspectBlock(Parser& parser, Parser::name_stack_t name_stack, S32 min_count, S32 max_count) const { return true; }
 	bool BaseBlock::mergeBlock(BlockDescriptor& block_data, const BaseBlock& other, bool overwrite) { return true; }
 	bool BaseBlock::validateBlock(bool emit_errors) const { return true; }
@@ -111,7 +109,7 @@ namespace LLInitParam
 	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateValueFromBlock()
 	{}
 	
-	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateBlockFromValue()
+	void ParamValue<LLUIColor, TypeValues<LLUIColor> >::updateBlockFromValue(bool)
 	{}
 
 	bool ParamCompare<const LLFontGL*, false>::equals(const LLFontGL* a, const LLFontGL* b)
@@ -127,7 +125,7 @@ namespace LLInitParam
 	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateValueFromBlock()
 	{}
 	
-	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateBlockFromValue()
+	void ParamValue<const LLFontGL*, TypeValues<const LLFontGL*> >::updateBlockFromValue(bool)
 	{}
 
 	void TypeValues<LLFontGL::HAlign>::declareValues()
@@ -142,7 +140,7 @@ namespace LLInitParam
 	void ParamValue<LLUIImage*, TypeValues<LLUIImage*> >::updateValueFromBlock()
 	{}
 	
-	void ParamValue<LLUIImage*, TypeValues<LLUIImage*> >::updateBlockFromValue()
+	void ParamValue<LLUIImage*, TypeValues<LLUIImage*> >::updateBlockFromValue(bool)
 	{}
 	
 	bool ParamCompare<LLUIImage*, false>::equals(
