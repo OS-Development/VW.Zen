@@ -34,6 +34,9 @@
 	<string name="ProgressChangingResolution">
 		Cambiando la resolución...
 	</string>
+	<string name="Fullbright">
+		Brillo al máximo (antiguo)
+	</string>
 	<string name="LoginInProgress">
 		Iniciando la sesión. [APP_NAME] debe de aparecer congelado. Por favor, espere.
 	</string>
@@ -116,7 +119,7 @@
 		No se pudo verificar la firma del certificado devuelta por el servidor de la cuadrícula. Ponte en contacto con el administrador de la cuadrícula.
 	</string>
 	<string name="LoginFailedNoNetwork">
-		Error de red: no se ha podido conectar; por favor, revisa tu conexión a Internet.
+		Error de red: no se ha podido conectar; por favor, revisa tu conexión a internet.
 	</string>
 	<string name="LoginFailed">
 		Error en el inicio de sesión.
@@ -327,6 +330,18 @@ Intenta iniciar sesión de nuevo en unos instantes.
 		Aquí se puede arrastrar sólo un ítem
 	</string>
 	<string name="TooltipPrice" value="[AMOUNT] L$:"/>
+	<string name="TooltipOutboxNoTransfer">
+		Uno o varios de estos objetos no se pueden vender o transferir a otro usuario.
+	</string>
+	<string name="TooltipOutboxWorn">
+		Llevas puestos uno o más de estos objetos. Quítatelos del avatar y vuelve a intentar moverlos.
+	</string>
+	<string name="TooltipOutboxFolderLevels">
+		Esta carpeta tiene demasiados niveles de subcarpetas. Reorganiza las carpetas interiores de forma que tengas como máximo 4 niveles de profundidad (la carpeta raíz contiene A, que contiene B, que contiene C).
+	</string>
+	<string name="TooltipOutboxTooManyObjects">
+		Esta carpeta contiene más de 200 objetos. Guarda algunos objetos en una caja para disminuir su cantidad.
+	</string>
 	<string name="TooltipHttpUrl">
 		Pulsa para ver esta página web
 	</string>
@@ -1183,8 +1198,68 @@ Intenta iniciar sesión de nuevo en unos instantes.
 	<string name="InventoryInboxNoItems">
 		Aquí se entregarán los objetos comprados en el mercado.
 	</string>
+	<string name="MarketplaceURL">
+		http://marketplace.[DOMAIN_NAME]
+	</string>
+	<string name="MarketplaceURL_CreateStore">
+		http://marketplace.[DOMAIN_NAME]/create_store
+	</string>
+	<string name="MarketplaceURL_LearnMore">
+		http://marketplace.[DOMAIN_NAME]/learn_more
+	</string>
+	<string name="InventoryOutboxCreationErrorTitle">
+		Tu Buzón de salida de comerciante no está configurado correctamente
+	</string>
+	<string name="InventoryOutboxCreationErrorTooltip">
+		Error de configuración del Buzón de salida de comerciante
+	</string>
+	<string name="InventoryOutboxCreationError">
+		Ponte en contacto con el servicio de atención al cliente para resolver el problema.
+	</string>
+	<string name="InventoryOutboxNotMerchantTitle">
+		Cualquiera puede vender objetos en el mercado
+	</string>
+	<string name="InventoryOutboxNotMerchantTooltip">
+		¡Hazte comerciante!
+	</string>
+	<string name="InventoryOutboxNotMerchant">
+		[[MARKETPLACE_URL] El Mercado de Second Life] pone en venta más de un millón de productos virtuales, todos ellos creados por residentes. Tú también puedes vender los objetos que crees, así como algunos de los objetos que hayas comprado. Es fácil y es gratuito. [[LEARN_MORE_URL] Más información] o [[CREATE_STORE_URL] crea una tienda] en el mercado para empezar.
+	</string>
+	<string name="InventoryOutboxNoItemsTitle">
+		Una nueva forma para enviar objetos al mercado
+	</string>
+	<string name="InventoryOutboxNoItemsTooltip">
+		Arrastra y coloca aquí los objetos que desees preparar para venderlos en el mercado
+	</string>
 	<string name="InventoryOutboxNoItems">
-		Arrastra objetos aquí para preparar una lista del escaparate de tu mercado.
+		Arrastra a esta zona los objetos o carpetas que desees vender. Aparecerá una copia del objeto, sin quitarlo de tu inventario, salvo que el objeto arrastrado sea &quot;no copiable&quot;. Cuando estés listo para enviar los objetos al mercado, pulsa en el botón Subir. Cuando se hayan trasladado los objetos a tu inventario en el mercado, desaparecerán de esta carpeta.
+	</string>
+	<string name="Marketplace Error None">
+		Sin errores
+	</string>
+	<string name="Marketplace Error Not Merchant">
+		Error: Para poder enviar objetos al mercado, debes registrarte como comerciante (es gratis).
+	</string>
+	<string name="Marketplace Error Empty Folder">
+		Error: Esta carpeta está vacía.
+	</string>
+	<string name="Marketplace Error Unassociated Products">
+		Error: Este objeto no se pudo subir porque tu cuenta de comerciante tiene demasiados objetos que no están asociados a productos. Para corregirlo, inicia sesión en la página web del mercado y asocia más objetos.
+	</string>
+	<string name="Marketplace Error Object Limit">
+		Error: Este elemento contiene demasiados objetos. Para corregir el error, guarda objetos en cajas de forma que el total de objetos sea menor que 200.
+	</string>
+	<string name="Marketplace Error Folder Depth">
+		Error: Este objeto contiene demasiados niveles de carpetas anidadas. Reorganízalo de forma que tenga como máximo 3 niveles de carpetas anidadas.
+	</string>
+	<string name="Marketplace Error Unsellable Item">
+		Error: Este objeto no se puede vender en el mercado.
+	</string>
+	<string name="Marketplace Error Internal Import">
+		Error: Este objeto tiene un problema. Vuelve a intentarlo más tarde.
+	</string>
+	<string name="Open landmarks">
+		Abrir hitos
 	</string>
 	<string name="no_transfer" value="(no transferible)"/>
 	<string name="no_modify" value="(no modificable)"/>
@@ -4601,5 +4676,173 @@ Inténtalo incluyendo la ruta de acceso al editor entre comillas
 	</string>
 	<string name="ParticleHiding">
 		Ocultando las partículas
+	</string>
+	<string name="Command_AboutLand_Label">
+		Acerca del terreno
+	</string>
+	<string name="Command_Appearance_Label">
+		Apariencia
+	</string>
+	<string name="Command_Avatar_Label">
+		Avatar
+	</string>
+	<string name="Command_Build_Label">
+		Construir
+	</string>
+	<string name="Command_Chat_Label">
+		Chat
+	</string>
+	<string name="Command_Compass_Label">
+		Brújula
+	</string>
+	<string name="Command_Destinations_Label">
+		Destinos
+	</string>
+	<string name="Command_Gestures_Label">
+		Gestos
+	</string>
+	<string name="Command_HowTo_Label">
+		Cómo
+	</string>
+	<string name="Command_Inventory_Label">
+		Inventario
+	</string>
+	<string name="Command_Map_Label">
+		Mapa
+	</string>
+	<string name="Command_Marketplace_Label">
+		Mercado
+	</string>
+	<string name="Command_MiniMap_Label">
+		Minimapa
+	</string>
+	<string name="Command_Move_Label">
+		Moverme
+	</string>
+	<string name="Command_People_Label">
+		Gente
+	</string>
+	<string name="Command_Picks_Label">
+		Destacados
+	</string>
+	<string name="Command_Places_Label">
+		Lugares
+	</string>
+	<string name="Command_Preferences_Label">
+		Preferencias
+	</string>
+	<string name="Command_Profile_Label">
+		Perfil
+	</string>
+	<string name="Command_Search_Label">
+		Buscar
+	</string>
+	<string name="Command_Snapshot_Label">
+		Foto
+	</string>
+	<string name="Command_Speak_Label">
+		Hablar
+	</string>
+	<string name="Command_View_Label">
+		Visión
+	</string>
+	<string name="Command_Voice_Label">
+		Chat de voz
+	</string>
+	<string name="Command_AboutLand_Tooltip">
+		Información sobre el terreno que vas a visitar
+	</string>
+	<string name="Command_Appearance_Tooltip">
+		Cambiar tu avatar
+	</string>
+	<string name="Command_Avatar_Tooltip">
+		Elegir un avatar completo
+	</string>
+	<string name="Command_Build_Tooltip">
+		Construir objetos y modificar la forma del terreno
+	</string>
+	<string name="Command_Chat_Tooltip">
+		Habla por chat de texto con las personas próximas
+	</string>
+	<string name="Command_Compass_Tooltip">
+		Brújula
+	</string>
+	<string name="Command_Destinations_Tooltip">
+		Destinos de interés
+	</string>
+	<string name="Command_Gestures_Tooltip">
+		Gestos para tu avatar
+	</string>
+	<string name="Command_HowTo_Tooltip">
+		Cómo hacer las tareas habituales
+	</string>
+	<string name="Command_Inventory_Tooltip">
+		Ver y usar tus pertenencias
+	</string>
+	<string name="Command_Map_Tooltip">
+		Mapa del mundo
+	</string>
+	<string name="Command_Marketplace_Tooltip">
+		Ir de compras
+	</string>
+	<string name="Command_MiniMap_Tooltip">
+		Mostrar la gente que está cerca
+	</string>
+	<string name="Command_Move_Tooltip">
+		Desplazando el avatar
+	</string>
+	<string name="Command_People_Tooltip">
+		Amigos, grupos y personas próximas
+	</string>
+	<string name="Command_Picks_Tooltip">
+		Lugares que se mostrarán como favoritos en tu perfil
+	</string>
+	<string name="Command_Places_Tooltip">
+		Lugares que has guardado
+	</string>
+	<string name="Command_Preferences_Tooltip">
+		Preferencias
+	</string>
+	<string name="Command_Profile_Tooltip">
+		Consulta o edita tu perfil
+	</string>
+	<string name="Command_Search_Tooltip">
+		Buscar lugares, eventos y personas
+	</string>
+	<string name="Command_Snapshot_Tooltip">
+		Tomar una fotografía
+	</string>
+	<string name="Command_Speak_Tooltip">
+		Utiliza el micrófono para hablar con las personas próximas
+	</string>
+	<string name="Command_View_Tooltip">
+		Cambiando el ángulo de la cámara
+	</string>
+	<string name="Command_Voice_Tooltip">
+		Personas próximas con capacidad de voz
+	</string>
+	<string name="Retain%">
+		% retención
+	</string>
+	<string name="Detail">
+		Detalle
+	</string>
+	<string name="Better Detail">
+		Mejor detalle
+	</string>
+	<string name="Surface">
+		Superficie
+	</string>
+	<string name="Solid">
+		Sólido
+	</string>
+	<string name="Wrap">
+		Envoltura
+	</string>
+	<string name="Preview">
+		Vista previa
+	</string>
+	<string name="Normal">
+		Normal
 	</string>
 </strings>

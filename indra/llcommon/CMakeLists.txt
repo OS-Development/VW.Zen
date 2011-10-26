@@ -31,7 +31,6 @@ set(llcommon_SOURCE_FILES
     llallocator_heap_profile.cpp
     llapp.cpp
     llapr.cpp
-    llaprpool.cpp
     llassettype.cpp
     llavatarname.cpp
     llbase32.cpp
@@ -81,7 +80,6 @@ set(llcommon_SOURCE_FILES
     llrand.cpp
     llrefcount.cpp
     llrun.cpp
-    llscopedvolatileaprpool.h
     llsd.cpp
     llsdserialize.cpp
     llsdserialize_xml.cpp
@@ -117,14 +115,13 @@ set(llcommon_HEADER_FILES
     indra_constants.h
     linden_common.h
     linked_lists.h
-    llaccountingquota.h
+    llaccountingcost.h
     llallocator.h
     llallocator_heap_profile.h
     llagentconstants.h
     llavatarname.h
     llapp.h
     llapr.h
-    llaprpool.h
     llassettype.h
     llassoclist.h
     llavatarconstants.h

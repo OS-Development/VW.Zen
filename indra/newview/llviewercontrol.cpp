@@ -142,7 +142,6 @@ static bool handleRenderPerfTestChanged(const LLSD& newvalue)
                                                                          LLPipeline::RENDER_TYPE_WATER,
                                                                          LLPipeline::RENDER_TYPE_PASS_GRASS,
                                                                          LLPipeline::RENDER_TYPE_HUD,
-                                                                         LLPipeline::RENDER_TYPE_PARTICLES,
                                                                          LLPipeline::RENDER_TYPE_CLOUDS,
                                                                          LLPipeline::RENDER_TYPE_HUD_PARTICLES,
                                                                          LLPipeline::END_RENDER_TYPES); 
@@ -158,7 +157,6 @@ static bool handleRenderPerfTestChanged(const LLSD& newvalue)
                                                                          LLPipeline::RENDER_TYPE_WATER,
                                                                          LLPipeline::RENDER_TYPE_PASS_GRASS,
                                                                          LLPipeline::RENDER_TYPE_HUD,
-                                                                         LLPipeline::RENDER_TYPE_PARTICLES,
                                                                          LLPipeline::RENDER_TYPE_CLOUDS,
                                                                          LLPipeline::RENDER_TYPE_HUD_PARTICLES,
                                                                          LLPipeline::END_RENDER_TYPES);
@@ -166,6 +164,11 @@ static bool handleRenderPerfTestChanged(const LLSD& newvalue)
        }
 
        return true;
+}
+
+bool handleRenderAvatarComplexityLimitChanged(const LLSD& newvalue)
+{
+	return true;
 }
 
 bool handleRenderTransparentWaterChanged(const LLSD& newvalue)
@@ -404,7 +407,7 @@ static bool handleRenderDeferredChanged(const LLSD& newvalue)
 		gPipeline.releaseGLBuffers();
 		gPipeline.createGLBuffers();
 		gPipeline.resetVertexBuffers();
-		if (LLPipeline::sRenderDeferred && LLRenderTarget::sUseFBO)
+		if (LLPipeline::sRenderDeferred == (BOOL)LLRenderTarget::sUseFBO)
 		{
 			LLViewerShaderMgr::instance()->setShaders();
 		}
@@ -538,15 +541,9 @@ bool toggle_show_navigation_panel(const LLSD& newvalue)
 {
 	bool value = newvalue.asBoolean();
 
-	LLNavigationBar::getInstance()->showNavigationPanel(value);
+	LLNavigationBar::getInstance()->setVisible(value);
 	gSavedSettings.setBOOL("ShowMiniLocationPanel", !value);
 
-	return true;
-}
-
-bool toggle_show_favorites_panel(const LLSD& newvalue)
-{
-	LLNavigationBar::getInstance()->showFavoritesPanel(newvalue.asBoolean());
 	return true;
 }
 
@@ -611,6 +608,7 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("WindLightUseAtmosShaders")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
 	gSavedSettings.getControl("RenderGammaFull")->getSignal()->connect(boost::bind(&handleSetShaderChanged, _2));
 	gSavedSettings.getControl("RenderAvatarMaxVisible")->getSignal()->connect(boost::bind(&handleAvatarMaxVisibleChanged, _2));
+	gSavedSettings.getControl("RenderAvatarComplexityLimit")->getSignal()->connect(boost::bind(&handleRenderAvatarComplexityLimitChanged, _2));
 	gSavedSettings.getControl("RenderVolumeLODFactor")->getSignal()->connect(boost::bind(&handleVolumeLODChanged, _2));
 	gSavedSettings.getControl("RenderAvatarLODFactor")->getSignal()->connect(boost::bind(&handleAvatarLODChanged, _2));
 	gSavedSettings.getControl("RenderAvatarPhysicsLODFactor")->getSignal()->connect(boost::bind(&handleAvatarPhysicsLODChanged, _2));
@@ -732,7 +730,6 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("UseDebugMenus")->getSignal()->connect(boost::bind(&show_debug_menus));
 	gSavedSettings.getControl("AgentPause")->getSignal()->connect(boost::bind(&toggle_agent_pause, _2));
 	gSavedSettings.getControl("ShowNavbarNavigationPanel")->getSignal()->connect(boost::bind(&toggle_show_navigation_panel, _2));
-	gSavedSettings.getControl("ShowNavbarFavoritesPanel")->getSignal()->connect(boost::bind(&toggle_show_favorites_panel, _2));
 	gSavedSettings.getControl("ShowMiniLocationPanel")->getSignal()->connect(boost::bind(&toggle_show_mini_location_panel, _2));
 	gSavedSettings.getControl("ShowObjectRenderingCost")->getSignal()->connect(boost::bind(&toggle_show_object_render_cost, _2));
 	gSavedSettings.getControl("UpdaterServiceSetting")->getSignal()->connect(boost::bind(&toggle_updater_service_active, _2));

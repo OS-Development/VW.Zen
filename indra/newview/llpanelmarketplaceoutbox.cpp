@@ -33,6 +33,7 @@
 #include "llbutton.h"
 #include "llcoros.h"
 #include "lleventcoro.h"
+#include "llfloatersidepanelcontainer.h"
 #include "llinventorypanel.h"
 #include "llloadingindicator.h"
 #include "llmarketplacefunctions.h"
@@ -40,7 +41,6 @@
 #include "llpanelmarketplaceinbox.h"
 #include "llsdutil.h"
 #include "llsidepanelinventory.h"
-#include "llsidetray.h"
 #include "lltimer.h"
 #include "llviewernetwork.h"
 #include "llagent.h"
@@ -90,16 +90,20 @@ void LLPanelMarketplaceOutbox::handleLoginComplete()
 
 void LLPanelMarketplaceOutbox::onFocusReceived()
 {
-	LLSidepanelInventory * sidepanel_inventory = LLSideTray::getInstance()->getPanel<LLSidepanelInventory>("sidepanel_inventory");
-
-	sidepanel_inventory->clearSelections(true, true, false);
+	LLSidepanelInventory * sidepanel_inventory = LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+	if (sidepanel_inventory)
+	{
+		sidepanel_inventory->clearSelections(true, true, false);
+	}
 }
 
 void LLPanelMarketplaceOutbox::onSelectionChange()
 {
-	LLSidepanelInventory* sidepanel_inventory = dynamic_cast<LLSidepanelInventory*>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
-	
-	sidepanel_inventory->updateVerbs();
+	LLSidepanelInventory* sidepanel_inventory = LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+	if (sidepanel_inventory)
+	{
+		sidepanel_inventory->updateVerbs();
+	}
 }
 
 LLInventoryPanel * LLPanelMarketplaceOutbox::setupInventoryPanel()

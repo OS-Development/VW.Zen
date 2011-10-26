@@ -77,10 +77,10 @@
 		キャッシュファイルを検証しています（所要時間は 60 ～ 90 秒）...
 	</string>
 	<string name="LoginProcessingResponse">
-		応答を処理しています...
+		対応を処理中です...
 	</string>
 	<string name="LoginInitializingWorld">
-		ワールドを初期化しています...
+		ワールドを初期化中です...
 	</string>
 	<string name="LoginDecodingImages">
 		画像をデコードしています...
@@ -128,7 +128,7 @@
 		グリッドサーバーが返した証明書の署名を認証できませんでした。グリッドの管理者にお問い合わせください。
 	</string>
 	<string name="LoginFailedNoNetwork">
-		ネットワークエラー： 接続を確立できませんでした。お使いのネットワーク接続をご確認ください。
+		ネットワークエラー：接続を確立できませんでした。お使いのネットワーク接続をご確認ください。
 	</string>
 	<string name="LoginFailed">
 		ログインに失敗しました。
@@ -339,6 +339,18 @@ support@secondlife.com にお問い合わせください。
 		アイテムは 1 つだけここにドラッグできます
 	</string>
 	<string name="TooltipPrice" value="L$[AMOUNT]："/>
+	<string name="TooltipOutboxNoTransfer">
+		これらオブジェクトの 1 つまたは複数は、別のユーザーに売り渡したり譲渡できないものです。
+	</string>
+	<string name="TooltipOutboxWorn">
+		あなたはこれらオブジェクトの 1 つまたは複数を装着しています。アバターからそれらを取り外し、再び移動してみてください。
+	</string>
+	<string name="TooltipOutboxFolderLevels">
+		このフォルダにあるサブフォルダの階層が多すぎます。サブフォルダは4階層以内（ルートフォルダの下にA、その下にB、その下にCという風に）にまとめ直してください。
+	</string>
+	<string name="TooltipOutboxTooManyObjects">
+		このフォルダには 200 個以上のオブジェクトが含まれます。商品のいつかをボックスに入れ、オブジェクト数を減らしてください。
+	</string>
 	<string name="TooltipHttpUrl">
 		クリックしてこの Web ページを見ます
 	</string>
@@ -1204,8 +1216,68 @@ support@secondlife.com にお問い合わせください。
 	<string name="InventoryInboxNoItems">
 		マーケットプレイスで購入した商品はここに配達されます。
 	</string>
+	<string name="MarketplaceURL">
+		http://marketplace.[DOMAIN_NAME]
+	</string>
+	<string name="MarketplaceURL_CreateStore">
+		http://marketplace.[DOMAIN_NAME]/create_store
+	</string>
+	<string name="MarketplaceURL_LearnMore">
+		http://marketplace.[DOMAIN_NAME]/learn_more
+	</string>
+	<string name="InventoryOutboxCreationErrorTitle">
+		マーチャントアウトボックスが正しく設定されていません
+	</string>
+	<string name="InventoryOutboxCreationErrorTooltip">
+		マーチャントアウトボックスの設定エラー
+	</string>
+	<string name="InventoryOutboxCreationError">
+		問題を解決するにはカスタマーサービスにお問い合わせください。
+	</string>
+	<string name="InventoryOutboxNotMerchantTitle">
+		マーケットプレイスは皆の売り場です
+	</string>
+	<string name="InventoryOutboxNotMerchantTooltip">
+		あなたもマーチャントに！
+	</string>
+	<string name="InventoryOutboxNotMerchant">
+		[[MARKETPLACE_URL] Second Life マーケットプレイス] では、SL 住人が制作した商品 100 万点以上が販売されています。あなたもご自分の自信作や、あなたが購入したアイテムを商品として売ってみませんか。その手順は簡単で、セットアップは無料です。[[LEARN_MORE_URL] こちらで詳細を確かめ]、マーケットプレイスに[[CREATE_STORE_URL] ストアを作成] しましょう。
+	</string>
+	<string name="InventoryOutboxNoItemsTitle">
+		マーケットプレイスへの新しい出荷方法
+	</string>
+	<string name="InventoryOutboxNoItemsTooltip">
+		商品をここにドラッグアンドドロップするだけで、マーケットプレイスの売り物となります
+	</string>
 	<string name="InventoryOutboxNoItems">
-		マーケットプレイス店頭に掲載するための準備として、ここに商品をドラッグします。
+		販売する商品またはフォルダをこのエリアにドラッグします。コピー不可のアイテムでない限り、ドラッグした商品のコピーが表示されるだけで、あなたの持ち物から商品が実際に移動するわけではありません。マーケットプレイスに商品を送る準備が整ったら、「アップロード」ボタンをクリックします。商品はマーケットプレイスインベントリに移動した時点でこのフォルダから削除されます。
+	</string>
+	<string name="Marketplace Error None">
+		エラーなし
+	</string>
+	<string name="Marketplace Error Not Merchant">
+		エラー：マーケットプレイスに商品を送る前に、あなた自身をマーチャント登録する必要があります（登録は無料です）。
+	</string>
+	<string name="Marketplace Error Empty Folder">
+		エラー：このフォルダは空です。
+	</string>
+	<string name="Marketplace Error Unassociated Products">
+		エラー：あなたのマーチャントアカウントには、商品と無関係のアイテムが多すぎるため、このアイテムをアップロードできませんでした。このエラーを解消するには、マーケットプレイスのウェブサイトにログインし、商品に関係のないアイテム数を減らしてください。
+	</string>
+	<string name="Marketplace Error Object Limit">
+		エラー：この商品に含まれるオブジェクトが多すぎます。オブジェクトをいくつかボックスにまとめ、オブジェクト数を200以下に減らしてください。
+	</string>
+	<string name="Marketplace Error Folder Depth">
+		エラー：この商品はネスト入りフォルダの階層が多すぎます。ネスト入りフォルダを 3 階層以内にまとめ直してください。
+	</string>
+	<string name="Marketplace Error Unsellable Item">
+		エラー：この項目をマーケットプレイスで販売することはできません。
+	</string>
+	<string name="Marketplace Error Internal Import">
+		エラー：この商品に関して問題が発生しました。しばらくしてからお試しください。
+	</string>
+	<string name="Open landmarks">
+		ランドマークを開く
 	</string>
 	<string name="no_transfer" value=" （再販・プレゼント不可）"/>
 	<string name="no_modify" value=" （編集不可）"/>
@@ -4697,5 +4769,173 @@ www.secondlife.com から最新バージョンをダウンロードしてくだ�
 	</string>
 	<string name="ParticleHiding">
 		パーティクルを非表示
+	</string>
+	<string name="Command_AboutLand_Label">
+		土地情報
+	</string>
+	<string name="Command_Appearance_Label">
+		容姿
+	</string>
+	<string name="Command_Avatar_Label">
+		アバター
+	</string>
+	<string name="Command_Build_Label">
+		制作
+	</string>
+	<string name="Command_Chat_Label">
+		チャット
+	</string>
+	<string name="Command_Compass_Label">
+		コンパス
+	</string>
+	<string name="Command_Destinations_Label">
+		行き先
+	</string>
+	<string name="Command_Gestures_Label">
+		ジェスチャー
+	</string>
+	<string name="Command_HowTo_Label">
+		ハウツー
+	</string>
+	<string name="Command_Inventory_Label">
+		持ち物
+	</string>
+	<string name="Command_Map_Label">
+		地図
+	</string>
+	<string name="Command_Marketplace_Label">
+		マーケットプレイス
+	</string>
+	<string name="Command_MiniMap_Label">
+		ミニマップ
+	</string>
+	<string name="Command_Move_Label">
+		移動
+	</string>
+	<string name="Command_People_Label">
+		人
+	</string>
+	<string name="Command_Picks_Label">
+		ピック
+	</string>
+	<string name="Command_Places_Label">
+		場所
+	</string>
+	<string name="Command_Preferences_Label">
+		環境設定
+	</string>
+	<string name="Command_Profile_Label">
+		プロフィール
+	</string>
+	<string name="Command_Search_Label">
+		検索
+	</string>
+	<string name="Command_Snapshot_Label">
+		スナップショット
+	</string>
+	<string name="Command_Speak_Label">
+		話す
+	</string>
+	<string name="Command_View_Label">
+		視界
+	</string>
+	<string name="Command_Voice_Label">
+		近くのボイス
+	</string>
+	<string name="Command_AboutLand_Tooltip">
+		訪問先に関する情報
+	</string>
+	<string name="Command_Appearance_Tooltip">
+		アバターを変更
+	</string>
+	<string name="Command_Avatar_Tooltip">
+		アバター一式を選択
+	</string>
+	<string name="Command_Build_Tooltip">
+		オブジェクトの制作と地形の変形
+	</string>
+	<string name="Command_Chat_Tooltip">
+		近くの人と文字チャットする
+	</string>
+	<string name="Command_Compass_Tooltip">
+		コンパス
+	</string>
+	<string name="Command_Destinations_Tooltip">
+		行ってみたい場所
+	</string>
+	<string name="Command_Gestures_Tooltip">
+		アバターのジェスチャー
+	</string>
+	<string name="Command_HowTo_Tooltip">
+		一般的タスクの実行方法
+	</string>
+	<string name="Command_Inventory_Tooltip">
+		持ち物を表示・使用
+	</string>
+	<string name="Command_Map_Tooltip">
+		世界地図
+	</string>
+	<string name="Command_Marketplace_Tooltip">
+		ショッピングに出掛ける
+	</string>
+	<string name="Command_MiniMap_Tooltip">
+		近くの人を表示する
+	</string>
+	<string name="Command_Move_Tooltip">
+		アバターの移動
+	</string>
+	<string name="Command_People_Tooltip">
+		フレンド、グループ、近くの人
+	</string>
+	<string name="Command_Picks_Tooltip">
+		プロフィールで紹介するお気に入りの場所
+	</string>
+	<string name="Command_Places_Tooltip">
+		保存済みの場所
+	</string>
+	<string name="Command_Preferences_Tooltip">
+		環境設定
+	</string>
+	<string name="Command_Profile_Tooltip">
+		プロフィールを編集・表示
+	</string>
+	<string name="Command_Search_Tooltip">
+		場所、イベント、人を検索
+	</string>
+	<string name="Command_Snapshot_Tooltip">
+		ピクチャを撮る
+	</string>
+	<string name="Command_Speak_Tooltip">
+		マイクを使って近くの人と話す
+	</string>
+	<string name="Command_View_Tooltip">
+		カメラの角度を変更
+	</string>
+	<string name="Command_Voice_Tooltip">
+		ボイスチャット機能を持つ近くの人
+	</string>
+	<string name="Retain%">
+		維持率
+	</string>
+	<string name="Detail">
+		詳細
+	</string>
+	<string name="Better Detail">
+		もっと詳しく
+	</string>
+	<string name="Surface">
+		表面
+	</string>
+	<string name="Solid">
+		ソリッド
+	</string>
+	<string name="Wrap">
+		ラップ
+	</string>
+	<string name="Preview">
+		プレビュー
+	</string>
+	<string name="Normal">
+		普通
 	</string>
 </strings>

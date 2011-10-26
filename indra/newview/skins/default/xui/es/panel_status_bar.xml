@@ -1,11 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <panel name="status">
-	<panel.string name="StatBarDaysOfWeek">
-		Domingo:Lunes:Martes:Miércoles:Jueves:Viernes:Sábado
-	</panel.string>
-	<panel.string name="StatBarMonthsOfYear">
-		Enero:Febrero:Marzo:Abril:Mayo:Junio:Julio:Agosto:Septiembre:Octubre:Noviembre:Diciembre
-	</panel.string>
 	<panel.string name="packet_loss_tooltip">
 		Pérdida de paquetes
 	</panel.string>
@@ -23,7 +17,8 @@
 	</panel.string>
 	<panel name="balance_bg">
 		<text name="balance" tool_tip="Haz clic para actualizar tu saldo en L$" value="20 L$"/>
-		<button label="COMPRAR L$" name="buyL" tool_tip="Pulsa para comprar más L$"/>
+		<button label="Comprar L$" name="buyL" tool_tip="Pulsa para comprar más L$"/>
+		<button label="Comprar" name="goShop" tool_tip="Abrir el mercado de Second Life"/>
 	</panel>
 	<text name="TimeText" tool_tip="Hora actual (Pacífico)">
 		24:00 AM PST

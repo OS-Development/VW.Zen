@@ -90,6 +90,9 @@
 	name="LtYellow"
 	value="1 1 .79 1" />
 	<color
+	name="DrYellow"
+	value="1 0.86 0 1" />
+	<color
 	name="LtOrange"
 	value="1 .85 .73 1" />
 	<color
@@ -517,6 +520,9 @@
      name="MenuPopupBgColor"
 	  reference="DkGray2" />
     <color
+     name="ModelUploaderLabels"
+     value="1 0.6 0 1" />	  
+    <color
      name="MultiSliderDisabledThumbColor"
      reference="Black" />
     <color
@@ -789,6 +795,10 @@
     <color
      name="DirectChatColor"
      reference="LtOrange" />
+
+    <color
+      name="ToolbarDropZoneColor"
+      value=".48 .69 1 .5" />
   
     <!-- Generic color names (legacy) -->
   <color
