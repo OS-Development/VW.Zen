@@ -97,7 +97,6 @@ private:
 	static void onServerComboLostFocus(LLFocusableElement*);
 	static void updateServerCombo();
 	static void updateStartSLURL();
-	
 	static void updateLoginPanelLinks();
 
 private:

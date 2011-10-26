@@ -217,10 +217,7 @@ LLTabContainer::Params::Params()
 	tab_icon_ctrl_pad("tab_icon_ctrl_pad", 0),
 	use_ellipses("use_ellipses"),
 	font_halign("halign")
-{
-	name(std::string("tab_container"));
-	mouse_opaque = false;
-}
+{}
 
 LLTabContainer::LLTabContainer(const LLTabContainer::Params& p)
 :	LLPanel(p),
@@ -551,23 +548,23 @@ BOOL LLTabContainer::handleMouseDown( S32 x, S32 y, MASK mask )
 	}
 
 	S32 tab_count = getTabCount();
-	if (tab_count > 0)
+	if (tab_count > 0 && !getTabsHidden())
 	{
 		LLTabTuple* firsttuple = getTab(0);
 		LLRect tab_rect;
 		if (mIsVertical)
 		{
 			tab_rect = LLRect(firsttuple->mButton->getRect().mLeft,
-							  has_scroll_arrows ? mPrevArrowBtn->getRect().mBottom - tabcntrv_pad : mPrevArrowBtn->getRect().mTop,
-							  firsttuple->mButton->getRect().mRight,
-							  has_scroll_arrows ? mNextArrowBtn->getRect().mTop + tabcntrv_pad : mNextArrowBtn->getRect().mBottom );
+								has_scroll_arrows ? mPrevArrowBtn->getRect().mBottom - tabcntrv_pad : mPrevArrowBtn->getRect().mTop,
+								firsttuple->mButton->getRect().mRight,
+								has_scroll_arrows ? mNextArrowBtn->getRect().mTop + tabcntrv_pad : mNextArrowBtn->getRect().mBottom );
 		}
 		else
 		{
 			tab_rect = LLRect(has_scroll_arrows ? mPrevArrowBtn->getRect().mRight : mJumpPrevArrowBtn->getRect().mLeft,
-							  firsttuple->mButton->getRect().mTop,
-							  has_scroll_arrows ? mNextArrowBtn->getRect().mLeft : mJumpNextArrowBtn->getRect().mRight,
-							  firsttuple->mButton->getRect().mBottom );
+								firsttuple->mButton->getRect().mTop,
+								has_scroll_arrows ? mNextArrowBtn->getRect().mLeft : mJumpNextArrowBtn->getRect().mRight,
+								firsttuple->mButton->getRect().mBottom );
 		}
 		if( tab_rect.pointInRect( x, y ) )
 		{
@@ -684,7 +681,7 @@ BOOL LLTabContainer::handleToolTip( S32 x, S32 y, MASK mask)
 {
 	static LLUICachedControl<S32> tabcntrv_pad ("UITabCntrvPad", 0);
 	BOOL handled = LLPanel::handleToolTip( x, y, mask);
-	if (!handled && getTabCount() > 0) 
+	if (!handled && getTabCount() > 0 && !getTabsHidden()) 
 	{
 		LLTabTuple* firsttuple = getTab(0);
 
@@ -815,7 +812,9 @@ BOOL LLTabContainer::handleDragAndDrop(S32 x, S32 y, MASK mask,	BOOL drop,	EDrag
 {
 	BOOL has_scroll_arrows = (getMaxScrollPos() > 0);
 
-	if( mDragAndDropDelayTimer.getStarted() && mDragAndDropDelayTimer.getElapsedTimeF32() > SCROLL_DELAY_TIME )
+	if( !getTabsHidden()
+		&& mDragAndDropDelayTimer.getStarted() 
+		&& mDragAndDropDelayTimer.getElapsedTimeF32() > SCROLL_DELAY_TIME )
 	{
 		if (has_scroll_arrows)
 		{

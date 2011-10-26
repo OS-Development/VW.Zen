@@ -16,16 +16,16 @@
 	<string name="StartupDetectingHardware">Detecting hardware...</string>
 	<string name="StartupLoading">Loading [APP_NAME]...</string>
 	<string name="StartupClearingCache">Clearing cache...</string>
-	<string name="StartupInitializingTextureCache">Initializing Texture Cache...</string>
+	<string name="StartupInitializingTextureCache">Initializing texture cache...</string>
 	<string name="StartupInitializingVFS">Initializing VFS...</string>
-  <string name="StartupRequireDriverUpdate">Graphics Initialization Failed. Please Update Your Graphics Driver!</string>
+  <string name="StartupRequireDriverUpdate">Graphics initialization failed. Please update your graphics driver!</string>
 
 	<!--  progress -->
 	<string name="ProgressRestoring">Restoring...</string>
-	<string name="ProgressChangingResolution">Changing Resolution...</string>
+	<string name="ProgressChangingResolution">Changing resolution...</string>
 
 	<!-- Legacy strings, almost never used -->
-	<string name="Fullbright">Fullbright (Legacy)</string>	<!-- used in the Build > materials dropdown-->
+	<string name="Fullbright">Fullbright (legacy)</string>	<!-- used in the Build > materials dropdown-->
 
 	<!-- Login -->
 	<string name="LoginInProgress">Logging in. [APP_NAME] may appear frozen.  Please wait.</string>
@@ -38,8 +38,8 @@
   <string name="LoginInitializingMultimedia">Initializing multimedia...</string>
   <string name="LoginInitializingFonts">Loading fonts...</string>
   <string name="LoginVerifyingCache">Verifying cache files (can take 60-90 seconds)...</string>
-	<string name="LoginProcessingResponse">Processing Response...</string>
-	<string name="LoginInitializingWorld">Initializing World...</string>
+	<string name="LoginProcessingResponse">Processing response...</string>
+	<string name="LoginInitializingWorld">Initializing world...</string>
 	<string name="LoginDecodingImages">Decoding images...</string>
 	<string name="LoginInitializingQuicktime">Initializing QuickTime...</string>
 	<string name="LoginQuicktimeNotFound">QuickTime not found - unable to initialize.</string>
@@ -56,7 +56,7 @@
         <string name="CertBasicConstraints">Too many certificates were in the servers Certificate chain.  Please contact your Grid administrator.</string>
         <string name="CertInvalidSignature">The certificate signature returned by the Grid server could not be verified.  Please contact your Grid administrator.</string>
 
-	<string name="LoginFailedNoNetwork">Network Error: Could not establish connection, please check your network connection.</string>
+	<string name="LoginFailedNoNetwork">Network error: Could not establish connection, please check your network connection.</string>
 	<string name="LoginFailed">Login failed.</string>
 	<string name="Quit">Quit</string>
 	<string name="create_account_url">http://join.secondlife.com/</string>
@@ -164,12 +164,16 @@ Please try logging in again in a minute.</string>
 	<string name="TooltipLand">Land:</string>
 	<string name="TooltipMustSingleDrop">Only a single item can be dragged here</string>
 	<string name="TooltipPrice" value="L$[AMOUNT]: "/>
-
+	<string name="TooltipOutboxNoTransfer">One or more of these objects cannot be sold or transferred to another user.</string>
+	<string name="TooltipOutboxWorn">You are wearing one or more of these objects. Remove them from your avatar and try moving them again.</string>
+	<string name="TooltipOutboxFolderLevels">This folder has too many levels of subfolders. Rearrange the interior folders to a maximum of 4 levels deep (Root Folder contains A contains B contains C).</string>
+	<string name="TooltipOutboxTooManyObjects">This folder contains more than 200 objects. Box some of the items to reduce the object count.</string>
+	
 	<!-- tooltips for Urls -->
 	<string name="TooltipHttpUrl">Click to view this web page</string>
 	<string name="TooltipSLURL">Click to view this location's information</string>
 	<string name="TooltipAgentUrl">Click to view this Resident's profile</string>
-  <string name="TooltipAgentInspect">Learn more about this Resident</string>
+	<string name="TooltipAgentInspect">Learn more about this Resident</string>
 	<string name="TooltipAgentMute">Click to mute this Resident</string>
 	<string name="TooltipAgentUnmute">Click to unmute this Resident</string>
 	<string name="TooltipAgentIM">Click to IM this Resident</string>
@@ -2024,9 +2028,32 @@ Returns a string with the requested data about the region
 	<string name="PlacesNoMatchingItems">Didn't find what you're looking for? Try [secondlife:///app/search/places/[SEARCH_TERM] Search].</string>
 	<string name="FavoritesNoMatchingItems">Drag a landmark here to add it to your favorites.</string>
 	<string name="InventoryNoTexture">You do not have a copy of this texture in your inventory</string>
-	<string name="InventoryInboxNoItems">Items purchased through the marketplace will be delivered here.</string>
-	<string name="InventoryOutboxNoItems">Drag items here in preparation for listing on your marketplace storefront.</string>
-    <!-- use value="" because they have preceding spaces -->
+	<string name="InventoryInboxNoItems">When you purchase or otherwise receive an item, it will appear here so you can drag it to a folder in your inventory, or delete it if you do not wish to keep it.</string>
+	<string name="MarketplaceURL">http://marketplace.[DOMAIN_NAME]</string>
+	<string name="MarketplaceURL_CreateStore">http://marketplace.[DOMAIN_NAME]/create_store</string>
+	<string name="MarketplaceURL_LearnMore">http://marketplace.[DOMAIN_NAME]/learn_more</string>
+	<string name="InventoryOutboxCreationErrorTitle">Your Merchant Outbox is not properly configured</string>
+	<string name="InventoryOutboxCreationErrorTooltip">Merchant Outbox configuration error</string>
+	<string name="InventoryOutboxCreationError">Please contact Customer Service to correct the problem.</string>
+	<string name="InventoryOutboxNotMerchantTitle">Anyone can sell items on the Marketplace</string>
+	<string name="InventoryOutboxNotMerchantTooltip">Become a merchant!</string>
+	<string name="InventoryOutboxNotMerchant">[[MARKETPLACE_URL] The Second Life Marketplace] offers more than one million virtual products for sale, all of them created by Residents. You, too, can sell items you create, as well as some of the items you have purchased. It’s easy and setup is free.  [[LEARN_MORE_URL] Learn more] or [[CREATE_STORE_URL] create a store] on the Marketplace to get started.</string>
+	<string name="InventoryOutboxNoItemsTitle">A new way to send items to the Marketplace</string>
+	<string name="InventoryOutboxNoItemsTooltip">Drag and drop items here to prepare them for sale on the Marketplace</string>
+	<string name="InventoryOutboxNoItems">Drag items or folders that you wish to sell into this area.  A copy of the item will appear, leaving your inventory unchanged, unless you have dragged a no-copy item.  When you are ready to send the items to the Marketplace, click the Upload button. Once your items have been moved to your Marketplace Inventory, they will disappear from this folder.</string>
+
+	<string name="Marketplace Error None">No errors</string>
+	<string name="Marketplace Error Not Merchant">Error: Before sending items to the Marketplace you will need to set yourself up as a merchant (free of charge).</string>
+	<string name="Marketplace Error Empty Folder">Error: This folder has no contents.</string>
+	<string name="Marketplace Error Unassociated Products">Error: This item failed to upload because your merchant account has too many items unassociated with products.  To fix this error, login to the marketplace website and reduce your unassociated item count.</string>
+	<string name="Marketplace Error Object Limit">Error: This item contains too many objects.  Fix this error by placing objects together in boxes to reduce the total count to less than 200.</string>
+	<string name="Marketplace Error Folder Depth">Error: This item contains too many levels of nested folders.  Reorganize it to a maximum of 3 levels of nested folders.</string>
+	<string name="Marketplace Error Unsellable Item">Error: This item can not be sold on the marketplace.</string>
+	<string name="Marketplace Error Internal Import">Error: There was a problem with this item.  Try again later.</string>
+
+	<string name="Open landmarks">Open landmarks</string>
+
+	<!-- use value="" because they have preceding spaces -->
 	<string name="no_transfer" value=" (no transfer)" />
 	<string name="no_modify"   value=" (no modify)" />
 	<string name="no_copy"     value=" (no copy)" />
@@ -2242,7 +2269,7 @@ Returns a string with the requested data about the region
 	<string name="NextStipendDay"       value="The next stipend day is " />
 	<string name="GroupPlanningDate">[mthnum,datetime,utc]/[day,datetime,utc]/[year,datetime,utc]</string>
 	<string name="GroupIndividualShare" value="                      Group       Individual Share" />
-	<string name="GroupColumn"          value="                      Group" />
+	<string name="GroupColumn"          value="            Group" />
 	<string name="Balance">Balance</string>
 	<string name="Credits">Credits</string>
 	<string name="Debits">Debits</string>
@@ -3414,7 +3441,7 @@ Abuse Report</string>
   <string name="Female - Stick tougue out">Female - Stick tougue out</string>
   <string name="Female - Wow">Female - Wow</string>
 
-  <string name="/bow1">/bow1</string>
+  <string name="/bow">/bow</string>
   <string name="/clap">/clap</string>
   <string name="/count">/count</string>
   <string name="/extinguish">/extinguish</string>
@@ -3630,4 +3657,65 @@ Try enclosing path to the editor with double quotes.
   <string name="BeaconMedia">Viewing media beacons (white)</string>
   <string name="ParticleHiding">Hiding Particles</string>
 
+  <!-- commands -->
+
+  <string name="Command_AboutLand_Label">About land</string>
+  <string name="Command_Appearance_Label">Appearance</string>
+  <string name="Command_Avatar_Label">Avatar</string>
+  <string name="Command_Build_Label">Build</string>
+  <string name="Command_Chat_Label">Chat</string>
+  <string name="Command_Compass_Label">Compass</string>
+  <string name="Command_Destinations_Label">Destinations</string>
+  <string name="Command_Gestures_Label">Gestures</string>
+  <string name="Command_HowTo_Label">How to</string>
+  <string name="Command_Inventory_Label">Inventory</string>
+  <string name="Command_Map_Label">Map</string>
+  <string name="Command_Marketplace_Label">Marketplace</string>
+  <string name="Command_MiniMap_Label">Mini-map</string>
+  <string name="Command_Move_Label">Move</string>
+  <string name="Command_People_Label">People</string>
+  <string name="Command_Picks_Label">Picks</string>
+  <string name="Command_Places_Label">Places</string>
+  <string name="Command_Preferences_Label">Preferences</string>
+  <string name="Command_Profile_Label">Profile</string>
+  <string name="Command_Search_Label">Search</string>
+  <string name="Command_Snapshot_Label">Snapshot</string>
+  <string name="Command_Speak_Label">Speak</string>
+  <string name="Command_View_Label">View</string>
+  <string name="Command_Voice_Label">Voice settings</string>
+
+  <string name="Command_AboutLand_Tooltip">Information about the land you're visiting</string>
+  <string name="Command_Appearance_Tooltip">Change your avatar</string>
+  <string name="Command_Avatar_Tooltip">Choose a complete avatar</string>
+  <string name="Command_Build_Tooltip">Building objects and reshaping terrain</string>
+  <string name="Command_Chat_Tooltip">Chat with people nearby using text</string>
+  <string name="Command_Compass_Tooltip">Compass</string>
+  <string name="Command_Destinations_Tooltip">Destinations of interest</string>
+  <string name="Command_Gestures_Tooltip">Gestures for your avatar</string>
+  <string name="Command_HowTo_Tooltip">How to do common tasks</string>
+  <string name="Command_Inventory_Tooltip">View and use your belongings</string>
+  <string name="Command_Map_Tooltip">Map of the world</string>
+  <string name="Command_Marketplace_Tooltip">Go shopping</string>
+  <string name="Command_MiniMap_Tooltip">Show nearby people</string>
+  <string name="Command_Move_Tooltip">Moving your avatar</string>
+  <string name="Command_People_Tooltip">Friends, groups, and nearby people</string>
+  <string name="Command_Picks_Tooltip">Places to show as favorites in your profile</string>
+  <string name="Command_Places_Tooltip">Places you've saved</string>
+  <string name="Command_Preferences_Tooltip">Preferences</string>
+  <string name="Command_Profile_Tooltip">Edit or view your profile</string>
+  <string name="Command_Search_Tooltip">Find places, events, people</string>
+  <string name="Command_Snapshot_Tooltip">Take a picture</string>
+  <string name="Command_Speak_Tooltip">Speak with people nearby using your microphone</string>
+  <string name="Command_View_Tooltip">Changing camera angle</string>
+  <string name="Command_Voice_Tooltip">Volume controls for calls and people near you in world</string>
+
+ <!-- Mesh UI terms -->
+  <string name="Retain%">Retain%</string>
+  <string name="Detail">Detail</string>
+  <string name="Better Detail">Better Detail</string>
+  <string name="Surface">Surface</string>
+  <string name="Solid">Solid</string>
+  <string name="Wrap">Wrap</string>
+  <string name="Preview">Preview</string>
+  <string name="Normal">Normal</string>
   </strings>

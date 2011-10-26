@@ -35,6 +35,7 @@
 #include "llavataractions.h"
 #include "llfloaterinventory.h"
 #include "llfloaterreg.h"
+#include "llfloatersidepanelcontainer.h"
 #include "llfolderview.h"
 #include "llimfloater.h"
 #include "llimview.h"
@@ -42,7 +43,6 @@
 #include "llinventoryfunctions.h"
 #include "llinventorymodelbackgroundfetch.h"
 #include "llsidepanelinventory.h"
-#include "llsidetray.h"
 #include "llviewerattachmenu.h"
 #include "llviewerfoldertype.h"
 #include "llvoavatarself.h"
@@ -129,6 +129,7 @@ LLInventoryPanel::LLInventoryPanel(const LLInventoryPanel::Params& p) :
 	mScroller(NULL),
 	mSortOrderSetting(p.sort_order_setting),
 	mInventory(p.inventory),
+	mAcceptsDragAndDrop(p.accepts_drag_and_drop),
 	mAllowMultiSelect(p.allow_multi_select),
 	mShowItemLinkOverlays(p.show_item_link_overlays),
 	mShowLoadStatus(p.show_load_status),
@@ -163,49 +164,6 @@ void LLInventoryPanel::buildFolderView(const LLInventoryPanel::Params& params)
 	{
 		root_id = gInventory.getLibraryRootFolderID();
 	}
-	// leslie -- temporary HACK to work around sim not creating inbox and outbox with proper system folder type
-	else if (preferred_type == LLFolderType::FT_INBOX)
-	{
-		LLInventoryModel::cat_array_t* cats;
-		LLInventoryModel::item_array_t* items;
-		
-		gInventory.getDirectDescendentsOf(gInventory.getRootFolderID(), cats, items);
-		
-		if (cats)
-		{
-			for (LLInventoryModel::cat_array_t::const_iterator cat_it = cats->begin(); cat_it != cats->end(); ++cat_it)
-			{
-				LLInventoryCategory* cat = *cat_it;
-				
-				if (cat->getName() == "Received Items")
-				{
-					root_id = cat->getUUID();
-				}
-			}
-		}
-	}
-	// leslie -- temporary HACK to work around sim not creating inbox and outbox with proper system folder type
-	else if (preferred_type == LLFolderType::FT_OUTBOX)
-	{
-		LLInventoryModel::cat_array_t* cats;
-		LLInventoryModel::item_array_t* items;
-		
-		gInventory.getDirectDescendentsOf(gInventory.getRootFolderID(), cats, items);
-		
-		if (cats)
-		{
-			for (LLInventoryModel::cat_array_t::const_iterator cat_it = cats->begin(); cat_it != cats->end(); ++cat_it)
-			{
-				LLInventoryCategory* cat = *cat_it;
-				
-				if (cat->getName() == "Merchant Outbox")
-				{
-					root_id = cat->getUUID();
-				}
-			}
-		}
-	}
-	// leslie -- end temporary HACK
 	else
 	{
 		root_id = (preferred_type != LLFolderType::FT_NONE)
@@ -277,10 +235,10 @@ void LLInventoryPanel::initFromParams(const LLInventoryPanel::Params& params)
 	{
 		setSortOrder(gSavedSettings.getU32(DEFAULT_SORT_ORDER));
 	}
-	mFolderRoot->setSortOrder(getFilter()->getSortOrder());
 
 	// hide inbox
 	getFilter()->setFilterCategoryTypes(getFilter()->getFilterCategoryTypes() & ~(1ULL << LLFolderType::FT_INBOX));
+	getFilter()->setFilterCategoryTypes(getFilter()->getFilterCategoryTypes() & ~(1ULL << LLFolderType::FT_OUTBOX));
 
 	// Initialize base class params.
 	LLPanel::initFromParams(params);
@@ -389,6 +347,10 @@ U32 LLInventoryPanel::getSortOrder() const
 	return mFolderRoot->getSortOrder(); 
 }
 
+void LLInventoryPanel::requestSort()
+{
+	mFolderRoot->requestSort();
+}
 
 void LLInventoryPanel::setSinceLogoff(BOOL sl)
 {
@@ -863,19 +825,24 @@ BOOL LLInventoryPanel::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 								   EAcceptance* accept,
 								   std::string& tooltip_msg)
 {
-	BOOL handled = LLPanel::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
+	BOOL handled = FALSE;
 
-	// If folder view is empty the (x, y) point won't be in its rect
-	// so the handler must be called explicitly.
-	// but only if was not handled before. See EXT-6746.
-	if (!handled && !mFolderRoot->hasVisibleChildren())
+	if (mAcceptsDragAndDrop)
 	{
-		handled = mFolderRoot->handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
-	}
+		handled = LLPanel::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
 
-	if (handled)
-	{
-		mFolderRoot->setDragAndDropThisFrame();
+		// If folder view is empty the (x, y) point won't be in its rect
+		// so the handler must be called explicitly.
+		// but only if was not handled before. See EXT-6746.
+		if (!handled && !mFolderRoot->hasVisibleChildren())
+		{
+			handled = mFolderRoot->handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
+		}
+
+		if (handled)
+		{
+			mFolderRoot->setDragAndDropThisFrame();
+		}
 	}
 
 	return handled;
@@ -1110,10 +1077,9 @@ void LLInventoryPanel::dumpSelectionInformation(void* user_data)
 
 BOOL is_inventorysp_active()
 {
-	if (!LLSideTray::getInstance()->isPanelActive("sidepanel_inventory")) return FALSE;
-	LLSidepanelInventory *inventorySP = dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
-	if (!inventorySP) return FALSE; 
-	return inventorySP->isMainInventoryPanelActive();
+	LLSidepanelInventory *sidepanel_inventory =	LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+	if (!sidepanel_inventory || !sidepanel_inventory->isInVisibleChain()) return FALSE;
+	return sidepanel_inventory->isMainInventoryPanelActive();
 }
 
 // static
@@ -1123,34 +1089,24 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
 	LLInventoryPanel* res = NULL;
 	LLFloater* active_inv_floaterp = NULL;
 
-	// A. If the inventory side panel is open, use that preferably.
+	LLFloater* floater_inventory = LLFloaterReg::getInstance("inventory");
+	if (!floater_inventory)
+	{
+		llwarns << "Could not find My Inventory floater" << llendl;
+		return FALSE;
+	}
+
+	LLSidepanelInventory *sidepanel_inventory =	LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+
+	// A. If the inventory side panel floater is open, use that preferably.
 	if (is_inventorysp_active())
 	{
-		LLSidepanelInventory *inventorySP = dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
-		if (inventorySP)
-		{
-			return inventorySP->getActivePanel();
-		}
+		// Get the floater's z order to compare it to other inventory floaters' order later.
+		res = sidepanel_inventory->getActivePanel();
+		z_min = gFloaterView->getZOrder(floater_inventory);
+		active_inv_floaterp = floater_inventory;
 	}
-	// or if it is in floater undocked from sidetray get it and remember z order of floater to later compare it
-	// with other inventory floaters order.
-	else if (!LLSideTray::getInstance()->isTabAttached("sidebar_inventory"))
-	{
-		LLSidepanelInventory *inventorySP =
-			dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
-		LLFloater* inv_floater = LLFloaterReg::findInstance("side_bar_tab", LLSD("sidebar_inventory"));
-		if (inventorySP && inv_floater)
-		{
-			res = inventorySP->getActivePanel();
-			z_min = gFloaterView->getZOrder(inv_floater);
-			active_inv_floaterp = inv_floater;
-		}
-		else
-		{
-			llwarns << "Inventory tab is detached from sidetray, but  either panel or floater were not found!" << llendl;
-		}
-	}
-	
+
 	// B. Iterate through the inventory floaters and return whichever is on top.
 	LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("inventory");
 	for (LLFloaterReg::const_instance_list_t::const_iterator iter = inst_list.begin(); iter != inst_list.end(); ++iter)
@@ -1180,14 +1136,9 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
 	// C. If no panels are open and we don't want to force open a panel, then just abort out.
 	if (!auto_open) return NULL;
 	
-	// D. Open the inventory side panel and use that.
-    LLSD key;
-	LLSidepanelInventory *sidepanel_inventory =
-		dynamic_cast<LLSidepanelInventory *>(LLSideTray::getInstance()->showPanel("sidepanel_inventory", key));
-	if (sidepanel_inventory)
-	{
-		return sidepanel_inventory->getActivePanel();
-	}
+	// D. Open the inventory side panel floater and use that.
+	floater_inventory->openFloater();
+	return sidepanel_inventory->getActivePanel();
 
 	return NULL;
 }

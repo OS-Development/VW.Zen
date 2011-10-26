@@ -32,6 +32,7 @@
 #include "llappviewer.h"
 #include "llbutton.h"
 #include "llinventorypanel.h"
+#include "llfloatersidepanelcontainer.h"
 #include "llfolderview.h"
 #include "llsidepanelinventory.h"
 #include "llviewercontrol.h"
@@ -53,17 +54,11 @@ LLPanelMarketplaceInbox::LLPanelMarketplaceInbox(const Params& p)
 
 LLPanelMarketplaceInbox::~LLPanelMarketplaceInbox()
 {
-	if (getChild<LLButton>("inbox_btn")->getToggleState())
-	{
-		gSavedPerAccountSettings.setString("LastInventoryInboxExpand", LLDate::now().asString());
-	}
 }
 
 // virtual
 BOOL LLPanelMarketplaceInbox::postBuild()
 {
-	LLAppViewer::instance()->setOnLoginCompletedCallback(boost::bind(&LLPanelMarketplaceInbox::handleLoginComplete, this));
-
 	LLFocusableElement::setFocusReceivedCallback(boost::bind(&LLPanelMarketplaceInbox::onFocusReceived, this));
 	
 	return TRUE;
@@ -71,17 +66,11 @@ BOOL LLPanelMarketplaceInbox::postBuild()
 
 void LLPanelMarketplaceInbox::onSelectionChange()
 {
-	LLSidepanelInventory* sidepanel_inventory = dynamic_cast<LLSidepanelInventory*>(LLSideTray::getInstance()->getPanel("sidepanel_inventory"));
+	LLSidepanelInventory* sidepanel_inventory = LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
 		
 	sidepanel_inventory->updateVerbs();
 }
 
-
-void LLPanelMarketplaceInbox::handleLoginComplete()
-{
-	// Set us up as the class to drive the badge value for the sidebar_inventory button
-	LLSideTray::getInstance()->setTabButtonBadgeDriver("sidebar_inventory", this);
-}
 
 LLInventoryPanel * LLPanelMarketplaceInbox::setupInventoryPanel()
 {
@@ -93,12 +82,17 @@ LLInventoryPanel * LLPanelMarketplaceInbox::setupInventoryPanel()
 														  inbox_inventory_parent,
 														  LLInventoryPanel::child_registry_t::instance());
 	
+	llassert(mInventoryPanel);
+	
 	// Reshape the inventory to the proper size
 	LLRect inventory_placeholder_rect = inbox_inventory_placeholder->getRect();
 	mInventoryPanel->setShape(inventory_placeholder_rect);
 	
-	// Set the sort order newest to oldest, and a selection change callback
+	// Set the sort order newest to oldest
 	mInventoryPanel->setSortOrder(LLInventoryFilter::SO_DATE);	
+	mInventoryPanel->getFilter()->markDefault();
+
+	// Set selection callback for proper update of inventory status buttons
 	mInventoryPanel->setSelectCallback(boost::bind(&LLPanelMarketplaceInbox::onSelectionChange, this));
 
 	// Set up the note to display when the inbox is empty
@@ -112,9 +106,13 @@ LLInventoryPanel * LLPanelMarketplaceInbox::setupInventoryPanel()
 
 void LLPanelMarketplaceInbox::onFocusReceived()
 {
-	LLSidepanelInventory * sidepanel_inventory = LLSideTray::getInstance()->getPanel<LLSidepanelInventory>("sidepanel_inventory");
+	LLSidepanelInventory *sidepanel_inventory = LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+	if (sidepanel_inventory)
+	{
+		sidepanel_inventory->clearSelections(true, false, true);
+	}
 
-	sidepanel_inventory->clearSelections(true, false, true);
+	gSavedPerAccountSettings.setU32("LastInventoryInboxActivity", time_corrected());
 }
 
 BOOL LLPanelMarketplaceInbox::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop, EDragAndDropType cargo_type, void *cargo_data, EAcceptance *accept, std::string& tooltip_msg)
@@ -183,9 +181,10 @@ std::string LLPanelMarketplaceInbox::getBadgeString() const
 {
 	std::string item_count_str("");
 
+	LLPanel *inventory_panel = LLFloaterSidePanelContainer::getPanel("inventory");
+
 	// If the inbox is visible, and the side panel is collapsed or expanded and not the inventory panel
-	if (getParent()->getVisible() &&
-		(LLSideTray::getInstance()->getCollapsed() || !LLSideTray::getInstance()->isPanelActive("sidepanel_inventory")))
+	if (getParent()->getVisible() && inventory_panel && !inventory_panel->isInVisibleChain())
 	{
 		U32 item_count = getFreshItemCount();
 
