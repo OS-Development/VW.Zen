@@ -114,6 +114,8 @@ LLToolBar::LLToolBar(const LLToolBar::Params& p)
 	mHandleDropCallback(NULL),
 	mButtonAddSignal(NULL),
 	mButtonEnterSignal(NULL),
+	mButtonLeaveSignal(NULL),
+	mButtonRemoveSignal(NULL),
 	mDragAndDropTarget(false)
 {
 	mButtonParams[LLToolBarEnums::BTNTYPE_ICONS_WITH_TEXT] = p.button_icon_and_text;
@@ -125,6 +127,8 @@ LLToolBar::~LLToolBar()
 	delete mPopupMenuHandle.get();
 	delete mButtonAddSignal;
 	delete mButtonEnterSignal;
+	delete mButtonLeaveSignal;
+	delete mButtonRemoveSignal;
 }
 
 void LLToolBar::createContextMenu()
@@ -239,12 +243,15 @@ bool LLToolBar::addCommand(const LLCommandId& commandId, int rank)
 		mButtons.insert(it_button,button);
 	}
 
+	mNeedsLayout = true;
+
+	updateLayoutAsNeeded();
+
+
 	if (mButtonAddSignal)
 	{
 		(*mButtonAddSignal)(button);
 	}
-
-	mNeedsLayout = true;
 
 	return true;
 }
@@ -270,6 +277,11 @@ int LLToolBar::removeCommand(const LLCommandId& commandId)
 		++it_button;
 		++it_command;
 		++rank;
+	}
+	
+	if (mButtonRemoveSignal)
+	{
+		(*mButtonRemoveSignal)(*it_button);
 	}
 	
 	// Delete the button and erase the command and button records
@@ -815,6 +827,11 @@ void LLToolBar::createButtons()
 {
 	BOOST_FOREACH(LLToolBarButton* button, mButtons)
 	{
+		if (mButtonRemoveSignal)
+		{
+			(*mButtonRemoveSignal)(button);
+		}
+		
 		delete button;
 	}
 	mButtons.clear();
@@ -826,6 +843,11 @@ void LLToolBar::createButtons()
 		mButtons.push_back(button);
 		mButtonPanel->addChild(button);
 		mButtonMap.insert(std::make_pair(command_id.uuid(), button));
+		
+		if (mButtonAddSignal)
+		{
+			(*mButtonAddSignal)(button);
+		}
 	}
 	mNeedsLayout = true;
 }
@@ -922,16 +944,34 @@ LLToolBarButton* LLToolBar::createButton(const LLCommandId& id)
 	return button;
 }
 
+boost::signals2::connection connectSignal(LLToolBar::button_signal_t*& signal, const LLToolBar::button_signal_t::slot_type& cb)
+{
+	if (!signal)
+	{
+		signal = new LLToolBar::button_signal_t();
+	}
+
+	return signal->connect(cb);
+}
+
 boost::signals2::connection LLToolBar::setButtonAddCallback(const button_signal_t::slot_type& cb)
 {
-	if (!mButtonAddSignal) mButtonAddSignal = new button_signal_t();
-	return mButtonAddSignal->connect(cb);
+	return connectSignal(mButtonAddSignal, cb);
 }
 
 boost::signals2::connection LLToolBar::setButtonEnterCallback(const button_signal_t::slot_type& cb)
 {
-	if (!mButtonEnterSignal) mButtonEnterSignal = new button_signal_t();
-	return mButtonEnterSignal->connect(cb);
+	return connectSignal(mButtonEnterSignal, cb);
+}
+
+boost::signals2::connection LLToolBar::setButtonLeaveCallback(const button_signal_t::slot_type& cb)
+{
+	return connectSignal(mButtonLeaveSignal, cb);
+}
+
+boost::signals2::connection LLToolBar::setButtonRemoveCallback(const button_signal_t::slot_type& cb)
+{
+	return connectSignal(mButtonRemoveSignal, cb);
 }
 
 BOOL LLToolBar::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
@@ -1065,6 +1105,17 @@ void LLToolBarButton::onMouseEnter(S32 x, S32 y, MASK mask)
 	{
 		(*(parent_toolbar->mButtonEnterSignal))(this);
 	}
+}
+
+void LLToolBarButton::onMouseLeave(S32 x, S32 y, MASK mask)
+{
+	LLButton::onMouseLeave(x, y, mask);
+	
+	LLToolBar* parent_toolbar = getParentByType<LLToolBar>();
+	if (parent_toolbar && parent_toolbar->mButtonLeaveSignal)
+	{
+		(*(parent_toolbar->mButtonLeaveSignal))(this);
+	}	
 }
 
 void LLToolBarButton::onMouseCaptureLost()
