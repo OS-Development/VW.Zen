@@ -37,6 +37,9 @@ Versión del servidor de voz: [VOICE_VERSION]
 	<floater.string name="AboutTraffic">
 		Paquetes perdidos: [PACKETS_LOST,number,0]/[PACKETS_IN,number,0] ([PACKETS_PCT,number,1]%)
 	</floater.string>
+	<floater.string name="ErrorFetchingServerReleaseNotesURL">
+		Error al obtener la URL de las notas de la versión del servidor.
+	</floater.string>
 	<tab_container name="about_tab">
 		<panel label="Información" name="support_panel">
 			<button label="Copiar al portapapeles" name="copy_btn" width="165"/>

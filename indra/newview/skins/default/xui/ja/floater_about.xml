@@ -37,6 +37,9 @@ Qt Webkit バージョン： [QT_WEBKIT_VERSION]
 	<floater.string name="AboutTraffic">
 		パケットロス： [PACKETS_LOST,number,0]/[PACKETS_IN,number,0] （[PACKETS_PCT,number,1]%）
 	</floater.string>
+	<floater.string name="ErrorFetchingServerReleaseNotesURL">
+		サーバーのリリースノートの URL を取得中にエラーが発生しました。
+	</floater.string>
 	<tab_container name="about_tab">
 		<panel label="情報" name="support_panel">
 			<button label="クリップボードにコピー" name="copy_btn"/>

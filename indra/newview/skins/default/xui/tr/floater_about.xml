@@ -37,6 +37,9 @@ Ses Sunucusu Sürümü: [VOICE_VERSION]
 	<floater.string name="AboutTraffic">
 		Kaybolan Paketler: [PACKETS_LOST,number,0]/[PACKETS_IN,number,0] ([PACKETS_PCT,number,1]%)
 	</floater.string>
+	<floater.string name="ErrorFetchingServerReleaseNotesURL">
+		Sunucu sürümü notları URL&apos;si alınırken hata oluştu.
+	</floater.string>
 	<tab_container name="about_tab">
 		<panel label="Bilgi" name="support_panel">
 			<button label="Panoya Kopyala" name="copy_btn"/>
