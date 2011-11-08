@@ -77,7 +77,7 @@ include_directories(
 
 set(viewer_SOURCE_FILES
     groupchatlistener.cpp
-    llaccountingquotamanager.cpp
+    llaccountingcostmanager.cpp
     llagent.cpp
     llagentaccess.cpp
     llagentcamera.cpp
@@ -102,7 +102,6 @@ set(viewer_SOURCE_FILES
     llavatarlist.cpp
     llavatarlistitem.cpp
     llavatarpropertiesprocessor.cpp
-    llbottomtray.cpp
     llbox.cpp
     llbreadcrumbview.cpp
     llbrowsernotification.cpp
@@ -118,6 +117,7 @@ set(viewer_SOURCE_FILES
     llchatitemscontainerctrl.cpp
     llchatmsgbox.cpp
     llchiclet.cpp
+    llchicletbar.cpp
     llclassifiedinfo.cpp
     llclassifiedstatsresponder.cpp
     llcofwearables.cpp
@@ -150,8 +150,9 @@ set(viewer_SOURCE_FILES
     lldrawpoolwlsky.cpp
     lldriverparam.cpp
     lldynamictexture.cpp
-    llenvmanager.cpp
     llemote.cpp
+    llenvmanager.cpp
+    llestateinfomodel.cpp
     lleventnotifier.cpp
     lleventpoll.cpp
     llexpandabletextbox.cpp
@@ -167,6 +168,7 @@ set(viewer_SOURCE_FILES
     llfloaterabout.cpp
     llfloateranimpreview.cpp
     llfloaterauction.cpp
+    llfloateravatar.cpp
     llfloateravatarpicker.cpp
     llfloateravatartextures.cpp
     llfloaterbeacons.cpp
@@ -181,6 +183,7 @@ set(viewer_SOURCE_FILES
     llfloatercamera.cpp
     llfloatercolorpicker.cpp
     llfloaterdeleteenvpreset.cpp
+    llfloaterdestinations.cpp
     llfloaterdisplayname.cpp
     llfloatereditdaycycle.cpp
     llfloatereditsky.cpp
@@ -208,9 +211,11 @@ set(viewer_SOURCE_FILES
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
     llfloatermodelpreview.cpp
+    llfloatermodeluploadbase.cpp
     llfloatermodelwizard.cpp
     llfloaternamedesc.cpp
     llfloaternotificationsconsole.cpp
+    llfloaterobjectweights.cpp
     llfloateropenobject.cpp
     llfloaterpay.cpp
     llfloaterperms.cpp
@@ -226,7 +231,7 @@ set(viewer_SOURCE_FILES
     llfloatersearch.cpp
     llfloatersellland.cpp
     llfloatersettingsdebug.cpp
-    llfloatersidetraytab.cpp
+    llfloatersidepanelcontainer.cpp
     llfloatersnapshot.cpp
     llfloatersounddevices.cpp
     llfloatertelehub.cpp
@@ -235,6 +240,8 @@ set(viewer_SOURCE_FILES
     llfloatertools.cpp
     llfloatertopobjects.cpp
     llfloatertos.cpp
+    llfloatertoybox.cpp
+    llfloatertranslationsettings.cpp
     llfloateruipreview.cpp
     llfloaterurlentry.cpp
     llfloatervoiceeffect.cpp
@@ -366,6 +373,7 @@ set(viewer_SOURCE_FILES
     llpanelmarketplaceinbox.cpp
     llpanelmarketplaceinboxinventory.cpp
     llpanelmarketplaceoutbox.cpp
+    llpanelmarketplaceoutboxinventory.cpp
     llpanelmediasettingsgeneral.cpp
     llpanelmediasettingspermissions.cpp
     llpanelmediasettingssecurity.cpp
@@ -437,13 +445,10 @@ set(viewer_SOURCE_FILES
     llsidepanelinventorysubpanel.cpp
     llsidepaneliteminfo.cpp
     llsidepaneltaskinfo.cpp
-    llsidetray.cpp
-    llsidetraylistener.cpp
     llsidetraypanelcontainer.cpp
     llsky.cpp
     llslurl.cpp
     llspatialpartition.cpp
-    llspeakbutton.cpp
     llspeakers.cpp
     llspeakingindicatormanager.cpp
     llsplitbutton.cpp
@@ -479,6 +484,7 @@ set(viewer_SOURCE_FILES
     lltoastpanel.cpp
     lltoastscripttextbox.cpp
     lltool.cpp
+    lltoolbarview.cpp
     lltoolbrush.cpp
     lltoolcomp.cpp
     lltooldraganddrop.cpp
@@ -502,6 +508,7 @@ set(viewer_SOURCE_FILES
     lltranslate.cpp
     lluilistener.cpp
     lluploaddialog.cpp
+    lluploadfloaterobservers.cpp
     llurl.cpp
     llurldispatcher.cpp
     llurldispatcherlistener.cpp
@@ -598,6 +605,7 @@ set(viewer_SOURCE_FILES
     llweb.cpp
     llwebsharing.cpp
     llwind.cpp
+    llwindowlistener.cpp
     llwlanimator.cpp
     llwldaycycle.cpp
     llwlhandlers.cpp
@@ -635,7 +643,7 @@ set(viewer_HEADER_FILES
     CMakeLists.txt
     ViewerInstall.cmake
     groupchatlistener.h
-    llaccountingquotamanager.h
+    llaccountingcostmanager.h
     llagent.h
     llagentaccess.h
     llagentcamera.h
@@ -661,7 +669,6 @@ set(viewer_HEADER_FILES
     llavatarlist.h
     llavatarlistitem.h
     llavatarpropertiesprocessor.h
-    llbottomtray.h
     llbox.h
     llbreadcrumbview.h
     llbuycurrencyhtml.h
@@ -677,6 +684,7 @@ set(viewer_HEADER_FILES
     llchatitemscontainerctrl.h
     llchatmsgbox.h
     llchiclet.h
+    llchicletbar.h
     llclassifiedinfo.h
     llclassifiedstatsresponder.h
     llcofwearables.h
@@ -711,6 +719,7 @@ set(viewer_HEADER_FILES
     lldynamictexture.h
     llemote.h
     llenvmanager.h
+    llestateinfomodel.h
     lleventnotifier.h
     lleventpoll.h
     llexpandabletextbox.h
@@ -726,6 +735,7 @@ set(viewer_HEADER_FILES
     llfloaterabout.h
     llfloateranimpreview.h
     llfloaterauction.h
+    llfloateravatar.h
     llfloateravatarpicker.h
     llfloateravatartextures.h
     llfloaterbeacons.h
@@ -740,6 +750,7 @@ set(viewer_HEADER_FILES
     llfloatercamera.h
     llfloatercolorpicker.h
     llfloaterdeleteenvpreset.h
+    llfloaterdestinations.h
     llfloaterdisplayname.h
     llfloatereditdaycycle.h
     llfloatereditsky.h
@@ -767,9 +778,11 @@ set(viewer_HEADER_FILES
     llfloatermediasettings.h
     llfloatermemleak.h
     llfloatermodelpreview.h
+    llfloatermodeluploadbase.h
     llfloatermodelwizard.h
     llfloaternamedesc.h
     llfloaternotificationsconsole.h
+    llfloaterobjectweights.h
     llfloateropenobject.h
     llfloaterpay.h
     llfloaterperms.h
@@ -785,7 +798,7 @@ set(viewer_HEADER_FILES
     llfloatersearch.h
     llfloatersellland.h
     llfloatersettingsdebug.h
-    llfloatersidetraytab.h
+    llfloatersidepanelcontainer.h
     llfloatersnapshot.h
     llfloatersounddevices.h
     llfloatertelehub.h
@@ -794,6 +807,8 @@ set(viewer_HEADER_FILES
     llfloatertools.h
     llfloatertopobjects.h
     llfloatertos.h
+    llfloatertoybox.h
+    llfloatertranslationsettings.h
     llfloateruipreview.h
     llfloaterurlentry.h
     llfloatervoiceeffect.h
@@ -919,6 +934,7 @@ set(viewer_HEADER_FILES
     llpanelmarketplaceinbox.h
     llpanelmarketplaceinboxinventory.h
     llpanelmarketplaceoutbox.h
+    llpanelmarketplaceoutboxinventory.h
     llpanelmediasettingsgeneral.h
     llpanelmediasettingspermissions.h
     llpanelmediasettingssecurity.h
@@ -991,13 +1007,10 @@ set(viewer_HEADER_FILES
     llsidepanelinventorysubpanel.h
     llsidepaneliteminfo.h
     llsidepaneltaskinfo.h
-    llsidetray.h
-    llsidetraylistener.h
     llsidetraypanelcontainer.h
     llsky.h
     llslurl.h
     llspatialpartition.h
-    llspeakbutton.h
     llspeakers.h
     llspeakingindicatormanager.h
     llsplitbutton.h
@@ -1034,6 +1047,7 @@ set(viewer_HEADER_FILES
     lltoastpanel.h
     lltoastscripttextbox.h
     lltool.h
+    lltoolbarview.h
     lltoolbrush.h
     lltoolcomp.h
     lltooldraganddrop.h
@@ -1058,6 +1072,7 @@ set(viewer_HEADER_FILES
     lluiconstants.h
     lluilistener.h
     lluploaddialog.h
+    lluploadfloaterobservers.h
     llurl.h
     llurldispatcher.h
     llurldispatcherlistener.h
@@ -1151,6 +1166,7 @@ set(viewer_HEADER_FILES
     llweb.h
     llwebsharing.h
     llwind.h
+    llwindowlistener.h
     llwlanimator.h
     llwldaycycle.h
     llwlhandlers.h
@@ -1246,6 +1262,36 @@ if (WINDOWS)
         set(viewer_SOURCE_FILES "${viewer_SOURCE_FILES}" llviewerprecompiledheaders.cpp)
     endif(USE_PRECOMPILED_HEADERS)
 
+    # Replace the icons with the appropriate ones for the channel
+    # ('test' is the default)
+    set(ICON_PATH "test")
+    string(TOLOWER ${VIEWER_CHANNEL} channel_lower)
+    if(channel_lower MATCHES "^second life release")
+        set(ICON_PATH "release")
+    elseif(channel_lower MATCHES "^second life beta viewer")
+        set(ICON_PATH "beta")
+    elseif(channel_lower MATCHES "^second life development")
+        set(ICON_PATH "development")
+    elseif(channel_lower MATCHES "project")
+        set(ICON_PATH "project")
+    endif()
+    message("Copying icons for ${ICON_PATH}")
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife.ico"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/ll_icon.ico"
+      )
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife_256.BMP"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/ll_icon.BMP"
+      )
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife_256.BMP"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res-sdl/ll_icon.BMP"
+      )
+
     # Add resource files to the project.
     # viewerRes.rc is the only buildable file, but
     # the rest are all dependencies of it.
@@ -1275,6 +1321,7 @@ if (WINDOWS)
         res/lltooltranslate.cur
         res/lltoolzoomin.cur
         res/lltoolzoomout.cur
+        res-sdl/ll_icon.BMP
         res/ll_icon.BMP
         res/ll_icon.ico
         res/resource.h
@@ -1342,11 +1389,6 @@ endif (WINDOWS)
 set(viewer_XUI_FILES
     skins/default/colors.xml
     skins/default/textures/textures.xml
-    skins/minimal/colors.xml
-    skins/minimal/textures/textures.xml
-
-
-
     )
 file(GLOB DEFAULT_XUI_FILE_GLOB_LIST
      ${CMAKE_CURRENT_SOURCE_DIR}/skins/*/xui/en/*.xml)
@@ -1373,6 +1415,7 @@ list(APPEND viewer_SOURCE_FILES ${viewer_XUI_FILES})
 set(viewer_APPSETTINGS_FILES
     app_settings/anim.ini
     app_settings/cmd_line.xml
+    app_settings/commands.xml
     app_settings/grass.xml
     app_settings/high_graphics.xml
     app_settings/ignorable_dialogs.xml
@@ -1385,8 +1428,8 @@ set(viewer_APPSETTINGS_FILES
     app_settings/settings_crash_behavior.xml
     app_settings/settings_files.xml
     app_settings/settings_per_account.xml
-    app_settings/settings_minimal.xml
     app_settings/std_bump.ini
+    app_settings/toolbars.xml
     app_settings/trees.xml
     app_settings/ultra_graphics.xml
     app_settings/viewerart.xml
@@ -1697,7 +1740,7 @@ endif (WINDOWS)
 # that they depend upon. -brad
 target_link_libraries(${VIEWER_BINARY_NAME}
     ${UPDATER_LIBRARIES}
-	${GOOGLE_PERFTOOLS_LIBRARIES}
+    ${GOOGLE_PERFTOOLS_LIBRARIES}
     ${LLAUDIO_LIBRARIES}
     ${LLCHARACTER_LIBRARIES}
     ${LLIMAGE_LIBRARIES}
@@ -1760,14 +1803,14 @@ if (LINUX)
 
   # These are the generated targets that are copied to package/
   set(COPY_INPUT_DEPENDENCIES
-	${VIEWER_BINARY_NAME}
-	linux-crash-logger
-	linux-updater
-	SLPlugin
-	media_plugin_webkit
-	media_plugin_gstreamer010
-	llcommon
-	)
+    ${VIEWER_BINARY_NAME}
+    linux-crash-logger
+    linux-updater
+    SLPlugin
+    media_plugin_webkit
+    media_plugin_gstreamer010
+    llcommon
+    )
 
   add_custom_command(
       OUTPUT ${product}.tar.bz2
@@ -1946,10 +1989,17 @@ if (LL_TESTS)
     llmediadataclient.cpp
     lllogininstance.cpp
     llremoteparcelrequest.cpp
+    lltranslate.cpp
     llviewerhelputil.cpp
     llversioninfo.cpp
     llworldmap.cpp
     llworldmipmap.cpp
+  )
+
+  set_source_files_properties(
+    lltranslate.cpp
+    PROPERTIES
+    LL_TEST_ADDITIONAL_LIBRARIES "${JSONCPP_LIBRARIES}"
   )
 
   ##################################################
@@ -2026,12 +2076,12 @@ if (LL_TESTS)
     )
 
   LL_ADD_INTEGRATION_TEST(llsimplestat
-	""
+    ""
     "${test_libs}"
     )
 
   LL_ADD_INTEGRATION_TEST(llviewerassetstats
-	llviewerassetstats.cpp
+    llviewerassetstats.cpp
     "${test_libs}"
     )
 
