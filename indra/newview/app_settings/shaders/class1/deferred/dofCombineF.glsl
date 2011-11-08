@@ -1,5 +1,5 @@
 /** 
- * @file atmosphericVarsWaterF.glsl
+ * @file dofCombineF.glsl
  *
  * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -22,29 +22,31 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
- 
-VARYING vec3 vary_PositionEye;
-VARYING vec3 vary_AdditiveColor;
-VARYING vec3 vary_AtmosAttenuation;
 
-vec3 getSunlitColor()
-{
-	return vec3(0,0,0);
-}
-vec3 getAmblitColor()
-{
-	return vec3(0,0,0);
-}
-vec3 getAdditiveColor()
-{
-	return vary_AdditiveColor;
-}
-vec3 getAtmosAttenuation()
-{
-	return vary_AtmosAttenuation;
-}
-vec3 getPositionEye()
-{
-	return vary_PositionEye;
-}
+#extension GL_ARB_texture_rectangle : enable
 
+#ifdef DEFINE_GL_FRAGCOLOR
+out vec4 gl_FragColor;
+#endif
+
+uniform sampler2DRect diffuseRect;
+uniform sampler2DRect lightMap;
+
+uniform mat4 inv_proj;
+uniform vec2 screen_res;
+
+uniform float max_cof;
+
+VARYING vec2 vary_fragcoord;
+
+void main() 
+{
+	vec2 tc = vary_fragcoord.xy;
+	
+	vec4 dof = texture2DRect(diffuseRect, vary_fragcoord.xy*0.5);
+	
+	vec4 diff = texture2DRect(lightMap, vary_fragcoord.xy);
+
+	float a = min(diff.a * max_cof*0.333, 1.0);
+	gl_FragColor = mix(diff, dof, a);
+}

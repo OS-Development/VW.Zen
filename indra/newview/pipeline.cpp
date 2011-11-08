@@ -185,6 +185,7 @@ LLVector3 LLPipeline::RenderShadowSplitExponent;
 F32 LLPipeline::RenderShadowErrorCutoff;
 F32 LLPipeline::RenderShadowFOVCutoff;
 BOOL LLPipeline::CameraOffset;
+F32 LLPipeline::CameraMaxCoF;
 
 const F32 BACKLIGHT_DAY_MAGNITUDE_AVATAR = 0.2f;
 const F32 BACKLIGHT_NIGHT_MAGNITUDE_AVATAR = 0.1f;
@@ -443,7 +444,7 @@ void LLPipeline::init()
 	sRenderBump = gSavedSettings.getBOOL("RenderObjectBump");
 	sUseTriStrips = gSavedSettings.getBOOL("RenderUseTriStrips");
 	LLVertexBuffer::sUseStreamDraw = gSavedSettings.getBOOL("RenderUseStreamVBO");
-	LLVertexBuffer::sUseStreamDraw = gSavedSettings.getBOOL("RenderUseVAO");
+	LLVertexBuffer::sUseVAO = gSavedSettings.getBOOL("RenderUseVAO");
 	LLVertexBuffer::sPreferStreamDraw = gSavedSettings.getBOOL("RenderPreferStreamDraw");
 	sRenderAttachedLights = gSavedSettings.getBOOL("RenderAttachedLights");
 	sRenderAttachedParticles = gSavedSettings.getBOOL("RenderAttachedParticles");
@@ -655,6 +656,7 @@ void LLPipeline::allocatePhysicsBuffer()
 
 void LLPipeline::allocateScreenBuffer(U32 resX, U32 resY)
 {
+	refreshCachedSettings();
 	U32 samples = gGLManager.getNumFBOFSAASamples(RenderFSAASamples);
 
 	//try to allocate screen buffers at requested resolution and samples
@@ -744,8 +746,8 @@ bool LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 samples)
 			mFXAABuffer.release();
 		}
 		
-		if (shadow_detail > 0 || ssao)
-		{ //only need mDeferredLight for shadows OR ssao
+		if (shadow_detail > 0 || ssao || RenderDepthOfField || samples > 0)
+		{ //only need mDeferredLight for shadows OR ssao OR dof OR fxaa
 			if (!mDeferredLight.allocate(resX, resY, GL_RGBA, FALSE, FALSE, LLTexUnit::TT_RECT_TEXTURE, FALSE)) return false;
 		}
 		else
@@ -926,6 +928,7 @@ void LLPipeline::refreshCachedSettings()
 	RenderShadowErrorCutoff = gSavedSettings.getF32("RenderShadowErrorCutoff");
 	RenderShadowFOVCutoff = gSavedSettings.getF32("RenderShadowFOVCutoff");
 	CameraOffset = gSavedSettings.getBOOL("CameraOffset");
+	CameraMaxCoF = gSavedSettings.getF32("CameraMaxCoF");
 }
 
 void LLPipeline::releaseGLBuffers()
@@ -4247,8 +4250,16 @@ void LLPipeline::renderDebug()
 
 	bool hud_only = hasRenderType(LLPipeline::RENDER_TYPE_HUD);
 
+	
 	if (!hud_only && !mDebugBlips.empty())
 	{ //render debug blips
+		if (LLGLSLShader::sNoFixedFunction)
+		{
+			gUIProgram.bind();
+		}
+
+		gGL.getTexUnit(0)->bind(LLViewerFetchedTexture::sWhiteImagep, true);
+
 		glPointSize(8.f);
 		LLGLDepthTest depth(GL_TRUE, GL_TRUE, GL_ALWAYS);
 
@@ -6136,7 +6147,7 @@ void LLPipeline::resetVertexBuffers()
 	sRenderBump = gSavedSettings.getBOOL("RenderObjectBump");
 	sUseTriStrips = gSavedSettings.getBOOL("RenderUseTriStrips");
 	LLVertexBuffer::sUseStreamDraw = gSavedSettings.getBOOL("RenderUseStreamVBO");
-	LLVertexBuffer::sUseStreamDraw = gSavedSettings.getBOOL("RenderUseVAO");
+	LLVertexBuffer::sUseVAO = gSavedSettings.getBOOL("RenderUseVAO");
 	LLVertexBuffer::sPreferStreamDraw = gSavedSettings.getBOOL("RenderPreferStreamDraw");
 	LLVertexBuffer::sEnableVBOs = gSavedSettings.getBOOL("RenderVBOEnable");
 	LLVertexBuffer::sDisableVBOMapping = LLVertexBuffer::sEnableVBOs && gSavedSettings.getBOOL("RenderVBOMappingDisable") ;
@@ -6414,209 +6425,235 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 		multisample = false;
 #endif
 
-		if (multisample)
-		{
-			//bake out texture2D with RGBL for FXAA shader
-			mFXAABuffer.bindTarget();
-			
-			S32 width = mScreen.getWidth();
-			S32 height = mScreen.getHeight();
-			glViewport(0, 0, width, height);
-
-			gGlowCombineFXAAProgram.bind();
-			gGlowCombineFXAAProgram.uniform2f(LLShaderMgr::DEFERRED_SCREEN_RES, width, height);
-
-			gGL.getTexUnit(0)->bind(&mGlow[1]);
-			gGL.getTexUnit(1)->bind(&mScreen);
-
-			gGL.begin(LLRender::TRIANGLE_STRIP);
-			gGL.vertex2f(-1,-1);
-			gGL.vertex2f(-1,3);
-			gGL.vertex2f(3,-1);
-			gGL.end();
-
-			gGL.flush();
-
-			gGlowCombineFXAAProgram.unbind();
-			mFXAABuffer.flush();
-
-			if (dof_enabled)
-			{ //if depth of field is not enabled, this is the final pass (draw to window)
-				mScreen.bindTarget();
-			}
-			LLGLSLShader* shader = &gFXAAProgram;
-			shader->bind();
-
-			S32 channel = shader->enableTexture(LLShaderMgr::DIFFUSE_MAP, mFXAABuffer.getUsage());
-			if (channel > -1)
-			{
-				mFXAABuffer.bindTexture(0, channel);
-				gGL.getTexUnit(channel)->setTextureFilteringOption(LLTexUnit::TFO_BILINEAR);
-			}
-
-			
-			F32 scale_x = (F32) width/mFXAABuffer.getWidth();
-			F32 scale_y = (F32) height/mFXAABuffer.getHeight();
-			shader->uniform2f(LLShaderMgr::FXAA_TC_SCALE, scale_x, scale_y);
-			shader->uniform2f(LLShaderMgr::FXAA_RCP_SCREEN_RES, 1.f/width*scale_x, 1.f/height*scale_y);
-			shader->uniform4f(LLShaderMgr::FXAA_RCP_FRAME_OPT, -0.5f/width*scale_x, -0.5f/height*scale_y, 0.5f/width*scale_x, 0.5f/height*scale_y);
-			shader->uniform4f(LLShaderMgr::FXAA_RCP_FRAME_OPT2, -2.f/width*scale_x, -2.f/height*scale_y, 2.f/width*scale_x, 2.f/height*scale_y);
-
-			gGL.begin(LLRender::TRIANGLE_STRIP);
-			gGL.vertex2f(-1,-1);
-			gGL.vertex2f(-1,3);
-			gGL.vertex2f(3,-1);
-			gGL.end();
-
-			gGL.flush();
-			if (dof_enabled)
-			{
-				mScreen.flush();
-			}
-			shader->unbind();
-		}
-
 		gViewerWindow->setup3DViewport();
 				
-		if (dof_enabled || !multisample)
+		if (dof_enabled)
 		{
 			LLGLSLShader* shader = &gDeferredPostProgram;
-			if (!dof_enabled)
-			{ 
-				shader = &gDeferredPostNoDoFProgram;
-			}
-				
 			LLGLDisable blend(GL_BLEND);
-			bindDeferredShader(*shader);
 
-			if (dof_enabled)
-			{
-				//depth of field focal plane calculations
+			//depth of field focal plane calculations
+			static F32 current_distance = 16.f;
+			static F32 start_distance = 16.f;
+			static F32 transition_time = 1.f;
 
-				static F32 current_distance = 16.f;
-				static F32 start_distance = 16.f;
-				static F32 transition_time = 1.f;
+			LLVector3 focus_point;
 
-				LLVector3 focus_point;
-
-				LLViewerObject* obj = LLViewerMediaFocus::getInstance()->getFocusedObject();
-				if (obj && obj->mDrawable && obj->isSelected())
-				{ //focus on selected media object
-					S32 face_idx = LLViewerMediaFocus::getInstance()->getFocusedFace();
-					if (obj && obj->mDrawable)
+			LLViewerObject* obj = LLViewerMediaFocus::getInstance()->getFocusedObject();
+			if (obj && obj->mDrawable && obj->isSelected())
+			{ //focus on selected media object
+				S32 face_idx = LLViewerMediaFocus::getInstance()->getFocusedFace();
+				if (obj && obj->mDrawable)
+				{
+					LLFace* face = obj->mDrawable->getFace(face_idx);
+					if (face)
 					{
-						LLFace* face = obj->mDrawable->getFace(face_idx);
-						if (face)
-						{
-							focus_point = face->getPositionAgent();
-						}
+						focus_point = face->getPositionAgent();
 					}
 				}
+			}
 		
-				if (focus_point.isExactlyZero())
-				{
-					if (LLViewerJoystick::getInstance()->getOverrideCamera())
-					{ //focus on point under cursor
-						focus_point = gDebugRaycastIntersection;
-					}
-					else if (gAgentCamera.cameraMouselook())
-					{ //focus on point under mouselook crosshairs
-						gViewerWindow->cursorIntersect(-1, -1, 512.f, NULL, -1, FALSE,
-													  NULL,
-													  &focus_point);
-					}
-					else
-					{
-						LLViewerObject* obj = gAgentCamera.getFocusObject();
-						if (obj)
-						{ //focus on alt-zoom target
-							focus_point = LLVector3(gAgentCamera.getFocusGlobal()-gAgent.getRegion()->getOriginGlobal());
-						}
-						else
-						{ //focus on your avatar
-							focus_point = gAgent.getPositionAgent();
-						}
-					}
+			if (focus_point.isExactlyZero())
+			{
+				if (LLViewerJoystick::getInstance()->getOverrideCamera())
+				{ //focus on point under cursor
+					focus_point = gDebugRaycastIntersection;
 				}
-
-				LLVector3 eye = LLViewerCamera::getInstance()->getOrigin();
-				F32 target_distance = 16.f;
-				if (!focus_point.isExactlyZero())
-				{
-					target_distance = LLViewerCamera::getInstance()->getAtAxis() * (focus_point-eye);
-				}
-
-				if (transition_time >= 1.f &&
-					fabsf(current_distance-target_distance)/current_distance > 0.01f)
-				{ //large shift happened, interpolate smoothly to new target distance
-					transition_time = 0.f;
-					start_distance = current_distance;
-				}
-				else if (transition_time < 1.f)
-				{ //currently in a transition, continue interpolating
-					transition_time += 1.f/CameraFocusTransitionTime*gFrameIntervalSeconds;
-					transition_time = llmin(transition_time, 1.f);
-
-					F32 t = cosf(transition_time*F_PI+F_PI)*0.5f+0.5f;
-					current_distance = start_distance + (target_distance-start_distance)*t;
+				else if (gAgentCamera.cameraMouselook())
+				{ //focus on point under mouselook crosshairs
+					gViewerWindow->cursorIntersect(-1, -1, 512.f, NULL, -1, FALSE,
+													NULL,
+													&focus_point);
 				}
 				else
-				{ //small or no change, just snap to target distance
-					current_distance = target_distance;
+				{
+					LLViewerObject* obj = gAgentCamera.getFocusObject();
+					if (obj)
+					{ //focus on alt-zoom target
+						focus_point = LLVector3(gAgentCamera.getFocusGlobal()-gAgent.getRegion()->getOriginGlobal());
+					}
+					else
+					{ //focus on your avatar
+						focus_point = gAgent.getPositionAgent();
+					}
 				}
+			}
 
-				//convert to mm
-				F32 subject_distance = current_distance*1000.f;
-				F32 fnumber = CameraFNumber;
-				F32 default_focal_length = CameraFocalLength;
+			LLVector3 eye = LLViewerCamera::getInstance()->getOrigin();
+			F32 target_distance = 16.f;
+			if (!focus_point.isExactlyZero())
+			{
+				target_distance = LLViewerCamera::getInstance()->getAtAxis() * (focus_point-eye);
+			}
 
-				F32 fov = LLViewerCamera::getInstance()->getView();
-		
-				const F32 default_fov = CameraFieldOfView * F_PI/180.f;
-				//const F32 default_aspect_ratio = gSavedSettings.getF32("CameraAspectRatio");
-		
-				//F32 aspect_ratio = (F32) mScreen.getWidth()/(F32)mScreen.getHeight();
-		
-				F32 dv = 2.f*default_focal_length * tanf(default_fov/2.f);
-				//F32 dh = 2.f*default_focal_length * tanf(default_fov*default_aspect_ratio/2.f);
+			if (transition_time >= 1.f &&
+				fabsf(current_distance-target_distance)/current_distance > 0.01f)
+			{ //large shift happened, interpolate smoothly to new target distance
+				transition_time = 0.f;
+				start_distance = current_distance;
+			}
+			else if (transition_time < 1.f)
+			{ //currently in a transition, continue interpolating
+				transition_time += 1.f/CameraFocusTransitionTime*gFrameIntervalSeconds;
+				transition_time = llmin(transition_time, 1.f);
 
-				F32 focal_length = dv/(2*tanf(fov/2.f));
+				F32 t = cosf(transition_time*F_PI+F_PI)*0.5f+0.5f;
+				current_distance = start_distance + (target_distance-start_distance)*t;
+			}
+			else
+			{ //small or no change, just snap to target distance
+				current_distance = target_distance;
+			}
+
+			//convert to mm
+			F32 subject_distance = current_distance*1000.f;
+			F32 fnumber = CameraFNumber;
+			F32 default_focal_length = CameraFocalLength;
+
+			F32 fov = LLViewerCamera::getInstance()->getView();
+		
+			const F32 default_fov = CameraFieldOfView * F_PI/180.f;
+			//const F32 default_aspect_ratio = gSavedSettings.getF32("CameraAspectRatio");
+		
+			//F32 aspect_ratio = (F32) mScreen.getWidth()/(F32)mScreen.getHeight();
+		
+			F32 dv = 2.f*default_focal_length * tanf(default_fov/2.f);
+			//F32 dh = 2.f*default_focal_length * tanf(default_fov*default_aspect_ratio/2.f);
+
+			F32 focal_length = dv/(2*tanf(fov/2.f));
 		 
-				//F32 tan_pixel_angle = tanf(LLDrawable::sCurPixelAngle);
+			//F32 tan_pixel_angle = tanf(LLDrawable::sCurPixelAngle);
 	
-				// from wikipedia -- c = |s2-s1|/s2 * f^2/(N(S1-f))
-				// where	 N = fnumber
-				//			 s2 = dot distance
-				//			 s1 = subject distance
-				//			 f = focal length
-				//	
+			// from wikipedia -- c = |s2-s1|/s2 * f^2/(N(S1-f))
+			// where	 N = fnumber
+			//			 s2 = dot distance
+			//			 s1 = subject distance
+			//			 f = focal length
+			//	
 
-				F32 blur_constant = focal_length*focal_length/(fnumber*(subject_distance-focal_length));
-				blur_constant /= 1000.f; //convert to meters for shader
-				F32 magnification = focal_length/(subject_distance-focal_length);
+			F32 blur_constant = focal_length*focal_length/(fnumber*(subject_distance-focal_length));
+			blur_constant /= 1000.f; //convert to meters for shader
+			F32 magnification = focal_length/(subject_distance-focal_length);
+
+			{ //build diffuse+bloom+CoF
+				mDeferredLight.bindTarget();
+				shader = &gDeferredCoFProgram;
+
+				bindDeferredShader(*shader);
+
+				S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mScreen.getUsage());
+				if (channel > -1)
+				{
+					mScreen.bindTexture(0, channel);
+				}
 
 				shader->uniform1f(LLShaderMgr::DOF_FOCAL_DISTANCE, -subject_distance/1000.f);
 				shader->uniform1f(LLShaderMgr::DOF_BLUR_CONSTANT, blur_constant);
 				shader->uniform1f(LLShaderMgr::DOF_TAN_PIXEL_ANGLE, tanf(1.f/LLDrawable::sCurPixelAngle));
 				shader->uniform1f(LLShaderMgr::DOF_MAGNIFICATION, magnification);
+				shader->uniform1f(LLShaderMgr::DOF_MAX_COF, CameraMaxCoF);
+
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
+				gGL.vertex2f(-1,-1);
+		
+				gGL.texCoord2f(tc1.mV[0], tc2.mV[1]);
+				gGL.vertex2f(-1,3);
+		
+				gGL.texCoord2f(tc2.mV[0], tc1.mV[1]);
+				gGL.vertex2f(3,-1);
+		
+				gGL.end();
+
+				unbindDeferredShader(*shader);
+				mDeferredLight.flush();
 			}
 
+			{ //perform DoF sampling at half-res (preserve alpha channel)
+				mScreen.bindTarget();
+				glViewport(0,0,mScreen.getWidth()/2, mScreen.getHeight()/2);
+				gGL.setColorMask(true, false);
+
+				shader = &gDeferredPostProgram;
+				bindDeferredShader(*shader);
+				S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mDeferredLight.getUsage());
+				if (channel > -1)
+				{
+					mDeferredLight.bindTexture(0, channel);
+				}
+
+				shader->uniform1f(LLShaderMgr::DOF_MAX_COF, CameraMaxCoF);
+
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
+				gGL.vertex2f(-1,-1);
+		
+				gGL.texCoord2f(tc1.mV[0], tc2.mV[1]);
+				gGL.vertex2f(-1,3);
+		
+				gGL.texCoord2f(tc2.mV[0], tc1.mV[1]);
+				gGL.vertex2f(3,-1);
+		
+				gGL.end();
+
+				unbindDeferredShader(*shader);
+				mScreen.flush();
+				gGL.setColorMask(true, true);
+			}
+	
+			{ //combine result based on alpha
+				if (multisample)
+				{
+					mDeferredLight.bindTarget();
+				}
+
+				shader = &gDeferredDoFCombineProgram;
+				bindDeferredShader(*shader);
+				glViewport(0, 0, mDeferredScreen.getWidth(), mDeferredScreen.getHeight());
+				S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mScreen.getUsage());
+				if (channel > -1)
+				{
+					mScreen.bindTexture(0, channel);
+				}
+
+				shader->uniform1f(LLShaderMgr::DOF_MAX_COF, CameraMaxCoF);
+
+				gGL.begin(LLRender::TRIANGLE_STRIP);
+				gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
+				gGL.vertex2f(-1,-1);
+		
+				gGL.texCoord2f(tc1.mV[0], tc2.mV[1]);
+				gGL.vertex2f(-1,3);
+		
+				gGL.texCoord2f(tc2.mV[0], tc1.mV[1]);
+				gGL.vertex2f(3,-1);
+		
+				gGL.end();
+
+				unbindDeferredShader(*shader);
+
+				if (multisample)
+				{
+					mDeferredLight.flush();
+				}
+			}
+		}
+		else
+		{
+			if (multisample)
+			{
+				mDeferredLight.bindTarget();
+			}
+			LLGLSLShader* shader = &gDeferredPostNoDoFProgram;
+			
+			bindDeferredShader(*shader);
+							
 			S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mScreen.getUsage());
 			if (channel > -1)
 			{
 				mScreen.bindTexture(0, channel);
 			}
 
-			if (multisample)
-			{ //bloom has already been added, bind black
-				channel = shader->enableTexture(LLShaderMgr::DEFERRED_BLOOM);
-				if (channel > -1)
-				{
-					gGL.getTexUnit(0)->bind(LLViewerFetchedTexture::sBlackImagep);
-				}
-			}
-
-	
 			gGL.begin(LLRender::TRIANGLE_STRIP);
 			gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
 			gGL.vertex2f(-1,-1);
@@ -6630,6 +6667,71 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 			gGL.end();
 
 			unbindDeferredShader(*shader);
+
+			if (multisample)
+			{
+				mDeferredLight.flush();
+			}
+		}
+
+		if (multisample)
+		{
+			//bake out texture2D with RGBL for FXAA shader
+			mFXAABuffer.bindTarget();
+			
+			S32 width = mScreen.getWidth();
+			S32 height = mScreen.getHeight();
+			glViewport(0, 0, width, height);
+
+			LLGLSLShader* shader = &gGlowCombineFXAAProgram;
+
+			shader->bind();
+			shader->uniform2f(LLShaderMgr::DEFERRED_SCREEN_RES, width, height);
+
+			S32 channel = shader->enableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mDeferredLight.getUsage());
+			if (channel > -1)
+			{
+				mDeferredLight.bindTexture(0, channel);
+			}
+						
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex2f(-1,-1);
+			gGL.vertex2f(-1,3);
+			gGL.vertex2f(3,-1);
+			gGL.end();
+
+			gGL.flush();
+
+			shader->disableTexture(LLShaderMgr::DEFERRED_DIFFUSE, mDeferredLight.getUsage());
+			shader->unbind();
+			
+			mFXAABuffer.flush();
+
+			shader = &gFXAAProgram;
+			shader->bind();
+
+			channel = shader->enableTexture(LLShaderMgr::DIFFUSE_MAP, mFXAABuffer.getUsage());
+			if (channel > -1)
+			{
+				mFXAABuffer.bindTexture(0, channel);
+				gGL.getTexUnit(channel)->setTextureFilteringOption(LLTexUnit::TFO_BILINEAR);
+			}
+						
+			F32 scale_x = (F32) width/mFXAABuffer.getWidth();
+			F32 scale_y = (F32) height/mFXAABuffer.getHeight();
+			shader->uniform2f(LLShaderMgr::FXAA_TC_SCALE, scale_x, scale_y);
+			shader->uniform2f(LLShaderMgr::FXAA_RCP_SCREEN_RES, 1.f/width*scale_x, 1.f/height*scale_y);
+			shader->uniform4f(LLShaderMgr::FXAA_RCP_FRAME_OPT, -0.5f/width*scale_x, -0.5f/height*scale_y, 0.5f/width*scale_x, 0.5f/height*scale_y);
+			shader->uniform4f(LLShaderMgr::FXAA_RCP_FRAME_OPT2, -2.f/width*scale_x, -2.f/height*scale_y, 2.f/width*scale_x, 2.f/height*scale_y);
+			
+			gGL.begin(LLRender::TRIANGLE_STRIP);
+			gGL.vertex2f(-1,-1);
+			gGL.vertex2f(-1,3);
+			gGL.vertex2f(3,-1);
+			gGL.end();
+
+			gGL.flush();
+			shader->unbind();
 		}
 	}
 	else
