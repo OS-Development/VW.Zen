@@ -50,6 +50,7 @@
 #include "llvoavatar.h"
 #include "llvoavatarself.h"
 #include "llviewerregion.h"
+#include "llwebprofile.h"
 #include "llwebsharing.h"	// For LLWebSharing::setOpenIDCookie(), *TODO: find a better way to do this!
 #include "llfilepicker.h"
 #include "llnotifications.h"
@@ -319,6 +320,10 @@ public:
 		std::string cookie = content["set-cookie"].asString();
 
 		LLViewerMedia::getCookieStore()->setCookiesFromHost(cookie, mHost);
+
+		// Set cookie for snapshot publishing.
+		std::string auth_cookie = cookie.substr(0, cookie.find(";")); // strip path
+		LLWebProfile::setAuthCookie(auth_cookie);
 	}
 
 	 void completedRaw(
@@ -1484,6 +1489,8 @@ void LLViewerMedia::setOpenIDCookie()
 		std::string profile_url = getProfileURL("");
 		LLURL raw_profile_url( profile_url.c_str() );
 
+		LL_DEBUGS("MediaAuth") << "Requesting " << profile_url << llendl;
+		LL_DEBUGS("MediaAuth") << "sOpenIDCookie = [" << sOpenIDCookie << "]" << llendl;
 		LLHTTPClient::get(profile_url,  
 			new LLViewerMediaWebProfileResponder(raw_profile_url.getAuthority()),
 			headers);
@@ -1716,7 +1723,8 @@ LLViewerMediaImpl::LLViewerMediaImpl(	  const LLUUID& texture_id,
 	mNavigateSuspended(false),
 	mNavigateSuspendedDeferred(false),
 	mIsUpdated(false),
-	mTrustedBrowser(false)
+	mTrustedBrowser(false),
+	mZoomFactor(1.0)
 { 
 
 	// Set up the mute list observer if it hasn't been set up already.
@@ -2299,6 +2307,17 @@ void LLViewerMediaImpl::clearCache()
 	else
 	{
 		mClearCache = true;
+	}
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void LLViewerMediaImpl::setPageZoomFactor( double factor )
+{
+	if(mMediaSource && factor != mZoomFactor)
+	{
+		mZoomFactor = factor;
+		mMediaSource->set_page_zoom_factor( factor );
 	}
 }
 
