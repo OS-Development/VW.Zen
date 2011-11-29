@@ -1893,6 +1893,17 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>DebugHideEmptySystemFolders</key>
+    <map>
+      <key>Comment</key>
+      <string>Hide empty system folders when on</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>DebugInventoryFilters</key>
     <map>
       <key>Comment</key>
@@ -12277,7 +12288,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <boolean>1</boolean>
     </map>
     <key>UseFreezeFrame</key>
     <map>
@@ -12927,6 +12938,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>MinWindowHeight</key>
+    <map>
+      <key>Comment</key>
+      <string>SL viewer minimum window height in pixels</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
+      <key>Value</key>
+      <integer>600</integer>
+    </map>
     <key>WindowHeight</key>
     <map>
       <key>Comment</key>
@@ -12934,7 +12956,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>S32</string>
+      <string>U32</string>
       <key>Value</key>
       <integer>738</integer>
     </map>
@@ -12949,6 +12971,17 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
+    <key>MinWindowWidth</key>
+    <map>
+      <key>Comment</key>
+      <string>SL viewer minimum window width in pixels</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>U32</string>
+      <key>Value</key>
+      <integer>960</integer>
+    </map>
     <key>WindowWidth</key>
     <map>
       <key>Comment</key>
@@ -12956,7 +12989,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>S32</string>
+      <string>U32</string>
       <key>Value</key>
       <integer>1024</integer>
     </map>
