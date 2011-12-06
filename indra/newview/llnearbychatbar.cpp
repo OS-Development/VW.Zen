@@ -47,6 +47,7 @@
 #include "llviewerwindow.h"
 #include "llrootview.h"
 #include "llviewerchat.h"
+#include "llnearbychat.h"
 
 #include "llresizehandle.h"
 
@@ -147,12 +148,12 @@ LLNearbyChatBar* LLNearbyChatBar::getInstance()
 
 void LLNearbyChatBar::showHistory()
 {
+	openFloater();
+
 	if (!getChildView("nearby_chat")->getVisible())
 	{
 		onToggleNearbyChatPanel();
 	}
-	
-	openFloater();
 }
 
 void LLNearbyChatBar::draw()
@@ -379,7 +380,10 @@ void LLNearbyChatBar::onToggleNearbyChatPanel()
 
 	if (nearby_chat->getVisible())
 	{
-		mExpandedHeight = getRect().getHeight();
+		if (!isMinimized())
+		{
+			mExpandedHeight = getRect().getHeight();
+		}
 		setResizeLimits(getMinWidth(), COLLAPSED_HEIGHT);
 		nearby_chat->setVisible(FALSE);
 		reshape(getRect().getWidth(), COLLAPSED_HEIGHT);
@@ -394,6 +398,17 @@ void LLNearbyChatBar::onToggleNearbyChatPanel()
 		enableResizeCtrls(true);
 		storeRectControl();
 	}
+}
+
+void LLNearbyChatBar::setMinimized(BOOL b)
+{
+	LLNearbyChat* nearby_chat = getChild<LLNearbyChat>("nearby_chat");
+	// when unminimizing with nearby chat visible, go ahead and kill off screen chats
+	if (!b && nearby_chat->getVisible())
+	{
+		nearby_chat->removeScreenChat();
+	}
+		LLFloater::setMinimized(b);
 }
 
 void LLNearbyChatBar::onChatBoxCommit()
