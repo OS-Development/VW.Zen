@@ -207,7 +207,6 @@ set(viewer_SOURCE_FILES
     llfloaterland.cpp
     llfloaterlandholdings.cpp
     llfloatermap.cpp
-    llfloatermediabrowser.cpp
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
     llfloatermodelpreview.cpp
@@ -245,6 +244,7 @@ set(viewer_SOURCE_FILES
     llfloaterurlentry.cpp
     llfloatervoiceeffect.cpp
     llfloaterwebcontent.cpp
+    llfloaterwebprofile.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindowsize.cpp
     llfloaterworldmap.cpp
@@ -317,7 +317,6 @@ set(viewer_SOURCE_FILES
     llmediactrl.cpp
     llmediadataclient.cpp
     llmemoryview.cpp
-    llmenucommands.cpp
     llmeshrepository.cpp
     llmimetypes.cpp
     llmorphview.cpp
@@ -394,7 +393,6 @@ set(viewer_SOURCE_FILES
     llpanelplacestab.cpp
     llpanelprimmediacontrols.cpp
     llpanelprofile.cpp
-    llpanelprofileview.cpp
     llpanelsnapshot.cpp
     llpanelsnapshotinventory.cpp
     llpanelsnapshotlocal.cpp
@@ -546,9 +544,6 @@ set(viewer_SOURCE_FILES
     llviewerjoint.cpp
     llviewerjointattachment.cpp
     llviewerjointmesh.cpp
-    llviewerjointmesh_sse.cpp
-    llviewerjointmesh_sse2.cpp
-    llviewerjointmesh_vec.cpp
     llviewerjoystick.cpp
     llviewerkeyboard.cpp
     llviewerlayer.cpp
@@ -596,7 +591,6 @@ set(viewer_SOURCE_FILES
     llvopartgroup.cpp
     llvosky.cpp
     llvosurfacepatch.cpp
-    llvotextbubble.cpp
     llvotree.cpp
     llvovolume.cpp
     llvowater.cpp
@@ -631,20 +625,6 @@ set(viewer_SOURCE_FILES
 
 set(VIEWER_BINARY_NAME "secondlife-bin" CACHE STRING
     "The name of the viewer executable to create.")
-
-if (LINUX)
-  # We can't set these flags for Darwin, because they get passed to
-  # the PPC compiler.  Ugh.
-
-  set_source_files_properties(
-      llviewerjointmesh_sse.cpp
-      PROPERTIES COMPILE_FLAGS "-msse -mfpmath=sse"
-      )
-  set_source_files_properties(
-      llviewerjointmesh_sse2.cpp
-      PROPERTIES COMPILE_FLAGS "-msse2 -mfpmath=sse"
-      )
-endif (LINUX)
 
 set(viewer_HEADER_FILES
     CMakeLists.txt
@@ -781,7 +761,6 @@ set(viewer_HEADER_FILES
     llfloaterland.h
     llfloaterlandholdings.h
     llfloatermap.h
-    llfloatermediabrowser.h
     llfloatermediasettings.h
     llfloatermemleak.h
     llfloatermodelpreview.h
@@ -819,6 +798,7 @@ set(viewer_HEADER_FILES
     llfloaterurlentry.h
     llfloatervoiceeffect.h
     llfloaterwebcontent.h
+    llfloaterwebprofile.h
     llfloaterwhitelistentry.h
     llfloaterwindowsize.h
     llfloaterworldmap.h
@@ -891,7 +871,6 @@ set(viewer_HEADER_FILES
     llmediactrl.h
     llmediadataclient.h
     llmemoryview.h
-    llmenucommands.h
     llmeshrepository.h
     llmimetypes.h
     llmorphview.h
@@ -962,7 +941,6 @@ set(viewer_HEADER_FILES
     llpanelplacestab.h
     llpanelprimmediacontrols.h
     llpanelprofile.h
-    llpanelprofileview.h
     llpanelsnapshot.h
     llpanelteleporthistory.h
     llpaneltiptoast.h
@@ -1158,7 +1136,6 @@ set(viewer_HEADER_FILES
     llvopartgroup.h
     llvosky.h
     llvosurfacepatch.h
-    llvotextbubble.h
     llvotree.h
     llvotreenew.h
     llvovolume.h
