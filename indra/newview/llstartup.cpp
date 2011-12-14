@@ -1907,6 +1907,17 @@ bool idle_startup()
 
 		gRenderStartTime.reset();
 		gForegroundTime.reset();
+		
+		if (gSavedSettings.getBOOL("FetchInventoryOnLogin")
+#ifdef LL_RRINTERFACE_H //MK
+			|| gRRenabled
+#endif //mk
+			)
+		{
+			// Fetch inventory in the background
+			LLInventoryModelBackgroundFetch::instance().start();
+		}
+
 
 		// HACK: Inform simulator of window size.
 		// Do this here so it's less likely to race with RegisterNewAgent.
