@@ -131,8 +131,7 @@ public:
 	/*virtual*/	const LLMatrix4	getRenderMatrix() const;
 				typedef std::map<LLUUID, S32> texture_cost_t;
 				U32 	getRenderCost(texture_cost_t &textures) const;
-				F32		getStreamingCost(S32* bytes, S32* visible_bytes, F32* unscaled_value) const;
-	/*virtual*/	F32		getStreamingCost(S32* bytes = NULL, S32* visible_bytes = NULL) { return getStreamingCost(bytes, visible_bytes, NULL); }
+	/*virtual*/	F32		getStreamingCost(S32* bytes = NULL, S32* visible_bytes = NULL, F32* unscaled_value = NULL) const;
 
 	/*virtual*/ U32		getTriangleCount(S32* vcount = NULL) const;
 	/*virtual*/ U32		getHighLODTriangleCount();
@@ -217,6 +216,8 @@ public:
 				void	preRebuild();
 	virtual		void	updateSpatialExtents(LLVector4a& min, LLVector4a& max);
 	virtual		F32		getBinRadius();
+	
+	void setSculptChanged(BOOL has_changed) { mSculptChanged = has_changed; mFaceMappingChanged = has_changed; mVolumeChanged = has_changed; }
 	
 	virtual U32 getPartitionType() const;
 
