@@ -2,6 +2,17 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>TemporaryUpload</key>
+    <map>
+      <key>Comment</key>
+      <string>Temporary texture upload flag (volatile)</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
 	<key>CrashHostUrl</key>
     <map>
       <key>Comment</key>
@@ -1562,6 +1573,17 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>ChatVisible</key>
+    <map>
+      <key>Comment</key>
+      <string>Chat bar is visible</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
     <key>ChatWindow</key>
     <map>
       <key>Comment</key>
@@ -1891,17 +1913,6 @@
       <integer>1</integer>
       <key>Type</key>
       <string>S32</string>
-      <key>Value</key>
-      <integer>1</integer>
-    </map>
-    <key>DebugHideEmptySystemFolders</key>
-    <map>
-      <key>Comment</key>
-      <string>Hide empty system folders when on</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
     </map>
@@ -7858,6 +7869,18 @@
     <integer>0</integer>
   </map>
 
+  <key>RenderAnimateTrees</key>
+  <map>
+    <key>Comment</key>
+    <string>Use GL matrix ops to animate tree branches.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+  </map>
+  
   <key>RenderMinimumLODTriangleCount</key>
   <map>
     <key>Comment</key>
@@ -10367,6 +10390,39 @@
       <key>Value</key>
       <integer>0</integer>
     </map>  
+    <key>SnapshotLocalLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next local snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>SnapshotProfileLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next profile snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>SnapshotPostcardLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next postcard snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>SnapshotQuality</key>
     <map>
       <key>Comment</key>
@@ -10399,6 +10455,17 @@
       <string>String</string>
       <key>Value</key>
       <string>http://photos.apps.staging.avatarsunited.com/viewer_config</string>
+    </map>
+    <key>SnapshotTextureLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next texture snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>SpeedTest</key>
     <map>
@@ -12014,7 +12081,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <boolean>1</boolean>
+      <integer>1</integer>
     </map>
     <key>UseFreezeFrame</key>
     <map>
@@ -12620,17 +12687,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>MinWindowHeight</key>
-    <map>
-      <key>Comment</key>
-      <string>SL viewer minimum window height in pixels</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>U32</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
     <key>WindowHeight</key>
     <map>
       <key>Comment</key>
@@ -12638,7 +12694,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>U32</string>
+      <string>S32</string>
       <key>Value</key>
       <integer>738</integer>
     </map>
@@ -12653,17 +12709,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>MinWindowWidth</key>
-    <map>
-      <key>Comment</key>
-      <string>SL viewer minimum window width in pixels</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>U32</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
     <key>WindowWidth</key>
     <map>
       <key>Comment</key>
@@ -12671,7 +12716,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>U32</string>
+      <string>S32</string>
       <key>Value</key>
       <integer>1024</integer>
     </map>
@@ -13368,10 +13413,10 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
-     <key>WebProfileFloaterRect</key>
+     <key>WebProfileRect</key>
     <map>
       <key>Comment</key>
-      <string>Web profile floater dimensions</string>
+      <string>Web profile dimensions</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -13379,8 +13424,8 @@
       <key>Value</key>
       <array>
         <integer>0</integer>
-        <integer>680</integer>
-        <integer>485</integer>
+        <integer>650</integer>
+        <integer>490</integer>
         <integer>0</integer>
         </array>
         </map>
