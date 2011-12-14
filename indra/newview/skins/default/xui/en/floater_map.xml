@@ -1,53 +1,81 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+
+
 <floater
- open_positioning="cascading"
- can_minimize="true" 
- can_resize="true"
- chrome="true"
- height="200"
- layout="topleft"
- min_height="128"
- min_width="128"
- name="Map"
- title="MINI-MAP"
- help_topic="map"
- save_rect="true"
- save_visibility="true"
- width="200">
-    <floater.string
-     name="ToolTipMsg">
-        [REGION](Double-click to open Map, shift-drag to pan)
-    </floater.string>
-	<floater.string
-     name="AltToolTipMsg">
-		[REGION](Double-click to teleport, shift-drag to pan)
-	</floater.string>
-	<floater.string name="mini_map_caption">
-	Mini-map
-    </floater.string>
-    <net_map
-     follows="top|left|bottom|right"
-     layout="topleft"
-     left="0"
-     mouse_opaque="false"
-     name="Net Map"
-     width="200"
-     height="200"
-     top="0"/>
-    <text
-     type="string"
-     length="1"
-     bottom="218"
-     label="N"
-     layout="topleft"
-     left="0"
-     name="floater_map_north"
-     right="10"
-     text_color="1 1 1 0.7"
-     top="189">
-        N
-    </text>
-    <text
+legacy_header_height="0"
+header_height="0"
+open_positioning="cascading"
+can_minimize="true" 
+can_resize="true"
+chrome="false"
+follows="top|right"
+height="200"
+layout="topleft"
+min_height="128"
+min_width="128"
+save_rect="true"
+save_visibility="true"
+width="200">
+    
+<floater.string name="ToolTipMsg">
+        
+[REGION](Double-click to open Map, shift-drag to pan)
+    
+</floater.string>
+	
+
+<floater.string name="AltToolTipMsg">
+		
+[REGION](Double-click to teleport, shift-drag to pan)
+	
+</floater.string>
+	
+
+<floater.string 
+name="mini_map_caption">
+	
+  
+</floater.string>
+    
+
+<net_map
+follows="top|left|bottom|right"
+layout="topleft"
+left="0"
+mouse_opaque="false"
+name="Net Map"
+width="200"
+height="200"
+top="0"/>
+    
+<text
+     
+type="string"
+     
+length="1"
+     
+bottom="218"
+     
+label="N"
+     
+layout="topleft"
+     
+left="0"
+     
+name="floater_map_north"
+     
+right="10"
+     
+text_color="1 1 1 0.7"
+     
+top="189">
+        
+N
+    
+</text>
+    
+
+<text
      type="string"
      length="1"
      bottom="218"
