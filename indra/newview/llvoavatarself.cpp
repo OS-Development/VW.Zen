@@ -56,6 +56,8 @@
 #include "llviewerstats.h"
 #include "llviewerregion.h"
 #include "llappearancemgr.h"
+#include "piemenu.h"
+#include "pieslice.h"
 #include "llmeshrepository.h"
 #include "llvovolume.h"
 
@@ -296,12 +298,77 @@ BOOL LLVOAvatarSelf::buildMenus()
 	params.label(LLTrans::getString("BodyPartsRightLeg"));
 	params.name(params.label);
 	gDetachBodyPartPieMenus[7] = LLUICtrlFactory::create<LLContextMenu> (params);
+	
+	//-------------------------------------------------------------------------
+
+	// build the attach and detach pie menus
+
+	//-------------------------------------------------------------------------
+
+	gPieAttachBodyPartMenus[0] = NULL;
+
+	PieMenu::Params pieParams;
+	pieParams.label(LLTrans::getString("BodyPartsRightArm"));
+	pieParams.name(pieParams.label);
+	pieParams.visible(false);
+	gPieAttachBodyPartMenus[1] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsHead"));
+	pieParams.name(pieParams.label);
+	gPieAttachBodyPartMenus[2] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsLeftArm"));
+	pieParams.name(pieParams.label);
+	gPieAttachBodyPartMenus[3] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	gPieAttachBodyPartMenus[4] = NULL;
+
+	pieParams.label(LLTrans::getString("BodyPartsLeftLeg"));
+	pieParams.name(pieParams.label);
+	gPieAttachBodyPartMenus[5] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsTorso"));
+	pieParams.name(pieParams.label);
+	gPieAttachBodyPartMenus[6] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsRightLeg"));
+	pieParams.name(pieParams.label);
+	gPieAttachBodyPartMenus[7] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	gPieDetachBodyPartMenus[0] = NULL;
+
+	pieParams.label(LLTrans::getString("BodyPartsRightArm"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[1] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsHead"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[2] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsLeftArm"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[3] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	gPieDetachBodyPartMenus[4] = NULL;
+
+	pieParams.label(LLTrans::getString("BodyPartsLeftLeg"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[5] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsTorso"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[6] = LLUICtrlFactory::create<PieMenu> (pieParams);
+
+	pieParams.label(LLTrans::getString("BodyPartsRightLeg"));
+	pieParams.name(pieParams.label);
+	gPieDetachBodyPartMenus[7] = LLUICtrlFactory::create<PieMenu> (pieParams);
 
 	for (S32 i = 0; i < 8; i++)
 	{
 		if (gAttachBodyPartPieMenus[i])
 		{
 			gAttachPieMenu->appendContextSubMenu( gAttachBodyPartPieMenus[i] );
+			gPieAttachMenu->appendContextSubMenu( gPieAttachBodyPartMenus[i] );
 		}
 		else
 		{
@@ -314,15 +381,18 @@ BOOL LLVOAvatarSelf::buildMenus()
 				if (attachment->getGroup() == i)
 				{
 					LLMenuItemCallGL::Params item_params;
+					PieSlice::Params slice_params;
 						
 					std::string sub_piemenu_name = attachment->getName();
 					if (LLTrans::getString(sub_piemenu_name) != "")
 					{
 						item_params.label = LLTrans::getString(sub_piemenu_name);
+						slice_params.label = LLTrans::getString(sub_piemenu_name);
 					}
 					else
 					{
 						item_params.label = sub_piemenu_name;
+						slice_params.label = sub_piemenu_name;
 					}
 					item_params.name =(item_params.label );
 					item_params.on_click.function_name = "Object.AttachToAvatar";
@@ -343,6 +413,7 @@ BOOL LLVOAvatarSelf::buildMenus()
 		if (gDetachBodyPartPieMenus[i])
 		{
 			gDetachPieMenu->appendContextSubMenu( gDetachBodyPartPieMenus[i] );
+			gPieDetachMenu->appendContextSubMenu( gPieDetachBodyPartMenus[i] );
 		}
 		else
 		{
@@ -355,14 +426,17 @@ BOOL LLVOAvatarSelf::buildMenus()
 				if (attachment->getGroup() == i)
 				{
 					LLMenuItemCallGL::Params item_params;
+					PieSlice::Params slice_params;
 					std::string sub_piemenu_name = attachment->getName();
 					if (LLTrans::getString(sub_piemenu_name) != "")
 					{
 						item_params.label = LLTrans::getString(sub_piemenu_name);
+						slice_params.label = LLTrans::getString(sub_piemenu_name);
 					}
 					else
 					{
 						item_params.label = sub_piemenu_name;
+						slice_params.label = sub_piemenu_name;
 					}
 					item_params.name =(item_params.label );
 					item_params.on_click.function_name = "Attachment.Detach";
@@ -372,7 +446,16 @@ BOOL LLVOAvatarSelf::buildMenus()
 					LLMenuItemCallGL* item = LLUICtrlFactory::create<LLMenuItemCallGL>(item_params);
 
 					gDetachPieMenu->addChild(item);
-						
+					
+					slice_params.name =(slice_params.label );
+					slice_params.on_click.function_name = "Attachment.Detach";
+					slice_params.on_click.parameter = iter->first;
+					slice_params.on_enable.function_name = "Attachment.EnableDetach";
+					slice_params.on_enable.parameter = iter->first;
+					PieSlice* slice = LLUICtrlFactory::create<PieSlice>(slice_params);
+
+					gPieDetachMenu->addChild(slice);
+
 					attachment_found = TRUE;
 					break;
 				}
@@ -389,14 +472,17 @@ BOOL LLVOAvatarSelf::buildMenus()
 		if (attachment->getGroup() == 8)
 		{
 			LLMenuItemCallGL::Params item_params;
+			PieSlice::Params slice_params;
 			std::string sub_piemenu_name = attachment->getName();
 			if (LLTrans::getString(sub_piemenu_name) != "")
 			{
 				item_params.label = LLTrans::getString(sub_piemenu_name);
+				slice_params.label = LLTrans::getString(sub_piemenu_name);
 			}
 			else
 			{
 				item_params.label = sub_piemenu_name;
+				slice_params.label = sub_piemenu_name;
 			}
 			item_params.name =(item_params.label );
 			item_params.on_click.function_name = "Object.AttachToAvatar";
@@ -412,6 +498,21 @@ BOOL LLVOAvatarSelf::buildMenus()
 			item_params.on_enable.parameter = iter->first;
 			item = LLUICtrlFactory::create<LLMenuItemCallGL>(item_params);
 			gDetachScreenPieMenu->addChild(item);
+			
+			slice_params.name =(slice_params.label );
+			slice_params.on_click.function_name = "Object.AttachToAvatar";
+			slice_params.on_click.parameter = iter->first;
+			slice_params.on_enable.function_name = "Object.EnableWear";
+			slice_params.on_enable.parameter = iter->first;
+			PieSlice* slice = LLUICtrlFactory::create<PieSlice>(slice_params);
+			gPieAttachScreenMenu->addChild(slice);
+
+			slice_params.on_click.function_name = "Attachment.DetachFromPoint";
+			slice_params.on_click.parameter = iter->first;
+			slice_params.on_enable.function_name = "Attachment.PointFilled";
+			slice_params.on_enable.parameter = iter->first;
+			slice = LLUICtrlFactory::create<PieSlice>(slice_params);
+			gPieDetachScreenMenu->addChild(slice);
 		}
 	}
 
@@ -522,6 +623,24 @@ BOOL LLVOAvatarSelf::buildMenus()
 				item_params.on_enable.parameter = attach_index;
 				item = LLUICtrlFactory::create<LLMenuItemCallGL>(item_params);
 				gDetachBodyPartPieMenus[group]->addChild(item);
+				
+				PieSlice::Params slice_params;
+				slice_params.name = attachment->getName();
+				slice_params.label = LLTrans::getString(attachment->getName());
+				slice_params.on_click.function_name = "Object.AttachToAvatar";
+				slice_params.on_click.parameter = attach_index;
+				slice_params.on_enable.function_name = "Object.EnableWear";
+				slice_params.on_enable.parameter = attach_index;
+				
+				PieSlice* slice = LLUICtrlFactory::create<PieSlice>(slice_params);
+				gPieAttachBodyPartMenus[group]->addChild(slice);
+
+				slice_params.on_click.function_name = "Attachment.DetachFromPoint";
+				slice_params.on_click.parameter = attach_index;
+				slice_params.on_enable.function_name = "Attachment.PointFilled";
+				slice_params.on_enable.parameter = attach_index;
+				slice = LLUICtrlFactory::create<PieSlice>(slice_params);
+				gPieDetachBodyPartMenus[group]->addChild(slice);
 			}
 		}
 	}

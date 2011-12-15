@@ -1,6 +1,17 @@
 <llsd>
     <map>
-    <key>BusyResponseChanged</key>
+    <key>UsePieMenu</key>
+		<map>
+		<key>Comment</key>
+		<string>Use the classic V1.x circular menu instead of the rectangular context menus when right clicking on land, avatars, objects or attachments.</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>1</integer>
+		</map>
+	<key>BusyResponseChanged</key>
         <map>
         <key>Comment</key>
             <string>Does user's busy mode message differ from default?</string>

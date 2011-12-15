@@ -212,7 +212,7 @@
      name="show_advanced_menu_check"
      top_pad="5"
      width="237"/>
-    <check_box
+	<check_box
      control_name="QAMode"
      follows="top|left"
      height="15"
@@ -220,6 +220,17 @@
      layout="topleft"
      left="30"
      name="show_develop_menu_check"
+     top_pad="5"
+     width="237"/>
+	<check_box
+     control_name="UsePieMenu"
+     follows="top|left"
+     height="15"
+     label="Use Pie Menu"
+     layout="topleft"
+     left="30"
+     name="ShowHoverTips"
+	 tool_tip="Use the classic V1.x Circular Pie Menu instead of the Rectangular Context Menus when right-clicking on land, avatars, objects, or attachments."
      top_pad="5"
      width="237"/>
 </panel>

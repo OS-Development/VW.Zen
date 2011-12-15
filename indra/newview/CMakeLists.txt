@@ -620,7 +620,10 @@ set(viewer_SOURCE_FILES
     llxmlrpclistener.cpp
     llxmlrpctransaction.cpp
     noise.cpp
-    pipeline.cpp
+	piemenu.cpp
+	pieseparator.cpp
+	pieslice.cpp
+	pipeline.cpp
     )
 
 set(VIEWER_BINARY_NAME "secondlife-bin" CACHE STRING
@@ -1167,7 +1170,10 @@ set(viewer_HEADER_FILES
     llxmlrpctransaction.h
     macmain.h
     noise.h
-    pipeline.h
+	piemenu.h
+	pieseparator.h
+	pieslice.h
+	pipeline.h
     VertexCache.h
     VorbisFramework.h
     )
