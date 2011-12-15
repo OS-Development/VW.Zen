@@ -8,5 +8,8 @@ if (INSTALL_PROPRIETARY AND NOT STANDALONE)
   set(LLCONVEXDECOMP_LIBRARY llconvexdecomposition)
 else (INSTALL_PROPRIETARY AND NOT STANDALONE)
   use_prebuilt_binary(llconvexdecompositionstub)
-  set(LLCONVEXDECOMP_LIBRARY llconvexdecompositionstub)
+  
+  # NickyD/Wolfpup HACD based convex decomp
+	set(LLCONVEXDECOMP_LIBRARY nd_hacdConvexDecomposition hacd)
+
 endif (INSTALL_PROPRIETARY AND NOT STANDALONE)
