@@ -2024,8 +2024,17 @@ S32 LLTextBase::getDocIndexFromLocalCoord( S32 local_x, S32 local_y, BOOL round,
 		}
 		else if (hit_past_end_of_line && segmentp->getEnd() >= line_iter->mDocIndexEnd)
 		{
-			// segment wraps to next line, so just set doc pos to the end of the line
-			pos = llclamp(line_iter->mDocIndexEnd - 1, 0, getLength());
+			if (getLineNumFromDocIndex(line_iter->mDocIndexEnd - 1) == line_iter->mLineNum)
+			{
+				// if segment wraps to the next line we should step one char back
+				// to compensate for the space char between words
+				// which is removed due to wrapping
+				pos = llclamp(line_iter->mDocIndexEnd - 1, 0, getLength());
+			}
+			else
+			{
+				pos = llclamp(line_iter->mDocIndexEnd, 0, getLength());
+			}
 			break;
 		}
 		start_x += text_width;
@@ -2509,7 +2518,11 @@ BOOL LLTextSegment::handleDoubleClick(S32 x, S32 y, MASK mask) { return FALSE; }
 BOOL LLTextSegment::handleHover(S32 x, S32 y, MASK mask) { return FALSE; }
 BOOL LLTextSegment::handleScrollWheel(S32 x, S32 y, S32 clicks) { return FALSE; }
 BOOL LLTextSegment::handleToolTip(S32 x, S32 y, MASK mask) { return FALSE; }
-std::string	LLTextSegment::getName() const { return ""; }
+const std::string&	LLTextSegment::getName() const 
+{
+	static std::string empty_string("");
+	return empty_string; 
+}
 void LLTextSegment::onMouseCaptureLost() {}
 void LLTextSegment::screenPointToLocal(S32 screen_x, S32 screen_y, S32* local_x, S32* local_y) const {}
 void LLTextSegment::localPointToScreen(S32 local_x, S32 local_y, S32* screen_x, S32* screen_y) const {}

@@ -57,7 +57,6 @@
 #include "llcheckboxctrl.h"
 #include "llnotifications.h"
 #include "lllineeditor.h"
-#include "llfloatermediabrowser.h"
 #include "llfloaterwebcontent.h"
 #include "llwindowshade.h"
 
@@ -68,7 +67,6 @@ static LLDefaultChildRegistry::Register<LLMediaCtrl> r("web_browser");
 LLMediaCtrl::Params::Params()
 :	start_url("start_url"),
 	border_visible("border_visible", true),
-	ignore_ui_scale("ignore_ui_scale", true),
 	decouple_texture_size("decouple_texture_size", false),
 	texture_width("texture_width", 1024),
 	texture_height("texture_height", 1024),
@@ -79,7 +77,6 @@ LLMediaCtrl::Params::Params()
 	trusted_content("trusted_content", false),
 	focus_on_click("focus_on_click", true)
 {
-	tab_stop(false);
 }
 
 LLMediaCtrl::LLMediaCtrl( const Params& p) :
@@ -90,7 +87,6 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 	mFrequentUpdates( true ),
 	mForceUpdate( false ),
 	mHomePageUrl( "" ),
-	mIgnoreUIScale( true ),
 	mAlwaysRefresh( false ),
 	mMediaSource( 0 ),
 	mTakeFocusOnClick( p.focus_on_click ),
@@ -113,8 +109,6 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 		setCaretColor( (unsigned int)color.mV[0], (unsigned int)color.mV[1], (unsigned int)color.mV[2] );
 	}
 
-	setIgnoreUIScale(p.ignore_ui_scale);
-	
 	setHomePageUrl(p.start_url, p.initial_mime_type);
 	
 	setBorderVisible(p.border_visible);
@@ -125,10 +119,8 @@ LLMediaCtrl::LLMediaCtrl( const Params& p) :
 
 	if(!getDecoupleTextureSize())
 	{
-		S32 screen_width = mIgnoreUIScale ? 
-			llround((F32)getRect().getWidth() * LLUI::sGLScaleFactor.mV[VX]) : getRect().getWidth();
-		S32 screen_height = mIgnoreUIScale ? 
-			llround((F32)getRect().getHeight() * LLUI::sGLScaleFactor.mV[VY]) : getRect().getHeight();
+		S32 screen_width = llround((F32)getRect().getWidth() * LLUI::sGLScaleFactor.mV[VX]);
+		S32 screen_height = llround((F32)getRect().getHeight() * LLUI::sGLScaleFactor.mV[VY]);
 			
 		setTextureSize(screen_width, screen_height);
 	}
@@ -319,6 +311,11 @@ BOOL LLMediaCtrl::handleRightMouseDown( S32 x, S32 y, MASK mask )
 
 	if (mContextMenu)
 	{
+		// hide/show debugging options
+		bool media_plugin_debugging_enabled = gSavedSettings.getBOOL("MediaPluginDebugging");
+		mContextMenu->setItemVisible("open_webinspector", media_plugin_debugging_enabled );
+		mContextMenu->setItemVisible("debug_separator", media_plugin_debugging_enabled );
+
 		mContextMenu->show(x, y);
 		LLMenuGL::showPopup(this, mContextMenu, x, y);
 	}
@@ -385,10 +382,20 @@ void LLMediaCtrl::onFocusLost()
 //
 BOOL LLMediaCtrl::postBuild ()
 {
+	LLUICtrl::CommitCallbackRegistry::ScopedRegistrar registar;
+	registar.add("Open.WebInspector", boost::bind(&LLMediaCtrl::onOpenWebInspector, this));
+
 	mContextMenu = LLUICtrlFactory::getInstance()->createFromFile<LLContextMenu>(
 		"menu_media_ctrl.xml", LLMenuGL::sMenuContainer, LLViewerMenuHolderGL::child_registry_t::instance());
 	setVisibleCallback(boost::bind(&LLMediaCtrl::onVisibilityChange, this, _2));
+
 	return TRUE;
+}
+
+void LLMediaCtrl::onOpenWebInspector()
+{
+	if (mMediaSource && mMediaSource->hasMedia())
+		mMediaSource->getMediaPlugin()->showWebInspector( true );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -457,8 +464,8 @@ void LLMediaCtrl::reshape( S32 width, S32 height, BOOL called_from_parent )
 {
 	if(!getDecoupleTextureSize())
 	{
-		S32 screen_width = mIgnoreUIScale ? llround((F32)width * LLUI::sGLScaleFactor.mV[VX]) : width;
-		S32 screen_height = mIgnoreUIScale ? llround((F32)height * LLUI::sGLScaleFactor.mV[VY]) : height;
+		S32 screen_width = llround((F32)width * LLUI::sGLScaleFactor.mV[VX]);
+		S32 screen_height = llround((F32)height * LLUI::sGLScaleFactor.mV[VY]);
 
 		// when floater is minimized, these sizes are negative
 		if ( screen_height > 0 && screen_width > 0 )
@@ -675,6 +682,8 @@ bool LLMediaCtrl::ensureMediaSourceExists()
 			mMediaSource->addObserver( this );
 			mMediaSource->setBackgroundColor( getBackgroundColor() );
 			mMediaSource->setTrustedBrowser(mTrusted);
+			mMediaSource->setPageZoomFactor( LLUI::sGLScaleFactor.mV[ VX ] );
+
 			if(mClearCache)
 			{
 				mMediaSource->clearCache();
@@ -756,15 +765,7 @@ void LLMediaCtrl::draw()
 	{
 		gGL.pushUIMatrix();
 		{
-			if (mIgnoreUIScale)
-			{
-				gGL.loadUIIdentity();
-				// font system stores true screen origin, need to scale this by UI scale factor
-				// to get render origin for this view (with unit scale)
-				gGL.translateUI(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
-							floorf(LLFontGL::sCurOrigin.mY * LLUI::sGLScaleFactor.mV[VY]), 
-							LLFontGL::sCurOrigin.mZ);
-			}
+			mMediaSource->setPageZoomFactor( LLUI::sGLScaleFactor.mV[ VX ] );
 
 			// scale texture to fit the space using texture coords
 			gGL.getTexUnit(0)->bind(media_texture);
@@ -811,14 +812,6 @@ void LLMediaCtrl::draw()
 			
 			x_offset = (r.getWidth() - width) / 2;
 			y_offset = (r.getHeight() - height) / 2;		
-
-			if(mIgnoreUIScale)
-			{
-				x_offset = llround((F32)x_offset * LLUI::sGLScaleFactor.mV[VX]);
-				y_offset = llround((F32)y_offset * LLUI::sGLScaleFactor.mV[VY]);
-				width = llround((F32)width * LLUI::sGLScaleFactor.mV[VX]);
-				height = llround((F32)height * LLUI::sGLScaleFactor.mV[VY]);
-			}
 
 			// draw the browser
 			gGL.begin( LLRender::QUADS );
@@ -886,14 +879,14 @@ void LLMediaCtrl::convertInputCoords(S32& x, S32& y)
 		coords_opengl = mMediaSource->getMediaPlugin()->getTextureCoordsOpenGL();
 	}
 	
-	x = mIgnoreUIScale ? llround((F32)x * LLUI::sGLScaleFactor.mV[VX]) : x;
+	x = llround((F32)x * LLUI::sGLScaleFactor.mV[VX]);
 	if ( ! coords_opengl )
 	{
-		y = mIgnoreUIScale ? llround((F32)(y) * LLUI::sGLScaleFactor.mV[VY]) : y;
+		y = llround((F32)(y) * LLUI::sGLScaleFactor.mV[VY]);
 	}
 	else
 	{
-		y = mIgnoreUIScale ? llround((F32)(getRect().getHeight() - y) * LLUI::sGLScaleFactor.mV[VY]) : getRect().getHeight() - y;
+		y = llround((F32)(getRect().getHeight() - y) * LLUI::sGLScaleFactor.mV[VY]);
 	};
 }
 
@@ -1065,6 +1058,12 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 			mHoverTextChanged = true;
 		};
 		break;
+
+		case MEDIA_EVENT_DEBUG_MESSAGE:
+		{
+			LL_INFOS("media") << self->getDebugMessageText() << LL_ENDL; 
+		};
+		break;
 	};
 
 	// chain all events to any potential observers of this object.
@@ -1082,36 +1081,7 @@ void LLMediaCtrl::onPopup(const LLSD& notification, const LLSD& response)
 {
 	if (response["open"])
 	{
-		// name of default floater to open
-		std::string floater_name = "media_browser";
-
-		// look for parent floater name
-		if ( gFloaterView )
-		{
-			if ( gFloaterView->getParentFloater(this) )
-			{
-				floater_name = gFloaterView->getParentFloater(this)->getInstanceName();
-			}
-			else
-			{
-				lldebugs << "No gFloaterView->getParentFloater(this) for onPopuup()" << llendl;
-			};
-		}
-		else
-		{
-			lldebugs << "No gFloaterView for onPopuup()" << llendl;
-		};
-
-		// (for now) open web content floater if that's our parent, otherwise, open the current media floater
-		// (this will change soon)
-		if ( floater_name == "web_content" )
-		{
-			LLWeb::loadWebURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
-		}
-		else
-		{
-			LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
-		}
+		LLWeb::loadURL(notification["payload"]["url"], notification["payload"]["target"], notification["payload"]["uuid"]);
 	}
 	else
 	{
@@ -1162,5 +1132,14 @@ void LLMediaCtrl::hideNotification()
 	if (mWindowShade)
 	{
 		mWindowShade->hide();
+	}
+}
+
+void LLMediaCtrl::setTrustedContent(bool trusted)
+{
+	mTrusted = trusted;
+	if (mMediaSource)
+	{
+		mMediaSource->setTrustedBrowser(trusted);
 	}
 }
