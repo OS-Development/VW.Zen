@@ -165,8 +165,10 @@ Please try logging in again in a minute.</string>
 	<string name="TooltipMustSingleDrop">Only a single item can be dragged here</string>
 	<string name="TooltipPrice" value="L$[AMOUNT]: "/>
 	<string name="TooltipOutboxNoTransfer">One or more of these objects cannot be sold or transferred to another user.</string>
+	<string name="TooltipOutboxNotInInventory">You can only transfer objects in your inventory to your merchant outbox.</string>
 	<string name="TooltipOutboxWorn">You are wearing one or more of these objects. Remove them from your avatar and try moving them again.</string>
 	<string name="TooltipOutboxFolderLevels">This folder has too many levels of subfolders. Rearrange the interior folders to a maximum of 4 levels deep (Root Folder contains A contains B contains C).</string>
+	<string name="TooltipOutboxTooManyFolders">This folder has too many subfolders. Reorganize the interior to a maximum of 20 folders.</string>
 	<string name="TooltipOutboxTooManyObjects">This folder contains more than 200 objects. Box some of the items to reduce the object count.</string>
 	
 	<!-- tooltips for Urls -->
@@ -2029,18 +2031,29 @@ Returns a string with the requested data about the region
 	<string name="FavoritesNoMatchingItems">Drag a landmark here to add it to your favorites.</string>
 	<string name="InventoryNoTexture">You do not have a copy of this texture in your inventory</string>
 	<string name="InventoryInboxNoItems">When you purchase or otherwise receive an item, it will appear here so you can drag it to a folder in your inventory, or delete it if you do not wish to keep it.</string>
-	<string name="MarketplaceURL">http://marketplace.[DOMAIN_NAME]</string>
-	<string name="MarketplaceURL_CreateStore">http://marketplace.[DOMAIN_NAME]/create_store</string>
-	<string name="MarketplaceURL_LearnMore">http://marketplace.[DOMAIN_NAME]/learn_more</string>
+	<string name="MarketplaceURL">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/</string>
+	<string name="MarketplaceURL_CreateStore">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/create_store</string>
+	<string name="MarketplaceURL_Dashboard">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/merchants/[AGENT_ID]/store/dashboard</string>
+	<string name="MarketplaceURL_LearnMore">https://marketplace.[MARKETPLACE_DOMAIN_NAME]/learn_more</string>
 	<string name="InventoryOutboxCreationErrorTitle">Your Merchant Outbox is not properly configured</string>
 	<string name="InventoryOutboxCreationErrorTooltip">Merchant Outbox configuration error</string>
 	<string name="InventoryOutboxCreationError">Please contact Customer Service to correct the problem.</string>
-	<string name="InventoryOutboxNotMerchantTitle">Anyone can sell items on the Marketplace</string>
+	<string name="InventoryOutboxNotMerchantTitle">Anyone can sell items on the Marketplace.</string>
 	<string name="InventoryOutboxNotMerchantTooltip">Become a merchant!</string>
-	<string name="InventoryOutboxNotMerchant">[[MARKETPLACE_URL] The Second Life Marketplace] offers more than one million virtual products for sale, all of them created by Residents. You, too, can sell items you create, as well as some of the items you have purchased. It’s easy and setup is free.  [[LEARN_MORE_URL] Learn more] or [[CREATE_STORE_URL] create a store] on the Marketplace to get started.</string>
-	<string name="InventoryOutboxNoItemsTitle">A new way to send items to the Marketplace</string>
+	<string name="InventoryOutboxNotMerchant">
+The Second Life Marketplace offers more than one million virtual products for sale, all of them created by Residents like you.  You too can create items and sell them on the Marketplace.  Creating a store is easy and free of charge.
+
+[[MARKETPLACE_URL] Visit the Marketplace]
+
+[[MARKETPLACE_LEARN_MORE_URL] Learn more about creating a store]
+	</string>
+	<string name="InventoryOutboxNoItemsTitle">Your outbox is empty.</string>
 	<string name="InventoryOutboxNoItemsTooltip">Drag and drop items here to prepare them for sale on the Marketplace</string>
-	<string name="InventoryOutboxNoItems">Drag items or folders that you wish to sell into this area.  A copy of the item will appear, leaving your inventory unchanged, unless you have dragged a no-copy item.  When you are ready to send the items to the Marketplace, click the Upload button. Once your items have been moved to your Marketplace Inventory, they will disappear from this folder.</string>
+	<string name="InventoryOutboxNoItems">
+Drag folders to this area.  When you are ready to send them to the Marketplace for sale, click the "Send to Marketplace" button below.
+
+[[MARKETPLACE_DASHBOARD_URL] Go to your Merchant Dashboard]
+	</string>
 
 	<string name="Marketplace Error None">No errors</string>
 	<string name="Marketplace Error Not Merchant">Error: Before sending items to the Marketplace you will need to set yourself up as a merchant (free of charge).</string>
@@ -3675,6 +3688,7 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Marketplace_Label">Marketplace</string>
   <string name="Command_MiniMap_Label">Mini-map</string>
   <string name="Command_Move_Label">Walk / run / fly</string>
+  <string name="Command_Outbox_Label">Merchant outbox</string>
   <string name="Command_People_Label">People</string>
   <string name="Command_Picks_Label">Picks</string>
   <string name="Command_Places_Label">Places</string>
@@ -3700,6 +3714,7 @@ Try enclosing path to the editor with double quotes.
   <string name="Command_Marketplace_Tooltip">Go shopping</string>
   <string name="Command_MiniMap_Tooltip">Show nearby people</string>
   <string name="Command_Move_Tooltip">Moving your avatar</string>
+  <string name="Command_Outbox_Tooltip">Transfer items to your marketplace for sale</string>
   <string name="Command_People_Tooltip">Friends, groups, and nearby people</string>
   <string name="Command_Picks_Tooltip">Places to show as favorites in your profile</string>
   <string name="Command_Places_Tooltip">Places you've saved</string>
