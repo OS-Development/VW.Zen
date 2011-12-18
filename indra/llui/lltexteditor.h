@@ -91,6 +91,8 @@ public:
 	void	setKeystrokeCallback(const keystroke_signal_t::slot_type& callback);
 
 	void	setParseHighlights(BOOL parsing) {mParseHighlights=parsing;}
+	
+	static S32		spacesPerTab();
 
 	// mousehandler overrides
 	virtual BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
@@ -139,6 +141,8 @@ public:
 	virtual BOOL	canDoDelete() const;
 	virtual void	selectAll();
 	virtual BOOL	canSelectAll()	const;
+	
+	virtual bool	canLoadOrSaveToFile();
 
 	void			selectNext(const std::string& search_text_in, BOOL case_insensitive, BOOL wrap = TRUE);
 	BOOL			replaceText(const std::string& search_text, const std::string& replace_text, BOOL case_insensitive, BOOL wrap = TRUE);
@@ -158,6 +162,7 @@ public:
 
 	// inserts text at cursor
 	void			insertText(const std::string &text);
+	void			insertText(LLWString &text);
 
 	void			appendWidget(const LLInlineViewSegment::Params& params, const std::string& text, bool allow_undo);
 	// Non-undoable

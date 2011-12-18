@@ -9,10 +9,11 @@ Features included in the Zen Viewer:
 - The Original Pie Menu.
 - Local Sculpt and Texture Browsing.
 - Temp Sculpt and Texture Uploads.
+- Save and Load Scripts Locally.
 - Fetch Inventory at Login.
 - Resized View/Cam Controls Floater.
-- First Run and Default Settings.
 - Derender.
+- More...
 
 
 Also included are some nice performance enhancements:
