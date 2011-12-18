@@ -170,8 +170,6 @@ Ansariel Hiller
 	STORM-1101
 	VWR-25480
 	VWR-26150
-	STORM-1685
-	STORM-1713
 Aralara Rajal
 Ardy Lay
 	STORM-859
@@ -484,6 +482,7 @@ Ima Mechanique
 	OPEN-76
 	STORM-959
 	STORM-1175
+	STORM-1708
 Imnotgoing Sideways
 Inma Rau
 Innula Zenovka
@@ -584,17 +583,10 @@ Jonathan Yap
 	STORM-1639
 	STORM-910
 	STORM-1642
-	STORM-591
 	STORM-1105
-	STORM-1679
 	STORM-1222
 	STORM-1659
 	STORM-1674
-	STORM-1685
-	STORM-1721
-	STORM-1719
-	STORM-1712
-	STORM-1728
 Kadah Coba
 	STORM-1060
 Jondan Lundquist
@@ -929,7 +921,6 @@ Robin Cornelius
 	SNOW-599
 	SNOW-747
 	STORM-422
-	STORM-591
 	STORM-960
 	STORM-1019
 	STORM-1095
@@ -1124,9 +1115,6 @@ Tofu Buzzard
 	CTS-411
 	STORM-546
 	VWR-24509
-    STORM-1684
-	SH-2477
-	STORM-1684
 Tony Kembia
 Torben Trautman
 TouchaHoney Perhaps
