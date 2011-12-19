@@ -233,4 +233,26 @@
 	 tool_tip="Use the classic V1.x Circular Pie Menu instead of the Rectangular Context Menus when right-clicking on land, avatars, objects, or attachments."
      top_pad="5"
      width="237"/>
+	<check_box
+	 control_name="SaveInventoryScriptsAsMono"
+	 follows="top|left"
+	 height="15"
+	 label="Save Inv. Scripts as Mono"
+	 layout="topleft"
+	 left="30"
+	 name="SaveInventoryScriptsAsMono_toggle"
+	 tool_tip="Saves script as mono when editing in inventory."
+	 top_pad="5"
+     width="237"/>
+	 <check_box
+	 control_name="FetchInventoryOnLogin"
+	 follows="top|left"
+	 height="15"
+	 label="Fetch Inventory at Login"
+	 layout="topleft"
+	 left="30"
+	 name="FetchInventoryOnLogin_toggle"
+	 tool_tip="Automatically fetches invetory at login."
+	 top_pad="5"
+     width="237"/>
 </panel>

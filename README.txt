@@ -1,9 +1,9 @@
 
 
-The Zen Viewer is a v3 viewer based on the Second Life® viewer-development
+The Zen Viewer is a v3 viewer based on the Second Life viewer-development
 Snowstorm repository. It contains all the latest shines and fixes from the
-SL™ community plus a consolidation of unique features specific to content
-creation on the Second Life Grid™.
+SL community plus a consolidation of unique features specific to content
+creation on the Second Life Grid.
 
 New features are added on a regualar basis. Check back regularly for updates.
 Download the Zen Viewer only from this site.
@@ -34,7 +34,7 @@ Zena Juran (Second Life Resident) is the sole maintainer of the Zen Viewer
 and is commited to protecting the privacy and individual property rights of
 SL Residents.
 
-The Zen Viewer fully adheres to the Second Life® Terms of Service and Third
+The Zen Viewer fully adheres to the Second Life Terms of Service and Third
 Party Viewer Policy. No information, personal or public, is collected or stored
 while using the Zen Viewer.
 
@@ -58,7 +58,7 @@ page.
 
 Disclaimers:
 
-This software is not provided or supported by Linden Lab®, the makers of Second Life®.
+This software is not provided or supported by Linden Lab, the makers of Second Life.
 
 This software is provided "as is" and any express or implied warranties, including,
 but not limited to, the implied warranties of merchantability and fitness for a
