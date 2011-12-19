@@ -2,7 +2,7 @@
 <floater
  open_positioning="cascading"
  legacy_header_height="18"
- height="580"
+ height="600"
  layout="topleft"
  bg_opaque_image="Window_NoTitle_Foreground"
  bg_alpha_image="Window_NoTitle_Background"
@@ -218,23 +218,30 @@
 		 layout="topleft"
 		 name="radio position" />
         <radio_item
-		 top_pad="6"
+		 top_pad="5"
          label="Rotate (Ctrl)"
          layout="topleft"
          name="radio rotate" />
         <radio_item
-		 top_pad="6"
+		 top_pad="5"
          label="Stretch (Ctrl+Shift)"
          layout="topleft"
          name="radio stretch" />
         <radio_item
-		 top_pad="6"
+		 top_pad="5"
          label="Select Face"
          layout="topleft"
          name="radio select face" />
+		<radio_item
+		 top_pad="5"
+		 label="Align"
+		 layout="topleft"
+		 name="radio align" />
 			<radio_group.commit_callback
 			function="BuildTool.commitRadioEdit"/>
     </radio_group>
+	
+	
     <check_box
      left="5"
      follows="left|top"
@@ -243,7 +250,7 @@
      label="Edit linked"
      layout="topleft"
      name="checkbox edit linked parts"
-     top_pad="-18">
+     top_pad="-3">
 		  <check_box.commit_callback
 			function="BuildTool.selectComponent"/>
 	</check_box>
@@ -271,6 +278,9 @@
 	  <button.commit_callback
 	     function="BuildTool.UnlinkObjects"/>
     </button>
+	
+	
+	
     <check_box
      control_name="ScaleUniform"
      height="19"
@@ -726,7 +736,7 @@
 	  layout="topleft"
 	  left="10"
 	  name="selection_count"
-	  top_delta="0"
+	  top_delta="20"
 	  visible="false"
 	  width="280">
 	</text>
@@ -778,7 +788,7 @@
     layout="topleft"
     left="6"
     name="cost_text_border"
-    top="135"
+    top="155"
     width="282"/>
     <tab_container
      follows="left|top"
@@ -791,7 +801,7 @@
      tab_position="top"
      tab_height="25"
      open_tabs_on_drag_and_drop="true"
-     top="173"
+     top="193"
      width="295">
 	
 <panel

@@ -552,6 +552,7 @@ class WindowsManifest(ViewerManifest):
             'version' : '.'.join(self.args['version']),
             'version_short' : '.'.join(self.args['version'][:-1]),
             'version_dashes' : '-'.join(self.args['version']),
+			'version_dots' : '.'.join(self.args['version']),
             'final_exe' : self.final_exe(),
             'grid':self.args['grid'],
             'grid_caps':self.args['grid'].upper(),
@@ -567,11 +568,12 @@ class WindowsManifest(ViewerManifest):
         !define VERSION "%(version_short)s"
         !define VERSION_LONG "%(version)s"
         !define VERSION_DASHES "%(version_dashes)s"
+		!define VERSION_DOTS "%(version_dots)s"
         """ % substitution_strings
         if self.default_channel():
             if self.default_grid():
                 # release viewer
-                installer_file = "Zen Viewer Install.exe"
+                installer_file = "Zen Viewer %(version_dots)s Installer.exe"
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
@@ -594,7 +596,7 @@ class WindowsManifest(ViewerManifest):
                 """
         else:
             # some other channel on some grid
-            installer_file = "Zen Viewer Install.exe"
+            installer_file = "Zen Viewer %(version_dots)s Installer.exe"
             grid_vars_template = """
             OutFile "%(installer_file)s"
             !define INSTFLAGS "%(flags)s"
