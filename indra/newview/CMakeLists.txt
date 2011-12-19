@@ -624,6 +624,7 @@ set(viewer_SOURCE_FILES
 	pieseparator.cpp
 	pieslice.cpp
 	pipeline.cpp
+	qtoolalign.cpp
     )
 
 set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
@@ -1174,6 +1175,7 @@ set(viewer_HEADER_FILES
 	pieseparator.h
 	pieslice.h
 	pipeline.h
+	qtoolalign.h
     VertexCache.h
     VorbisFramework.h
     )
