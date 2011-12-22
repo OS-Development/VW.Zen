@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Second Life</string>
+	<string>Zen Viewer</string>
 	<key>CFBundleIconFile</key>
-	<string>secondlife.icns</string>
+	<string>zenviewer.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.secondlife.indra.viewer</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Second Life</string>
+	<string>Zen Viewer</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
@@ -26,13 +26,13 @@
 				<string>slurl</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
-			<string>seconlife</string>
+			<string>secondlife</string>
 			<key>CFBundleTypeMIMETypes</key>
 			<array>
 				<string>application/x-grid-location-info</string>
 			</array>
 			<key>CFBundleTypeName</key>
-			<string>Secondlife SLURL</string>
+			<string>Zen Viewer SLURL</string>
 			<key>CFBundleTypeOSTypes</key>
 			<array>
 				<string>SLRL</string>
@@ -42,14 +42,14 @@
 			<key>LSTypeIsPackage</key>
 			<true/>
 			<key>NSDocumentClass</key>
-			<string>SecondLifeSLURL</string>
+			<string>ZenViewerSLURL</string>
 		</dict>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>Second Life URL</string>
+			<string>Zen Viewer URL</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>secondlife</string>
@@ -60,7 +60,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>2.1.0.13828</string>
+	<string>3.2.6.3</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
