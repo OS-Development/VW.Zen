@@ -76,7 +76,10 @@ include_directories(
     )
 
 set(viewer_SOURCE_FILES
-    groupchatlistener.cpp
+    ao.cpp
+	aoengine.cpp
+	aoset.cpp
+	groupchatlistener.cpp
     llaccountingcostmanager.cpp
     llagent.cpp
     llagentaccess.cpp
@@ -633,7 +636,10 @@ set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
 set(viewer_HEADER_FILES
     CMakeLists.txt
     ViewerInstall.cmake
-    groupchatlistener.h
+	ao.h
+	aoengine.h
+	aoset.h
+	groupchatlistener.h
     llaccountingcostmanager.h
     llagent.h
     llagentaccess.h

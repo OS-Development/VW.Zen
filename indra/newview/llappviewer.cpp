@@ -203,6 +203,7 @@
 #include "llavatariconctrl.h"
 #include "llgroupiconctrl.h"
 #include "llviewerassetstats.h"
+#include "aoengine.h"
 
 // Include for security api initialization
 #include "llsecapi.h"
@@ -1060,7 +1061,7 @@ bool LLAppViewer::init()
 	}
 
 	LLAgentLanguage::init();
-
+	
 	return true;
 }
 

@@ -42,6 +42,7 @@
 // linden library includes
 #include "llfocusmgr.h"		// gFocusMgr
 #include "lltrans.h"
+#include "aoengine.h"
 
 ///----------------------------------------------------------------------------
 /// Class LLFolderViewItem
@@ -885,7 +886,7 @@ void LLFolderViewItem::draw()
 	static LLUIColor sLinkColor = LLUIColorTable::instance().getColor("InventoryItemLinkColor", DEFAULT_WHITE);
 	static LLUIColor sSearchStatusColor = LLUIColorTable::instance().getColor("InventorySearchStatusColor", DEFAULT_WHITE);
 	static LLUIColor sMouseOverColor = LLUIColorTable::instance().getColor("InventoryMouseOverColor", DEFAULT_WHITE);
-
+	static LLUIColor sProtectedColor = LLUIColorTable::instance().getColor("InventoryProtectedColor", DEFAULT_WHITE);
 	const Params& default_params = LLUICtrlFactory::getDefaultParams<LLFolderViewItem>();
 	const S32 TOP_PAD = default_params.item_top_pad;
 	const S32 FOCUS_LEFT = 1;
@@ -1080,6 +1081,15 @@ void LLFolderViewItem::draw()
 						 LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, 
 						 S32_MAX, S32_MAX, &right_x, FALSE);
 	}
+	
+	if(mListener->getUUID()==AOEngine::instance().getAOFolder() && gSavedPerAccountSettings.getBOOL("_NACL_ProtectAOFolders"))
+	{
+		std::string locked_string = " (" + LLTrans::getString("ProtectedFolder") + ") ";
+		font->renderUTF8(locked_string, 0, right_x, y, sProtectedColor,
+						LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, 
+						S32_MAX, S32_MAX, &right_x, FALSE);
+	}
+
 
 	//--------------------------------------------------------------------------------//
 	// Draw label suffix

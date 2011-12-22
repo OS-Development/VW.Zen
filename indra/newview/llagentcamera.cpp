@@ -48,6 +48,7 @@
 #include "llvoavatarself.h"
 #include "llwindow.h"
 #include "llworld.h"
+#include "aoengine.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -2075,6 +2076,7 @@ void LLAgentCamera::changeCameraToMouselook(BOOL animate)
 		
 		updateLastCamera();
 		mCameraMode = CAMERA_MODE_MOUSELOOK;
+		AOEngine::getInstance()->inMouselook(TRUE);
 		const U32 old_flags = gAgent.getControlFlags();
 		gAgent.setControlFlags(AGENT_CONTROL_MOUSELOOK);
 		if (old_flags != gAgent.getControlFlags())
@@ -2136,6 +2138,8 @@ void LLAgentCamera::changeCameraToFollow(BOOL animate)
 
 		updateLastCamera();
 		mCameraMode = CAMERA_MODE_FOLLOW;
+		
+		AOEngine::getInstance()->inMouselook(FALSE);
 
 		// bang-in the current focus, position, and up vector of the follow cam
 		mFollowCam.reset(mCameraPositionAgent, LLViewerCamera::getInstance()->getPointOfInterest(), LLVector3::z_axis);
@@ -2214,6 +2218,7 @@ void LLAgentCamera::changeCameraToThirdPerson(BOOL animate)
 		}
 		updateLastCamera();
 		mCameraMode = CAMERA_MODE_THIRD_PERSON;
+		AOEngine::getInstance()->inMouselook(FALSE);
 		gAgent.clearControlFlags(AGENT_CONTROL_MOUSELOOK);
 	}
 

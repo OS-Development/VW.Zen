@@ -24,6 +24,10 @@
          name="build" />
         <command
          name="inventory" />
+		<command
+         name="aoswitch" />
+		<command
+         name="aomenu" />
     </bottom_toolbar>
     <left_toolbar
      button_display_mode="icons_only" />

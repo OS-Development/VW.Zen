@@ -134,6 +134,7 @@
 #include "llfloatermodelpreview.h"
 #include "llcommandhandler.h"
 #include "llnearbychatbar.h"
+#include "ao.h"
 
 // *NOTE: Please add files in alphabetical order to keep merges easy.
 
@@ -309,7 +310,8 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("whitelist_entry", "floater_whitelist_entry.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterWhiteListEntry>);	
 	LLFloaterReg::add("window_size", "floater_window_size.xml", &LLFloaterReg::build<LLFloaterWindowSize>);
 	LLFloaterReg::add("world_map", "floater_world_map.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterWorldMap>);	
-
+	
+	LLFloaterReg::add("animation_overrider", "floater_ao.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<FloaterAO>);
 	// *NOTE: Please keep these alphabetized for easier merges
 	
 	LLFloaterReg::registerControlVariables(); // Make sure visibility and rect controls get preserved when saving
