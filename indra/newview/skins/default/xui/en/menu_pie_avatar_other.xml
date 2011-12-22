@@ -104,13 +104,6 @@
                     function="IsGodCustomerService"/>
             </pie_slice>
             <pie_slice
-	            enabled="true"
-	            label="Script Info"
-	            name="ScriptInfo">
-	            <pie_slice.on_click
-	                function="Tools.ScriptInfo" />
-	        </pie_slice>
-            <pie_slice
                 label="Call"
                 name="Call">
                 <pie_slice.on_click

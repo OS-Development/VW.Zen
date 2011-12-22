@@ -112,6 +112,8 @@
 #include "lltoolgrab.h"
 #include "llwindow.h"
 #include "boost/unordered_map.hpp"
+#include "llavatarpropertiesprocessor.h"
+#include "lltexturecache.h"
 
 using namespace LLVOAvatarDefines;
 
@@ -2415,6 +2417,68 @@ class LLObjectDerender : public view_listener_t
 	}
 };
 
+void destroy_texture(LLUUID id)		// will be used by the texture refresh functions below
+{
+	LLViewerFetchedTexture* tx=LLViewerTextureManager::getFetchedTexture(id);
+	tx->destroyRawImage();
+	tx->destroySavedRawImage();
+	tx->destroyGLTexture();
+	tx->destroyTexture();
+	LLAppViewer::getTextureCache()->removeFromCache(id);
+}
+
+class LLObjectTexRefresh : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		// partly copied from the texture info code in handle_selected_texture_info()
+		for (LLObjectSelection::valid_iterator iter = LLSelectMgr::getInstance()->getSelection()->valid_begin();
+			iter != LLSelectMgr::getInstance()->getSelection()->valid_end(); iter++)
+		{
+			LLSelectNode* node = *iter;
+
+			U8 te_count = node->getObject()->getNumTEs();
+			// map from texture ID to list of faces using it
+			typedef std::map< LLUUID, std::vector<U8> > map_t;
+			map_t faces_per_texture;
+			for (U8 i = 0; i < te_count; i++)
+			{
+				if (!node->isTESelected(i)) continue;
+
+				LLViewerTexture* img = node->getObject()->getTEImage(i);
+				LLUUID image_id = img->getID();
+				faces_per_texture[image_id].push_back(i);
+			}
+
+			map_t::iterator it;
+			for (it = faces_per_texture.begin(); it != faces_per_texture.end(); ++it)
+				destroy_texture(it->first);
+		}
+
+        return true;
+    }
+};
+
+class LLAvatarTexRefresh : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		LLVOAvatar* avatar=find_avatar_from_object(LLSelectMgr::getInstance()->getSelection()->getPrimaryObject());
+		if(avatar)
+		{
+			// I bet this can be done more elegantly, but this is just straightforward
+			destroy_texture(avatar->getTE(TEX_HEAD_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_UPPER_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_LOWER_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_EYES_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_SKIRT_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_HAIR_BAKED)->getID());
+			LLAvatarPropertiesProcessor::getInstance()->sendAvatarTexturesRequest(avatar->getID());
+		}
+
+        return true;
+    }
+};
 
 class LLObjectReportAbuse : public view_listener_t
 {
@@ -8308,6 +8372,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAvatarCall(), "Avatar.Call");
 	enable.add("Avatar.EnableCall", boost::bind(&LLAvatarActions::canCall));
 	view_listener_t::addMenu(new LLAvatarReportAbuse(), "Avatar.ReportAbuse");
+	view_listener_t::addMenu(new LLAvatarTexRefresh(), "Avatar.TexRefresh");
 	view_listener_t::addMenu(new LLAvatarToggleMyProfile(), "Avatar.ToggleMyProfile");
 	enable.add("Avatar.IsMyProfileOpen", boost::bind(&my_profile_visible));
 
@@ -8328,6 +8393,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectMute(), "Object.Mute");
 
 	view_listener_t::addMenu(new LLObjectDerender(), "Object.Derender");
+	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");
 	
 	enable.add("Object.VisibleTake", boost::bind(&visible_take_object));
 	enable.add("Object.VisibleBuy", boost::bind(&visible_buy_object));

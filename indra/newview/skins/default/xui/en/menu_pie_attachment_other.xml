@@ -94,7 +94,6 @@
             name="Avatar Pie More 2"
             label="More >">
 
-            <!-- ## Zi: Is this the right thing to use for avatar textures? -->
             <pie_slice
                 label="Debug Textures"
                 name="Debug...">
@@ -103,13 +102,6 @@
                 <pie_slice.on_visible
                     function="IsGodCustomerService"/>
             </pie_slice>
-            <pie_slice
-	            enabled="true"
-	            label="Script Info"
-	            name="ScriptInfo">
-	            <pie_slice.on_click
-	                function="Tools.ScriptInfo" />
-	        </pie_slice>
             <pie_slice
                 label="Call"
                 name="Call">
