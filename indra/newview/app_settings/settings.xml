@@ -80,7 +80,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <real>300</real>
+      <real>0</real>
     </map>
     <key>AdminMenu</key>
     <map>
@@ -146,7 +146,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>AllowTapTapHoldRun</key>
     <map>
@@ -223,7 +223,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>AskedAboutCrashReports</key>
     <map>
@@ -256,7 +256,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelDoppler</key>
     <map>
@@ -267,7 +267,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelMaster</key>
     <map>
@@ -289,7 +289,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelMic</key>
     <map>
@@ -311,7 +311,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>AudioLevelRolloff</key>
     <map>
@@ -333,7 +333,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>AudioLevelUI</key>
     <map>
@@ -344,7 +344,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelVoice</key>
     <map>
@@ -355,7 +355,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelWind</key>
     <map>
@@ -366,7 +366,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
 	<key>AudioStreamingMedia</key>
     <map>
@@ -377,7 +377,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>AudioStreamingMusic</key>
     <map>
@@ -707,7 +707,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>AvatarSex</key>
     <map>
@@ -730,7 +730,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>40</integer>
+      <integer>0</integer>
     </map>
     <key>BottomPanelNew</key>
     <map>
@@ -1280,7 +1280,7 @@
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>512</integer>
+      <integer>1024</integer>
     </map>
     <key>CacheValidateCounter</key>
     <map>
@@ -1593,7 +1593,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ChatPersistTime</key>
     <map>
@@ -2773,7 +2773,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>DisableMouseWarp</key>
     <map>
@@ -3213,7 +3213,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>EnergyFromTop</key>
     <map>
@@ -3884,7 +3884,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ForceMandatoryUpdate</key>
     <map>
@@ -4335,7 +4335,7 @@
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>7</integer>
+      <integer>0</integer>
     </map>
     <key>InvertMouse</key>
     <map>
@@ -4809,7 +4809,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>LimitSelectDistance</key>
     <map>
@@ -4820,7 +4820,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>LipSyncAah</key>
     <map>
@@ -5062,7 +5062,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MapShowInfohubs</key>
     <map>
@@ -5073,7 +5073,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MapShowLandForSale</key>
     <map>
@@ -5106,7 +5106,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MiniMapAutoCenter</key>
     <map>
@@ -6162,7 +6162,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>5</integer>
+      <integer>3</integer>
     </map>
     <key>NotificationTipToastLifeTime</key>
     <map>
@@ -6173,7 +6173,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>10</integer>
+      <integer>3</integer>
     </map>
     <key>ToastFadingTime</key>
     <map>
@@ -6206,7 +6206,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>23</integer>
+      <integer>3</integer>
     </map>
     <key>StartUpToastLifeTime</key>
     <map>
@@ -6557,7 +6557,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ParticipantListShowIcons</key>
     <map>
@@ -7126,7 +7126,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>QAModeEventHostPort</key>
     <map>
@@ -7415,7 +7415,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>RenderAppleUseMultGL</key>
     <map>
@@ -7470,7 +7470,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
   <key>RenderAvatarComplexityLimit</key>
     <map>
@@ -7563,7 +7563,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>RenderAvatarMaxVisible</key>
     <map>
@@ -7574,7 +7574,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>12</integer>
+      <integer>4</integer>
     </map>
     <key>RenderAvatarPhysicsLODFactor</key>
     <map>
@@ -7585,7 +7585,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.0</real>
     </map>
     <key>RenderAvatarVP</key>
     <map>
@@ -8857,7 +8857,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>2</integer>
+      <integer>4</integer>
     </map>
     <key>RenderShadowDetail</key>
     <map>
@@ -8957,7 +8957,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>2.0</real>
     </map>
     <key>RenderTerrainScale</key>
     <map>
@@ -9012,7 +9012,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.5</real>
     </map>
     <key>RenderUIInSnapshot</key>
     <map>
@@ -9045,7 +9045,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
   <key>RenderUseTriStrips</key>
   <map>
@@ -9166,7 +9166,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>5.0</real>
     </map>
     <key>RenderWater</key>
     <map>
@@ -9299,7 +9299,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
   <key>SafeMode</key>
     <map>
@@ -9519,7 +9519,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAllObjectHoverTip</key>
     <map>
@@ -9783,7 +9783,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
+      <integer>0</integer>   
     </map>
     <key>ShowNavbarNavigationPanel</key>        
     <map>
@@ -9794,7 +9794,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
+      <integer>0</integer>   
     </map>
     <key>ShowWorldMapButton</key>
     <map>
@@ -9941,7 +9941,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultSearchAll</key>
     <map>
@@ -9954,7 +9954,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGGroups</key>
     <map>
@@ -9980,7 +9980,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultGroups</key>
     <map>
@@ -9993,7 +9993,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGClassifieds</key>
     <map>
@@ -10019,7 +10019,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultClassifieds</key>
     <map>
@@ -10032,7 +10032,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGEvents</key>
     <map>
@@ -10058,7 +10058,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultEvents</key>
     <map>
@@ -10071,7 +10071,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGLand</key>
     <map>
@@ -10097,7 +10097,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultLand</key>
     <map>
@@ -10110,7 +10110,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGSims</key>
     <map>
@@ -10136,7 +10136,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultSims</key>
     <map>
@@ -10149,7 +10149,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowNearClip</key>
     <map>
@@ -10171,7 +10171,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowInInventory</key>
         <map>
@@ -10259,7 +10259,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowStartLocation</key>
     <map>
@@ -10270,7 +10270,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowTangentBasis</key>
     <map>
@@ -10740,7 +10740,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>500.0</real>
+      <real>1500.0</real>
     </map>
     <key>UpdaterMaximumBandwidth</key>
     <map>
@@ -12188,7 +12188,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>UseDebugMenus</key>
     <map>
@@ -12199,7 +12199,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>UseDefaultColorPicker</key>
     <map>
@@ -13419,7 +13419,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>EnableClassifieds</key>
     <map>
@@ -13584,7 +13584,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowOfferedInventory</key>
     <map>

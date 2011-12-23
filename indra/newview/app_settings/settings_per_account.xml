@@ -22,7 +22,7 @@
 	  <key>Type</key>
 	  <string>Boolean</string>
 	  <key>Value</key>
-	  <integer>0</integer>
+	  <integer>1</integer>
 	</map>
 	<key>ProtectAOFolders</key>
 	<map>
@@ -104,7 +104,7 @@
         <key>Type</key>
           <string>Boolean</string>
         <key>Value</key>
-          <integer>1</integer>
+          <integer>0</integer>
         </map>
     <key>LastInventoryInboxActivity</key>
         <map>
@@ -148,7 +148,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>LogTimestamp</key>
         <map>
@@ -159,7 +159,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>LogInstantMessages</key>
         <map>
@@ -170,7 +170,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>LogShowHistory</key>
         <map>
@@ -181,7 +181,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>LogTimestampDate</key>
         <map>
@@ -192,7 +192,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>VoiceEffectDefault</key>
     <map>
