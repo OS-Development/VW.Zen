@@ -210,9 +210,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>dfc2e2ffde269566647f5fccab72946a</string>
+              <string>e1073b570911f87fa4e9f7e7f2bf76a0</string>
               <key>url</key>
-              <string>https://bitbucket.org/jPascal/zen-viewer/downloads/boost-1.45.0-windows-20110905.tar.bz2</string>
+              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/boost-1.45.0-windows-20111222.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
