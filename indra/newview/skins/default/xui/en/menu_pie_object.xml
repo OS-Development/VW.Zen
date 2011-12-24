@@ -129,8 +129,7 @@
     <pie_menu
         label="More >"
         name="Object Pie More 2">
-
-        <pie_slice
+		<pie_slice
             enabled="true"
             label="Tex Refresh"
             name="Texture Refresh">
@@ -153,10 +152,15 @@
             <pie_slice.on_enable
                 function="Object.EnableReportAbuse" />
         </pie_slice>
-        <pie_separator name="export_placeholder" />
-        <pie_separator name="disable_placeholder" />
+        <pie_separator/>
+		<pie_slice
+            label="Copy UUID"
+            name="UUID">
+            <pie_slice.on_click
+                 function="Object.GetUUID" />
+        </pie_slice>
         <pie_slice
-            enabled="false"
+            enabled="true"
             label="Mute"
             name="Object Mute">
             <pie_slice.on_click
@@ -171,8 +175,7 @@
                 function="Floater.Show"
                 parameter="inspect" />
         </pie_slice>
-
-
+		
     </pie_menu>
 
     <pie_slice

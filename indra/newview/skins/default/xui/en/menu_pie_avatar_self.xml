@@ -22,6 +22,15 @@
         label="Take Off >"
         layout="topleft"
         name="Take Off &gt;">
+		
+        <pie_menu
+            label="Detach >"
+            layout="topleft"
+            name="Pie Object Detach" />
+		<pie_menu
+            label="HUD >"
+            layout="topleft"
+            name="Pie Object Detach HUD" />
         <pie_menu
             label="Clothes >"
             layout="topleft"
@@ -113,9 +122,7 @@
                         function="Edit.EnableTakeOff"
                         parameter="undershirt" />
                 </pie_slice>
-
                 <pie_separator />
-
                 <pie_slice
                     label="All Clothes"
                     layout="topleft"
@@ -124,9 +131,7 @@
                         function="Edit.TakeOff"
                         parameter="all" />
                 </pie_slice>
-
                 <pie_separator />
-
                 <pie_slice
                     enabled="false"
                     label="Underpants"
@@ -139,7 +144,6 @@
                         function="Edit.EnableTakeOff"
                         parameter="underpants" />
                 </pie_slice>
-
                 <pie_slice
                     enabled="false"
                     label="Tattoo"
@@ -152,7 +156,6 @@
                         function="Edit.EnableTakeOff"
                         parameter="tattoo" />
                 </pie_slice>
-
                 <pie_slice
 					enabled="false"
 					label="Physics"
@@ -165,7 +168,6 @@
 						function="Edit.EnableTakeOff"
 						parameter="physics" />
 				</pie_slice>
-
                 <pie_slice
                     enabled="false"
                     label="Alpha"
@@ -179,7 +181,6 @@
                         parameter="alpha" />
                 </pie_slice>
             </pie_menu>
-
             <pie_slice
                 enabled="false"
                 label="Skirt"
@@ -193,21 +194,9 @@
                     parameter="skirt" />
             </pie_slice>
         </pie_menu>
-
-        <pie_menu
-            label="HUD >"
-            layout="topleft"
-            name="Pie Object Detach HUD" />
-
         <pie_separator />
-
-        <pie_menu
-            label="Detach >"
-            layout="topleft"
-            name="Pie Object Detach" />
-
-        <pie_separator />
-
+		<pie_separator />
+		<pie_separator />
         <pie_slice
             label="Detach All"
             layout="topleft"
@@ -237,6 +226,12 @@
             function="Self.StandUp" />
         <pie_slice.on_enable
             function="Self.EnableStandUp" />
+    </pie_slice>
+	<pie_slice
+            label="Copy UUID"
+            name="UUID">
+            <pie_slice.on_click
+                 function="Avatar.GetUUID" />
     </pie_slice>
     <pie_slice
         label="Gestures..."

@@ -42,6 +42,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llagentpilot.h"
+#include "llclipboard.h"
 #include "llcompilequeue.h"
 #include "llconsole.h"
 #include "lldaycyclemanager.h"
@@ -7997,6 +7998,21 @@ class LLToggleUIHints : public view_listener_t
 	}
 };
 
+class LLObjectGetUUID : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+		if (objectp)
+		{
+			LLUUID id = objectp->getID();	
+			gClipboard.copyFromString(utf8str_to_wstring(id.asString()));
+		}
+		return true;
+	}
+};
+
+
 void LLUploadCostCalculator::calculateCost()
 {
 	S32 upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
@@ -8406,6 +8422,7 @@ void initialize_menus()
 	enable.add("Avatar.EnableCall", boost::bind(&LLAvatarActions::canCall));
 	view_listener_t::addMenu(new LLAvatarReportAbuse(), "Avatar.ReportAbuse");
 	view_listener_t::addMenu(new LLAvatarTexRefresh(), "Avatar.TexRefresh");
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Avatar.GetUUID");
 	view_listener_t::addMenu(new LLAvatarToggleMyProfile(), "Avatar.ToggleMyProfile");
 	enable.add("Avatar.IsMyProfileOpen", boost::bind(&my_profile_visible));
 
@@ -8424,6 +8441,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectReturn(), "Object.Return");
 	view_listener_t::addMenu(new LLObjectReportAbuse(), "Object.ReportAbuse");
 	view_listener_t::addMenu(new LLObjectMute(), "Object.Mute");
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Object.GetUUID");
 	view_listener_t::addMenu(new LLObjectDerender(), "Object.Derender");
 	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");	// ## Zi: Texture Refresh
 	view_listener_t::addMenu(new LLEditParticleSource(), "Object.EditParticles");
@@ -8462,6 +8480,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAttachmentPointFilled(), "Attachment.PointFilled");
 	view_listener_t::addMenu(new LLAttachmentEnableDrop(), "Attachment.EnableDrop");
 	view_listener_t::addMenu(new LLAttachmentEnableDetach(), "Attachment.EnableDetach");
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Attach.GetUUID");
 
 	// Land pie menu
 	view_listener_t::addMenu(new LLLandBuild(), "Land.Build");

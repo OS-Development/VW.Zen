@@ -21,15 +21,8 @@
     <pie_menu
         name="Attachment Pie More"
         label="More &gt;">
-
-        <pie_slice
-            enabled="true"
-            label="Tex Refresh"
-            name="Texture Refresh">
-            <pie_slice.on_click
-                function="Object.TexRefresh" />
-        </pie_slice>
-        <pie_slice
+		
+		<pie_slice
             enabled="false"
             label="Touch"
             name="Attachment Object Touch">
@@ -39,6 +32,15 @@
                 function="Object.EnableTouch"
                 name="EnableTouch"/>
         </pie_slice>
+		
+        <pie_slice
+            enabled="true"
+            label="Tex Refresh"
+            name="Texture Refresh">
+            <pie_slice.on_click
+                function="Object.TexRefresh" />
+        </pie_slice>
+   
         <pie_slice
             enabled="true"
             label="Derender"
@@ -46,6 +48,12 @@
             <pie_slice.on_click
                 function="Object.Derender" />
         </pie_slice>
+		<pie_slice
+            label="Copy UUID"
+            name="UUID">
+            <pie_slice.on_click
+                 function="Avatar.GetUUID" />
+            </pie_slice>
         <pie_separator name="inspect_placeholder" />
 
     </pie_menu>

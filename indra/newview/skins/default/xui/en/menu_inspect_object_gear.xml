@@ -136,4 +136,11 @@
     <menu_item_call.on_click
      function="InspectObject.MoreInfo"/>
   </menu_item_call>
+  <menu_item_call
+	  enabled="true"
+	  label="Copy Avatar UUID"
+	  name="UUID">
+	  <menu_item_call.on_click
+	  function="Avatar.GetUUID" />
+    </menu_item_call>
 </toggleable_menu>

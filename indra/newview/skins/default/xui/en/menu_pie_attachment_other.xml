@@ -9,13 +9,11 @@
         <pie_slice.on_click
             function="ShowAgentProfile"
             parameter="hit object" />
-        <pie_slice.on_enable
-            function="RLV.EnableIfNot"
-            parameter="shownames" />
+        
     </pie_slice>
     <pie_slice
         enabled="false"
-        label="Mute"
+        label="Block"
         name="Avatar Mute">
         <pie_slice.on_click
             function="Avatar.Mute" />
@@ -76,9 +74,7 @@
             name="Group Invite...">
             <pie_slice.on_click
                 function="Avatar.InviteToGroup" />
-            <pie_slice.on_enable
-                function="RLV.EnableIfNot"
-                parameter="shownames" />
+            
         </pie_slice>
         <pie_separator />
         <pie_slice
@@ -124,6 +120,12 @@
                 <pie_slice.on_click
                     function="Object.TexRefresh" />
             </pie_slice>
+			<pie_slice
+				label="Copy UUID"
+				name="UUID">
+				<pie_slice.on_click
+					function="Avatar.GetUUID" />
+			</pie_slice>
 
         </pie_menu>
 
@@ -151,9 +153,7 @@
         name="Send IM...">
         <pie_slice.on_click
             function="Avatar.SendIM" />
-        <pie_slice.on_enable
-            function="RLV.EnableIfNot"
-            parameter="shownames" />
+        
     </pie_slice>
 
 </pie_menu>

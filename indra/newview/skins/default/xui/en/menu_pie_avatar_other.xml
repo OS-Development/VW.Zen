@@ -9,9 +9,7 @@
         <pie_slice.on_click
             function="ShowAgentProfile"
             parameter="hit object" />
-        <pie_slice.on_enable
-            function="RLV.EnableIfNot"
-            parameter="shownames" />
+        
     </pie_slice>
     <pie_slice
         enabled="false"
@@ -66,6 +64,12 @@
                 function="Avatar.EnableFreezeEject"/>
         </pie_slice>
         <pie_slice
+            label="Copy UUID"
+            name="UUID">
+            <pie_slice.on_click
+                 function="Avatar.GetUUID" />
+        </pie_slice>
+		<pie_slice
             label="Give Card"
             name="Add Calling Card">
             <pie_slice.on_click
@@ -77,7 +81,7 @@
             <pie_slice.on_click
                 function="Avatar.InviteToGroup" />
             <pie_slice.on_enable
-                function="RLV.EnableIfNot"
+                function="Avatar.InviteToGroup"
                 parameter="shownames" />
         </pie_slice>
         <pie_separator />
@@ -152,9 +156,7 @@
         name="Send IM...">
         <pie_slice.on_click
             function="Avatar.SendIM" />
-        <pie_slice.on_enable
-            function="RLV.EnableIfNot"
-            parameter="shownames" />
+        
     </pie_slice>
 
 </pie_menu>
