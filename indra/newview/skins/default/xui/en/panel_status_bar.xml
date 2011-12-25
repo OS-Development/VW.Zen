@@ -33,8 +33,37 @@
      name="buycurrencylabel">
         L$ [AMT]
     </panel.string>
+	<panel
+         auto_resize="false"
+         follows="right"
+		 top="1"
+         height="12"
+         layout="topleft"
+		 left="-650"
+         mouse_opaque="false"
+         name="renderrange_panel"
+         user_resize="false"
+         width="150">
+			<slider
+			halign="center"
+			can_edit_text="true"
+			control_name="RenderFarClip"
+			decimal_digits="0"
+			follows="right|top"
+			height="16"
+			right="-1"
+			tool_tip="Slider for Setting the Draw Distance (View Distance) in Meters"
+			increment="16"
+			initial_value="64"
+			layout="topleft"
+			max_val="1024"
+			min_val="32"
+			name="drawdistance"
+			top="0"
+			width="150" />
+		</panel>
   <panel
-    height="18"
+	height="18"
     left="-370"
     width="160"
     top="1"
