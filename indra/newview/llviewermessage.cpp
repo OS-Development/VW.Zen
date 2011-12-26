@@ -99,6 +99,7 @@
 #include "llvlmanager.h"
 #include "llvoavatarself.h"
 #include "llworld.h"
+#include "llworldmap.h"
 #include "pipeline.h"
 #include "llfloaterworldmap.h"
 #include "llviewerdisplay.h"
@@ -3642,6 +3643,13 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 	gMessageSystem->enableCircuit(sim_host, TRUE);
 	LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
 
+	if (gSavedSettings.getBOOL("DisableBeaconAfterTeleport"))
+	{
+		LLTracker::stopTracking((void *)(intptr_t)TRUE);
+		LLWorldMap::getInstance()->cancelTracking();
+	}
+
+	
 /*
 	// send camera update to new region
 	gAgentCamera.updateCamera();
