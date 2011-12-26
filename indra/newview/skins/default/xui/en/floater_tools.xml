@@ -1329,7 +1329,8 @@ even though the user gets a free copy.
                 Position (meters)
             </text>
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1344,7 +1345,8 @@ even though the user gets a free copy.
              top_pad="5"
              width="87" />
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1359,7 +1361,8 @@ even though the user gets a free copy.
              top_pad="3"
              width="87" />
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1385,7 +1388,8 @@ even though the user gets a free copy.
                 Size (meters)
             </text>
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1400,7 +1404,8 @@ even though the user gets a free copy.
              top_pad="5"
              width="87" />
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1415,7 +1420,8 @@ even though the user gets a free copy.
              top_pad="3"
              width="87" />
             <spinner
-             follows="left|top"
+             decimal_digits="4"
+			 follows="left|top"
              height="19"
              increment="0.01"
              initial_value="0"
@@ -1442,7 +1448,7 @@ even though the user gets a free copy.
                 Rotation (degrees)
             </text>
             <spinner
-             decimal_digits="2"
+             decimal_digits="3"
              follows="left|top"
              height="19"
              increment="1"
@@ -1458,7 +1464,7 @@ even though the user gets a free copy.
              top_pad="5"
              width="87" />
             <spinner
-             decimal_digits="2"
+             decimal_digits="3"
              follows="left|top"
              height="19"
              increment="1"
@@ -1474,7 +1480,7 @@ even though the user gets a free copy.
              top_pad="3"
              width="87" />
             <spinner
-             decimal_digits="2"
+             decimal_digits="3"
              follows="left|top"
              height="19"
              increment="1"
