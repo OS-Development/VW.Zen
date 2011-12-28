@@ -8,7 +8,9 @@ creation on the Second Life Grid.
 
 Please visit the Wiki section for:
 
+- Installation
 - Features
+- Debug Settings
 - Privacy Policy
 - Customer Support
 - Disclaimers

@@ -44,6 +44,9 @@
 	<color
 	 name="DkGray_66"
 	 value="0.125 0.125 0.125 .66" />
+	 <color
+	 name="DkGray_86"
+	 value="0.125 0.125 0.125 .86" />
 	<color
 	 name="DkGray2"
 	 value="0.169 0.169 0.169 1" />
@@ -568,7 +571,7 @@
      reference="White" />
     <color
      name="NetMapBackgroundColor"
-     value="0 0 0 1" />
+     reference="Black_25" />
     <color
      name="NetMapGroupOwnAboveWater"
      reference="Purple" />
@@ -710,6 +713,9 @@
     <color
      name="SliderTrackColor"
      reference="Unused?" />
+	<color
+	 name="SL-White"
+	 value="1 1 1 1" />
     <color
      name="SpeakingColor"
      reference="FrogGreen" />
