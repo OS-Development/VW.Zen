@@ -380,6 +380,8 @@ class WindowsManifest(ViewerManifest):
             else:
                  self.path("msvcr100.dll")
                  self.path("msvcp100.dll")
+            
+
 
             # Vivox runtimes
             self.path("SLVoice.exe")
@@ -389,6 +391,8 @@ class WindowsManifest(ViewerManifest):
             self.path("zlib1.dll")
             self.path("vivoxplatform.dll")
             self.path("vivoxoal.dll")
+
+
             
             # Security
             self.path("ssleay32.dll")
@@ -408,6 +412,7 @@ class WindowsManifest(ViewerManifest):
         self.path(src="licenses-win32.txt", dst="licenses.txt")
         self.path("featuretable.txt")
         self.path("featuretable_xp.txt")
+        self.path("VivoxAUP.txt")
 
         #self.enable_no_crt_manifest_check()
 
@@ -676,6 +681,7 @@ class DarwinManifest(ViewerManifest):
                 self.path("licenses-mac.txt", dst="licenses.txt")
                 self.path("featuretable_mac.txt")
                 self.path("SecondLife.nib")
+                self.path("VivoxAUP.txt")
 
                 icon_path = self.icon_path()
                 if self.prefix(src=icon_path, dst="") :
@@ -870,6 +876,7 @@ class DarwinManifest(ViewerManifest):
             for s,d in {self.get_dst_prefix():app_name + ".app",
                         os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
                         os.path.join(dmg_template, "background.jpg"): "background.jpg",
+                        os.path.join(dmg_template, "VivoxAUP.txt"): "Vivox (Voice Services) Usage Policy.txt",
                         os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
                 print "Copying to dmg", s, d
                 self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
@@ -918,6 +925,7 @@ class LinuxManifest(ViewerManifest):
     def construct(self):
         super(LinuxManifest, self).construct()
         self.path("licenses-linux.txt","licenses.txt")
+        self.path("VivoxAUP.txt")
         if self.prefix("linux_tools", dst=""):
             self.path("client-readme.txt","README-linux.txt")
             self.path("client-readme-voice.txt","README-linux-voice.txt")
