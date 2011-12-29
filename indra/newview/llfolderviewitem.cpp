@@ -280,7 +280,7 @@ void LLFolderViewItem::refreshFromListener()
 			LLTrans::findString(mLabel, "InvFolder " + mLabel);
 		};
 
-		setToolTip(mLabel);
+		// setToolTip(mLabel);
 		setIcon(mListener->getIcon());
 		time_t creation_date = mListener->getCreationDate();
 		if ((creation_date > 0) && (mCreationDate != creation_date))
@@ -1128,6 +1128,27 @@ void LLFolderViewItem::draw()
 	}
 }
 
+BOOL LLFolderViewItem::handleToolTip(S32 x, S32 y, MASK mask)
+{
+	if( childrenHandleToolTip( x, y, mask ) )
+		return TRUE;
+
+	int nStart = ARROW_SIZE + TEXT_PAD + ICON_WIDTH + ICON_PAD + mIndentation;
+	int nWidth = getLabelFontForStyle(mLabelStyle)->getWidth(mLabel) + nStart;
+
+  	if( getRoot()->getParentPanel()->getRect().getWidth() < nWidth ) // Label is truncated, display tooltip
+	{
+		setToolTip( mLabel );
+		return LLView::handleToolTip( x, y, mask );
+	}
+	else
+		setToolTip( LLStringExplicit("") );
+
+	if( this == getRoot() )
+		return TRUE;
+
+	return FALSE;
+}
 
 ///----------------------------------------------------------------------------
 /// Class LLFolderViewFolder

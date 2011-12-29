@@ -340,6 +340,8 @@ public:
 		void* cargo_data,
 		EAcceptance* accept,
 		std::string& tooltip_msg);
+		
+	/*virtual*/ BOOL handleToolTip(S32 x, S32 y, MASK mask);
 
 private:
 	static std::map<U8, LLFontGL*> sFonts; // map of styles to fonts
