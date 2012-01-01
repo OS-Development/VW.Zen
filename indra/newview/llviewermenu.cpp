@@ -116,6 +116,7 @@
 #include "llavatarpropertiesprocessor.h"
 #include "lltexturecache.h"
 #include "particleeditor.h"
+#include "boost/unordered_map.hpp"
 
 using namespace LLVOAvatarDefines;
 
@@ -8012,6 +8013,33 @@ class LLObjectGetUUID : public view_listener_t
 	}
 };
 
+class TogglePie : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("UsePieMenu", !gSavedSettings.getBOOL("UsePieMenu"));
+		return true;
+	}
+};
+
+class ToggleSaveMono : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("SaveInventoryScriptsAsMono", !gSavedSettings.getBOOL("SaveInventoryScriptsAsMono"));
+		return true;
+	}
+};
+
+class ToggleFetchInv : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("FetchInventoryOnLogin", !gSavedSettings.getBOOL("FetchInventoryOnLogin"));
+		return true;
+	}
+};
+
 
 void LLUploadCostCalculator::calculateCost()
 {
@@ -8443,7 +8471,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectMute(), "Object.Mute");
 	view_listener_t::addMenu(new LLObjectGetUUID(), "Object.GetUUID");
 	view_listener_t::addMenu(new LLObjectDerender(), "Object.Derender");
-	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");	// ## Zi: Texture Refresh
+	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");
 	view_listener_t::addMenu(new LLEditParticleSource(), "Object.EditParticles");
    	view_listener_t::addMenu(new LLEnableEditParticleSource(), "Object.EnableEditParticles");
 	
@@ -8520,4 +8548,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLEditableSelected(), "EditableSelected");
 	view_listener_t::addMenu(new LLEditableSelectedMono(), "EditableSelectedMono");
 	view_listener_t::addMenu(new LLToggleUIHints(), "ToggleUIHints");
+	view_listener_t::addMenu(new TogglePie(), "ToggleUsePieMenu");
+	view_listener_t::addMenu(new ToggleSaveMono(), "ToggleSaveInventoryScriptsAsMono");
+	view_listener_t::addMenu(new ToggleFetchInv(), "ToggleFetchInventoryOnLogin");
 }
