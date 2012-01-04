@@ -1105,30 +1105,23 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
 		return FALSE;
 	}
 
-	LLSidepanelInventory *sidepanel_inventory =	LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
+	LLSidepanelInventory *inventory_panel =	LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
 
-	// A. If the inventory side panel floater is open, use that preferably.
-	if (is_inventorysp_active())
-	{
-		// Get the floater's z order to compare it to other inventory floaters' order later.
-		res = sidepanel_inventory->getActivePanel();
-		z_min = gFloaterView->getZOrder(floater_inventory);
-		active_inv_floaterp = floater_inventory;
-	}
-
-	// B. Iterate through the inventory floaters and return whichever is on top.
+	// Iterate through the inventory floaters and return whichever is on top.
 	LLFloaterReg::const_instance_list_t& inst_list = LLFloaterReg::getFloaterList("inventory");
 	for (LLFloaterReg::const_instance_list_t::const_iterator iter = inst_list.begin(); iter != inst_list.end(); ++iter)
 	{
-		LLFloaterInventory* iv = dynamic_cast<LLFloaterInventory*>(*iter);
-		if (iv && iv->getVisible())
+		LLFloaterSidePanelContainer* inventory_floater = dynamic_cast<LLFloaterSidePanelContainer*>(*iter);
+		inventory_panel = inventory_floater->findChild<LLSidepanelInventory>("main_panel");
+
+		if (inventory_floater && inventory_panel && inventory_floater->getVisible())
 		{
-			S32 z_order = gFloaterView->getZOrder(iv);
+			S32 z_order = gFloaterView->getZOrder(inventory_floater);
 			if (z_order < z_min)
 			{
-				res = iv->getPanel();
+				res = inventory_panel->getActivePanel();
 				z_min = z_order;
-				active_inv_floaterp = iv;
+				active_inv_floaterp = inventory_floater;
 			}
 		}
 	}
@@ -1145,7 +1138,7 @@ LLInventoryPanel* LLInventoryPanel::getActiveInventoryPanel(BOOL auto_open)
 	{
 		floater_inventory->openFloater();
 
-		res = sidepanel_inventory->getActivePanel();
+		res = inventory_panel->getActivePanel();
 	}
 
 	return res;
@@ -1164,7 +1157,6 @@ void LLInventoryPanel::openInventoryPanelAndSetSelection(BOOL auto_open, const L
 		LLViewerInventoryCategory * cat = gInventory.getCategory(obj_id);
 		
 		bool in_inbox = false;
-		bool in_outbox = false;
 		
 		LLViewerInventoryCategory * parent_cat = NULL;
 		
@@ -1180,10 +1172,9 @@ void LLInventoryPanel::openInventoryPanelAndSetSelection(BOOL auto_open, const L
 		if (parent_cat)
 		{
 			in_inbox = (LLFolderType::FT_INBOX == parent_cat->getPreferredType());
-			in_outbox = (LLFolderType::FT_OUTBOX == parent_cat->getPreferredType());
 		}
 		
-		if (in_inbox || in_outbox)
+		if (in_inbox)
 		{
 			LLSidepanelInventory * sidepanel_inventory =	LLFloaterSidePanelContainer::getPanel<LLSidepanelInventory>("inventory");
 			LLInventoryPanel * inventory_panel = NULL;
@@ -1192,11 +1183,6 @@ void LLInventoryPanel::openInventoryPanelAndSetSelection(BOOL auto_open, const L
 			{
 				sidepanel_inventory->openInbox();
 				inventory_panel = sidepanel_inventory->getInboxPanel();
-			}
-			else
-			{
-				sidepanel_inventory->openOutbox();
-				inventory_panel = sidepanel_inventory->getOutboxPanel();
 			}
 
 			if (inventory_panel)

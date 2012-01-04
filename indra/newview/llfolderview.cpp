@@ -299,7 +299,7 @@ LLFolderView::~LLFolderView( void )
 	mAutoOpenItems.removeAllNodes();
 	gIdleCallbacks.deleteFunction(idle, this);
 
-	delete mPopupMenuHandle.get();
+	if (mPopupMenuHandle.get()) mPopupMenuHandle.get()->die();
 
 	mAutoOpenItems.removeAllNodes();
 	clearSelection();
@@ -1058,7 +1058,7 @@ void LLFolderView::onItemsRemovalConfirmation(const LLSD& notification, const LL
 		for (item_it = mSelectedItems.begin(); item_it != mSelectedItems.end(); ++item_it)
 		{
 			item = *item_it;
-			if(item->isRemovable())
+			if (item && item->isRemovable())
 			{
 				items.push_back(item);
 			}
@@ -1945,9 +1945,9 @@ BOOL LLFolderView::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 	if (!handled)
 	{
 		if (getListener()->getUUID().notNull())
-	{
-		handled = LLFolderViewFolder::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
-	}
+		{
+			handled = LLFolderViewFolder::handleDragAndDrop(x, y, mask, drop, cargo_type, cargo_data, accept, tooltip_msg);
+		}
 		else
 		{
 			if (!mFolders.empty())
@@ -1969,7 +1969,7 @@ BOOL LLFolderView::handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 void LLFolderView::deleteAllChildren()
 {
 	closeRenamer();
-	delete mPopupMenuHandle.get();
+	if (mPopupMenuHandle.get()) mPopupMenuHandle.get()->die();
 	mPopupMenuHandle = LLHandle<LLView>();
 	mScrollContainer = NULL;
 	mRenameItem = NULL;

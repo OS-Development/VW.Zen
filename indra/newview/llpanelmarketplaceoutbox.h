@@ -59,9 +59,6 @@ public:
 	U32 getTotalItemCount() const;
 
 	bool isOutboxEmpty() const;
-	bool isSyncInProgress() const;
-
-	void onSyncComplete(bool goodStatus, const LLSD& content);
 
 	/*virtual*/ BOOL handleDragAndDrop(S32 x, S32 y, MASK mask, BOOL drop,
 								   EDragAndDropType cargo_type,
@@ -70,19 +67,23 @@ public:
 								   std::string& tooltip_msg);
 
 protected:
-	void onSyncButtonClicked();
-	void updateSyncButtonStatus();
+	void onImportButtonClicked();
+	void updateImportButtonStatus();
 
 	void handleLoginComplete();
 	void onFocusReceived();
 	void onSelectionChange();
-
+	
+	void importReportResults(U32 status, const LLSD& content);
+	void importStatusChanged(bool inProgress);
+	
 private:
 	LLInventoryPanel *		mInventoryPanel;
 
-	LLButton *				mSyncButton;
-	LLLoadingIndicator *	mSyncIndicator;
-	bool					mSyncInProgress;
+	LLButton *				mImportButton;
+	LLLoadingIndicator *	mImportIndicator;
+	
+	LLButton *				mOutboxButton;
 };
 
 
