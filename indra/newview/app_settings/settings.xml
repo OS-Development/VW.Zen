@@ -2,6 +2,18 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>NotificationAlignment</key>
+    <map>
+      <key>Comment</key>
+      <string>Notification Vertical Alignment (1 = top; 0 = bottom).
+	  Requires Restart.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
 	<key>UsePieMenu</key>
 		<map>
 		<key>Comment</key>

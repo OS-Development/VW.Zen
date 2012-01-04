@@ -1212,6 +1212,21 @@
      tear_off="true"
      visible="true">
 		
+				
+		<menu_item_check
+		label="Notifications on Top   (Requires Restart)"
+		name="NotificationAlignment">
+		  <menu_item_check.on_click
+		    function="ToggleControl"
+			parameter="NotificationAlignment" />
+	      <menu_item_check.on_check
+			    control="NotificationAlignment"/>
+		</menu_item_check>
+		
+		
+		<menu_item_separator/>
+		
+		
 		<menu_item_check
 		label="Use Pie Menu"
 		name="UsePieMenu">
@@ -1226,19 +1241,16 @@
 		
 		<menu_item_call
 		 label="Area Search"
-		 shortcut="alt|shift|A"
 		 name="area_search">
 		    <menu_item_call.on_click
 			 function="Floater.Toggle"
 			 parameter="area_search" />
 		</menu_item_call>
 		
-		
-		
+				
 		<menu_item_separator/>
 		
-	
-		
+			
 		<menu_item_check
 		label="Save Inv. Scripts as Mono"
 		name="SaveInventoryScriptsAsMono">
@@ -1256,7 +1268,7 @@
 		    function="ToggleControl"
 			parameter="FetchInventoryOnLogin" />
 	      <menu_item_check.on_check
-			    control="FetchInventoryOnLogin"/>
+				control="FetchInventoryOnLogin"/>
 		</menu_item_check>
 		
 		<menu_item_separator/>
