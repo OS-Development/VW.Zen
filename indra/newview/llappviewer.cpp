@@ -75,6 +75,7 @@
 //#include "llfirstuse.h"
 #include "llrender.h"
 #include "llteleporthistory.h"
+#include "lltoast.h"
 #include "lllocationhistory.h"
 #include "llfasttimerview.h"
 #include "llvector4a.h"
@@ -522,6 +523,8 @@ static void settings_to_globals()
 
 	LLSurface::setTextureSize(gSavedSettings.getU32("RegionTextureSize"));
 	
+	LLRender::sGLCoreProfile = gSavedSettings.getBOOL("RenderGLCoreProfile");
+
 	LLImageGL::sGlobalUseAnisotropic	= gSavedSettings.getBOOL("RenderAnisotropic");
 	LLVOVolume::sLODFactor				= gSavedSettings.getF32("RenderVolumeLODFactor");
 	LLVOVolume::sDistanceFactor			= 1.f-LLVOVolume::sLODFactor * 0.1f;
@@ -556,42 +559,6 @@ static void settings_modify()
 	gDebugGL = gSavedSettings.getBOOL("RenderDebugGL") || gDebugSession;
 	gDebugPipeline = gSavedSettings.getBOOL("RenderDebugPipeline");
 	gAuditTexture = gSavedSettings.getBOOL("AuditTexture");
-#if LL_VECTORIZE
-	if (gSysCPU.hasAltivec())
-	{
-		gSavedSettings.setBOOL("VectorizeEnable", TRUE );
-		gSavedSettings.setU32("VectorizeProcessor", 0 );
-	}
-	else
-	if (gSysCPU.hasSSE2())
-	{
-		gSavedSettings.setBOOL("VectorizeEnable", TRUE );
-		gSavedSettings.setU32("VectorizeProcessor", 2 );
-	}
-	else
-	if (gSysCPU.hasSSE())
-	{
-		gSavedSettings.setBOOL("VectorizeEnable", TRUE );
-		gSavedSettings.setU32("VectorizeProcessor", 1 );
-	}
-	else
-	{
-		// Don't bother testing or running if CPU doesn't support it. JC
-		gSavedSettings.setBOOL("VectorizePerfTest", FALSE );
-		gSavedSettings.setBOOL("VectorizeEnable", FALSE );
-		gSavedSettings.setU32("VectorizeProcessor", 0 );
-		gSavedSettings.setBOOL("VectorizeSkin", FALSE);
-	}
-#else
-	// This build target doesn't support SSE, don't test/run.
-	gSavedSettings.setBOOL("VectorizePerfTest", FALSE );
-	gSavedSettings.setBOOL("VectorizeEnable", FALSE );
-	gSavedSettings.setU32("VectorizeProcessor", 0 );
-	gSavedSettings.setBOOL("VectorizeSkin", FALSE);
-
-	// disable fullscreen mode, unsupported
-	gSavedSettings.setBOOL("WindowFullScreen", FALSE);
-#endif
 }
 
 class LLFastTimerLogThread : public LLThread
@@ -773,7 +740,7 @@ bool LLAppViewer::init()
 		LLViewerAssetStatsFF::init();
 	}
 
-    initThreads();
+	initThreads();
 	LL_INFOS("InitInfo") << "Threads initialized." << LL_ENDL ;
 
 	// Initialize settings early so that the defaults for ignorable dialogs are
@@ -874,8 +841,6 @@ bool LLAppViewer::init()
 	LLGroupMgr::parseRoleActions("role_actions.xml");
 
 	LLAgent::parseTeleportMessages("teleport_strings.xml");
-
-	LLViewerJointMesh::updateVectorize();
 
 	// load MIME type -> media impl mappings
 	std::string mime_types_name;
@@ -1417,6 +1382,11 @@ bool LLAppViewer::mainLoop()
 					}
 				}
 				gMeshRepo.update() ;
+				
+				if(!LLCurl::getCurlThread()->update(1))
+				{
+					LLCurl::getCurlThread()->pause() ; //nothing in the curl thread.
+				}
 
 				if(!total_work_pending) //pause texture fetching threads if nothing to process.
 				{
@@ -1812,6 +1782,7 @@ bool LLAppViewer::cleanup()
 		pending += LLAppViewer::getTextureFetch()->update(1); // unpauses the texture fetch thread
 		pending += LLVFSThread::updateClass(0);
 		pending += LLLFSThread::updateClass(0);
+		pending += LLCurl::getCurlThread()->update(1) ;
 		F64 idle_time = idleTimer.getElapsedTimeF64();
 		if(!pending)
 		{
@@ -1823,6 +1794,7 @@ bool LLAppViewer::cleanup()
 			break;
 		}
 	}
+	LLCurl::getCurlThread()->pause() ;
 
 	// Delete workers first
 	// shotdown all worker threads before deleting them in case of co-dependencies
@@ -2860,11 +2832,21 @@ bool LLAppViewer::initWindow()
 
 	// always start windowed
 	BOOL ignorePixelDepth = gSavedSettings.getBOOL("IgnorePixelDepth");
-	gViewerWindow = new LLViewerWindow(gWindowTitle, 
-		VIEWER_WINDOW_CLASSNAME,
-		gSavedSettings.getS32("WindowX"), gSavedSettings.getS32("WindowY"),
-		gSavedSettings.getS32("WindowWidth"), gSavedSettings.getS32("WindowHeight"),
-		gSavedSettings.getBOOL("WindowFullScreen"), ignorePixelDepth);
+
+	LLViewerWindow::Params window_params;
+	window_params
+		.title(gWindowTitle)
+		.name(VIEWER_WINDOW_CLASSNAME)
+		.x(gSavedSettings.getS32("WindowX"))
+		.y(gSavedSettings.getS32("WindowY"))
+		.width(gSavedSettings.getU32("WindowWidth"))
+		.height(gSavedSettings.getU32("WindowHeight"))
+		.min_width(gSavedSettings.getU32("MinWindowWidth"))
+		.min_height(gSavedSettings.getU32("MinWindowHeight"))
+		.fullscreen(gSavedSettings.getBOOL("FullScreen"))
+		.ignore_pixel_depth(ignorePixelDepth);
+
+	gViewerWindow = new LLViewerWindow(window_params);
 
 	LL_INFOS("AppInit") << "gViewerwindow created." << LL_ENDL;
 
@@ -4070,6 +4052,7 @@ void LLAppViewer::idle()
 	LLFrameTimer::updateFrameTime();
 	LLFrameTimer::updateFrameCount();
 	LLEventTimer::updateClass();
+	LLNotificationsUI::LLToast::updateClass();
 	LLCriticalDamp::updateInterpolants();
 	LLMortician::updateClass();
 	LLFilePickerThread::clearDead();  //calls LLFilePickerThread::notify()
