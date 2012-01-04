@@ -690,7 +690,8 @@ LLVOAvatar::LLVOAvatar(const LLUUID& id,
 	mFullyLoadedInitialized(FALSE),
 	mSupportsAlphaLayers(FALSE),
 	mLoadedCallbacksPaused(FALSE),
-	mHasPelvisOffset( FALSE )
+	mHasPelvisOffset( FALSE ),
+	mRenderUnloadedAvatar(LLCachedControl<bool>(gSavedSettings, "RenderUnloadedAvatar"))
 {
 	LLMemType mt(LLMemType::MTYPE_AVATAR);
 	//VTResume();  // VTune
@@ -5413,18 +5414,6 @@ BOOL LLVOAvatar::loadAvatar()
 		}
 	}
 
-	// Uncomment to enable avatar_lad.xml debugging. 
-	std::ofstream file;
-	file.open("avatar_lad.log");
-	for( LLViewerVisualParam* param = (LLViewerVisualParam*) getFirstVisualParam(); 
-	param;
-	param = (LLViewerVisualParam*) getNextVisualParam() )
-	{
-		param->getInfo()->toStream(file);
-		file << std::endl;
-	}
-
-	file.close();
 	
 	return TRUE;
 }
@@ -6493,10 +6482,7 @@ BOOL LLVOAvatar::processFullyLoadedChange(bool loading)
 
 BOOL LLVOAvatar::isFullyLoaded() const
 {
-	if (gSavedSettings.getBOOL("RenderUnloadedAvatar"))
-		return TRUE;
-	else
-		return mFullyLoaded;
+	return (mRenderUnloadedAvatar || mFullyLoaded);
 }
 
 bool LLVOAvatar::isTooComplex() const
