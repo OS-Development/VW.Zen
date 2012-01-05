@@ -2,10 +2,21 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>MeshDeformer</key>
+    <map>
+      <key>Comment</key>
+      <string>Toggles Qarl's Rigged Mesh Deformer (1 = On; 0 = Off).</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
 	<key>NotificationAlignment</key>
     <map>
       <key>Comment</key>
-      <string>Notification Vertical Alignment (1 = top; 0 = bottom).
+      <string>Notification Vertical Alignment (1 = Top; 0 = Bottom).
 	  Requires Restart.</string>
       <key>Persist</key>
       <integer>1</integer>
