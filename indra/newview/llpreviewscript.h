@@ -79,7 +79,6 @@ public:
 	/*virtual*/	BOOL	postBuild();
 	BOOL			canClose();
 	void			setEnableEditing(bool enable);
-	bool			canLoadOrSaveToFile( void* userdata );
 
 	void            setScriptText(const std::string& text, BOOL is_valid);
 	bool			loadScriptText(const std::string& filename);
@@ -99,11 +98,6 @@ public:
 	static void		onClickForward(void* userdata);
 	static void		onBtnInsertSample(void*);
 	static void		onBtnInsertFunction(LLUICtrl*, void*);
-	static void		onBtnLoadFromFile(void*);
-	static void		onBtnSaveToFile(void*);
-
-	static bool		enableSaveToFileMenu(void* userdata);
-	static bool		enableLoadFromFileMenu(void* userdata);
 
 	virtual bool	hasAccelerators() const { return true; }
 
