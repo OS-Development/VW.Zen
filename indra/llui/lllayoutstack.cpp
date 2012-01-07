@@ -62,6 +62,8 @@ LLLayoutPanel::Params::Params()
 
 LLLayoutPanel::LLLayoutPanel(const Params& p)	
 :	LLPanel(p),
+	mReshapeSignal(NULL),
+	mReshapeSignalFire(true),
 	mExpandedMinDimSpecified(false),
 	mExpandedMinDim(p.min_dim),
  	mMinDim(p.min_dim), 
@@ -101,6 +103,7 @@ LLLayoutPanel::~LLLayoutPanel()
 	// probably not necessary, but...
 	delete mResizeBar;
 	mResizeBar = NULL;
+	delete mReshapeSignal;
 }
 
 void LLLayoutPanel::reshape(S32 width, S32 height, BOOL called_from_parent)
@@ -114,6 +117,21 @@ void LLLayoutPanel::reshape(S32 width, S32 height, BOOL called_from_parent)
 		mFractionalSize += height - llround(mFractionalSize);
 	}
 	LLPanel::reshape(width, height, called_from_parent);
+	
+	if ( (mReshapeSignalFire) && (mReshapeSignal) )
+		(*mReshapeSignal)(this, getRect());
+}
+
+void LLLayoutPanel::handleReshape(const LLRect& new_rect, bool by_user)
+{
+	const LLRect oldRect = getRect();
+
+	mReshapeSignalFire = false;
+	LLPanel::handleReshape(new_rect, by_user);
+	mReshapeSignalFire = true;
+
+	if ( (mReshapeSignal) && (oldRect != getRect()) )
+		(*mReshapeSignal)(this, getRect());
 }
 
 F32 LLLayoutPanel::getCollapseFactor()
@@ -130,6 +148,13 @@ F32 LLLayoutPanel::getCollapseFactor()
 			clamp_rescale(mCollapseAmt, 0.f, 1.f, 1.f, llmin(1.f, (F32)getRelevantMinDim() / (F32)llmax(1, getRect().getHeight())));
 		return mVisibleAmt * collapse_amt;
 	}
+}
+
+boost::signals2::connection LLLayoutPanel::setReshapeCallback(const reshape_signal_t::slot_type& cb)
+{
+	if (!mReshapeSignal)
+		mReshapeSignal = new reshape_signal_t();
+	return mReshapeSignal->connect(cb); 
 }
 
 //

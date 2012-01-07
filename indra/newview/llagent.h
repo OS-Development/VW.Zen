@@ -115,6 +115,7 @@ public:
 	// Return TRUE if the database reported this login as the first for this particular user.
 	BOOL 			isFirstLogin() const 	{ return mFirstLogin; }
 	BOOL 			isInitialized() const 	{ return mInitialized; }
+
 public:
 	std::string		mMOTD; 					// Message of the day
 private:
@@ -294,8 +295,7 @@ public:
 	static void		releaseMicrophone(const LLSD& name);
 	static void		toggleMicrophone(const LLSD& name);
 	static bool		isMicrophoneOn(const LLSD& sdname);
-	static bool		isActionAllowed(const LLSD& sdname);
-
+	static bool 	isActionAllowed(const LLSD& sdname);
 private:
 	bool			mVoiceConnected;
 
@@ -596,6 +596,9 @@ public:
 	bool			canEditParcel() const { return mCanEditParcel; }
 private:
 	bool			mCanEditParcel;
+	
+	static bool ToggleAO(const LLSD& dummy);
+	static bool CheckAO(const LLSD& dummy);
 
 	static void parcelChangedCallback();
 

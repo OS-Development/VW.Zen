@@ -147,9 +147,8 @@ void LLSysWellWindow::setVisible(BOOL visible)
 	{
 		if (NULL == getDockControl() && getDockTongue().notNull())
 		{
-			setDockControl(new LLDockControl(
-				LLChicletBar::getInstance()->getChild<LLView>(getAnchorViewName()), this,
-				getDockTongue(), LLDockControl::BOTTOM));
+			setDockControl(new LLDockControl(LLChicletBar::getInstance()->getChild<LLView>(getAnchorViewName()), this, getDockTongue(),
+				(LLChicletBar::ALIGN_TOP == LLChicletBar::getInstance()->getAlignment()) ? LLDockControl::BOTTOM : LLDockControl::TOP));
 		}
 	}
 
@@ -205,8 +204,12 @@ void LLSysWellWindow::reshapeWindow()
 			new_window_height = MAX_WINDOW_HEIGHT;
 		}
 		S32 newWidth = curRect.getWidth() < MIN_WINDOW_WIDTH ? MIN_WINDOW_WIDTH	: curRect.getWidth();
-
-		curRect.setLeftTopAndSize(curRect.mLeft, curRect.mTop, newWidth, new_window_height);
+		
+		S32 top = curRect.mTop;
+		if ( (getDockControl()) && (LLDockControl::TOP == getDockControl()->getDockAt()) )
+			top += new_window_height - curRect.getHeight();
+		
+		curRect.setLeftTopAndSize(curRect.mLeft, top, newWidth, new_window_height);
 		reshape(curRect.getWidth(), curRect.getHeight(), TRUE);
 		setRect(curRect);
 	}

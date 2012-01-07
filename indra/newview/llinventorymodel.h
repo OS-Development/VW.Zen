@@ -356,6 +356,9 @@ public:
 	// Creation
 	//--------------------------------------------------------------------
 public:
+	
+	LLUUID findCategoryByName(std::string name);
+	
 	// Returns the UUID of the new category. If you want to use the default 
 	// name based on type, pass in a NULL to the 'name' parameter.
 	LLUUID createNewCategory(const LLUUID& parent_id,

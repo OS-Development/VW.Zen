@@ -70,6 +70,11 @@ public:
 	 * @param visible - a flag specifying whether a button should be shown or hidden.
 	 */
 	void showWellButton(const std::string& well_name, bool visible);
+	
+	enum EAlignment { ALIGN_TOP, ALIGN_BOTTOM };
+
+	EAlignment	getAlignment()						{ return mAlignment; }
+	void		setAlignment(EAlignment eAlignment)	{ mAlignment = eAlignment; }
 
 private:
 	/**
@@ -97,6 +102,8 @@ private:
 
 protected:
 	LLChicletBar(const LLSD& key = LLSD());
+	
+	EAlignment			mAlignment;
 
 	LLChicletPanel* 	mChicletPanel;
 	LLLayoutStack*		mToolbarStack;

@@ -60,7 +60,9 @@ LLDebugView::LLDebugView(const LLDebugView::Params& p)
 	mMemoryView(NULL),
 	mDebugConsolep(NULL),
 	mFloaterSnapRegion(NULL)
-{}
+{
+	LLFloaterView::setFloaterSnapChangedCallback(boost::bind(&LLDebugView::onFloaterSnapRegionChanged, this, _1));
+}
 
 LLDebugView::~LLDebugView()
 {
@@ -148,16 +150,9 @@ void LLDebugView::init()
 	}
 }
 
-void LLDebugView::draw()
+void LLDebugView::onFloaterSnapRegionChanged(LLView* floater_snap_viewp)
 {
-	if (mFloaterSnapRegion == NULL)
-	{
-		mFloaterSnapRegion = getRootView()->getChildView("floater_snap_region");
-	}
-
 	LLRect debug_rect;
-	mFloaterSnapRegion->localRectToOtherView(mFloaterSnapRegion->getLocalRect(), &debug_rect, getParent());
-
+	floater_snap_viewp->localRectToOtherView(floater_snap_viewp->getLocalRect(), &debug_rect, getParent());
 	setShape(debug_rect);
-	LLView::draw();
 }

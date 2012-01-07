@@ -67,6 +67,12 @@
 #include "lluictrlfactory.h"
 #include "lltrans.h"
 
+#include "llfloaterlocalbitmap.h"
+#include "llscrolllistctrl.h"
+#include "llfilepicker.h"
+#include "llfloaterreg.h"
+#include "lltabcontainer.h"
+
 
 static const S32 HPAD = 4;
 static const S32 VPAD = 4;
@@ -141,6 +147,12 @@ public:
 	static void		onShowFolders(LLUICtrl* ctrl, void* userdata);
 	static void		onApplyImmediateCheck(LLUICtrl* ctrl, void* userdata);
 		   void		onTextureSelect( const LLTextureEntry& te );
+		   
+	static void onBtnAdd( void* userdata );
+	static void onBtnRemove( void* userdata );
+	static void onBtnUpload( void* userdata );
+	static void onBtnBrowser( void* userdata );
+	static void onLocalScrollCommit( LLUICtrl* ctrl, void* userdata );
 
 protected:
 	LLPointer<LLViewerTexture> mTexturep;
@@ -171,6 +183,8 @@ protected:
 	LLSaveFolderState	mSavedFolderState;
 
 	BOOL				mSelectedItemPinned;
+	LLScrollListCtrl* mLocalScrollCtrl;
+	LLTabContainer* mServerLocalTabCont;
 };
 
 LLFloaterTexturePicker::LLFloaterTexturePicker(	
@@ -399,6 +413,17 @@ BOOL LLFloaterTexturePicker::postBuild()
 	childSetAction("Default",LLFloaterTexturePicker::onBtnSetToDefault,this);
 	childSetAction("None", LLFloaterTexturePicker::onBtnNone,this);
 	childSetAction("Blank", LLFloaterTexturePicker::onBtnWhite,this);
+	
+	childSetAction( "l_add_btn", LLFloaterTexturePicker::onBtnAdd, this );
+	childSetAction( "l_del_btn", LLFloaterTexturePicker::onBtnRemove, this );
+	childSetAction( "l_upl_btn", LLFloaterTexturePicker::onBtnUpload, this );
+	childSetAction( "l_brws_btn", LLFloaterTexturePicker::onBtnBrowser, this );
+	
+	mLocalScrollCtrl = getChild<LLScrollListCtrl>("local_name_list");
+	mLocalScrollCtrl->setCommitCallback( onLocalScrollCommit, this );
+	LLLocalBitmapBrowser::updateTextureCtrlList( mLocalScrollCtrl );
+	
+	mServerLocalTabCont = getChild<LLTabContainer>("servloc_tabcont");
 
 
 	childSetCommitCallback("show_folders_check", onShowFolders, this);
@@ -683,9 +708,19 @@ PermissionMask LLFloaterTexturePicker::getFilterPermMask()
 void LLFloaterTexturePicker::commitIfImmediateSet()
 {
 	bool apply_immediate = getChild<LLUICtrl>("apply_immediate_check")->getValue().asBoolean();
-	if (!mNoCopyTextureSelected && apply_immediate && mOwner)
+	std::string panel_name = mServerLocalTabCont->getCurrentPanel()->getName();
+		
+	if ( apply_immediate && mOwner )
 	{
-		mOwner->onFloaterCommit(LLTextureCtrl::TEXTURE_CHANGE);
+		if (panel_name != LOCALLIST_LOCAL_TAB && !mNoCopyTextureSelected)
+		{
+			mOwner->onFloaterCommit(LLTextureCtrl::TEXTURE_CHANGE);
+		}
+		else if ( panel_name == LOCALLIST_LOCAL_TAB && !mLocalScrollCtrl->isEmpty() )
+		{
+			mOwner->onFloaterCommit
+			( LLTextureCtrl::TEXTURE_CHANGE, (LLUUID)mLocalScrollCtrl->getSelectedItemLabel( LOCALLIST_COL_ID ) );
+		}
 	}
 }
 
@@ -748,9 +783,64 @@ void LLFloaterTexturePicker::onBtnSelect(void* userdata)
 	LLFloaterTexturePicker* self = (LLFloaterTexturePicker*) userdata;
 	if (self->mOwner)
 	{
-		self->mOwner->onFloaterCommit(LLTextureCtrl::TEXTURE_SELECT);
+		std::string panel_name = self->mServerLocalTabCont->getCurrentPanel()->getName();
+	
+		// checking if we're on server or local tab
+		if ( panel_name != LOCALLIST_LOCAL_TAB )
+		{ self->mOwner->onFloaterCommit(LLTextureCtrl::TEXTURE_SELECT); }
+		else if ( panel_name == LOCALLIST_LOCAL_TAB && !self->mLocalScrollCtrl->isEmpty() )
+		{
+			self->mOwner->onFloaterCommit
+			( LLTextureCtrl::TEXTURE_CHANGE,(LLUUID)self->mLocalScrollCtrl->getSelectedItemLabel( LOCALLIST_COL_ID ) );
+		}
 	}
 	self->closeFloater();
+}
+
+// static
+void LLFloaterTexturePicker::onBtnAdd(void *userdata)
+{
+	LLLocalBitmapBrowser::addBitmap();
+}
+		
+// static
+void LLFloaterTexturePicker::onBtnRemove(void *userdata)
+{
+	LLFloaterTexturePicker* self = (LLFloaterTexturePicker*) userdata;
+	LLLocalBitmapBrowser::delBitmap( self->mLocalScrollCtrl->getAllSelected(), LOCALLIST_COL_ID );
+}
+		
+// static
+void LLFloaterTexturePicker::onBtnUpload(void *userdata)
+{
+	LLFloaterTexturePicker* self = (LLFloaterTexturePicker*) userdata;
+	if ( self->mLocalScrollCtrl->getAllSelected().empty() ) { return; }
+		
+	std::string filename = LLLocalBitmapBrowser::getBitmapUnit
+	( (LLUUID)self->mLocalScrollCtrl->getSelectedItemLabel(LOCALLIST_COL_ID) )->getFileName();
+		
+	if ( !filename.empty() )
+	{
+		LLFloaterReg::showInstance("upload_image", LLSD(filename));
+	}
+		
+}
+		
+// static
+void LLFloaterTexturePicker::onBtnBrowser(void *userdata)
+{
+	LLFloaterReg::showInstance("local_bitmap_browser", NULL); // NULL works but i don't feel comfortable with it.
+}
+		
+// static
+void LLFloaterTexturePicker::onLocalScrollCommit(LLUICtrl *ctrl, void *userdata)
+{
+	LLFloaterTexturePicker* self = (LLFloaterTexturePicker*) userdata;
+	LLUUID id = (LLUUID)self->mLocalScrollCtrl->getSelectedItemLabel( LOCALLIST_COL_ID );
+		
+	self->mOwner->setImageAssetID( id );
+	if ( self->childGetValue("apply_immediate_check").asBoolean() )
+	{ self->mOwner->onFloaterCommit(LLTextureCtrl::TEXTURE_CHANGE, id); } // calls an overridden function.
 }
 
 void LLFloaterTexturePicker::onBtnPipette()
@@ -1164,6 +1254,46 @@ void LLTextureCtrl::onFloaterCommit(ETexturePickOp op)
 					onCommit();
 			}
 		}
+	}
+}
+
+/* overridden for local bitmaps */
+void LLTextureCtrl::onFloaterCommit(ETexturePickOp op, LLUUID id)
+{
+	LLFloaterTexturePicker* floaterp = (LLFloaterTexturePicker*)mFloaterHandle.get();
+		
+	if( floaterp && getEnabled() )
+	{
+		if (op == TEXTURE_CANCEL)
+		mViewModel->resetDirty();
+		// If the "no_commit_on_selection" parameter is set
+		// we get dirty only when user presses OK in the picker
+		// (i.e. op == TEXTURE_SELECT) or texture changes via DnD.
+		else if (mCommitOnSelection || op == TEXTURE_SELECT)
+		mViewModel->setDirty(); // *TODO: shouldn't we be using setValue() here?
+		
+		setTentative( FALSE );
+		
+		mImageItemID = id;
+		mImageAssetID = id;
+		
+		if (op == TEXTURE_SELECT && mOnSelectCallback)
+		{
+			mOnSelectCallback( this, LLSD() );
+		}
+		else if (op == TEXTURE_CANCEL && mOnCancelCallback)
+		{
+			mOnCancelCallback( this, LLSD() );
+		}
+		else
+		{
+			// If the "no_commit_on_selection" parameter is set
+			// we commit only when user presses OK in the picker
+			// (i.e. op == TEXTURE_SELECT) or texture changes via DnD.
+			if (mCommitOnSelection || op == TEXTURE_SELECT)
+			onCommit();
+		}
+		
 	}
 }
 

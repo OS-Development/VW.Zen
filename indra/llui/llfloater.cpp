@@ -41,6 +41,7 @@
 #include "lldraghandle.h"
 #include "llfloaterreg.h"
 #include "llfocusmgr.h"
+#include "lllayoutstack.h"
 #include "llresizebar.h"
 #include "llresizehandle.h"
 #include "llkeyboard.h"
@@ -115,6 +116,8 @@ LLMultiFloater* LLFloater::sHostp = NULL;
 BOOL			LLFloater::sQuitting = FALSE; // Flag to prevent storing visibility controls while quitting
 
 LLFloaterView* gFloaterView = NULL;
+
+LLFloaterView::snap_changed_signal_t LLFloaterView::s_SnapChangedSignal;
 
 /*==========================================================================*|
 // DEV-38598: The fundamental problem with this operation is that it can only
@@ -2895,6 +2898,31 @@ void LLFloaterView::popVisibleAll(const skip_list_t& skip_list)
 	}
 
 	LLFloaterReg::blockShowFloaters(false);
+}
+
+void LLFloaterView::onFloaterSnapReshape()
+{
+	LLView* snap_view = mSnapView.get();
+	if (snap_view)
+		s_SnapChangedSignal(snap_view, snap_view->getRect());
+}
+
+void LLFloaterView::setFloaterSnapView(LLHandle<LLView> snap_view)
+{
+	mSnapView = snap_view;
+
+	// Set up the callback so we'll know when the floater snap region's parent was resized
+	LLLayoutPanel* pParent = mSnapView.get()->getParentByType<LLLayoutPanel>();
+	if (pParent)
+		pParent->setReshapeCallback(boost::bind(&LLFloaterView::onFloaterSnapReshape, this));
+
+	// Fire the signal for anyone that might already have set up a callback
+	onFloaterSnapReshape();
+}
+
+boost::signals2::connection LLFloaterView::setFloaterSnapChangedCallback(const snap_changed_signal_t::slot_type& cb)
+{
+	return s_SnapChangedSignal.connect(cb); 
 }
 
 void LLFloater::setInstanceName(const std::string& name)

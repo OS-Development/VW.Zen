@@ -212,7 +212,7 @@
      name="show_advanced_menu_check"
      top_pad="5"
      width="237"/>
-    <check_box
+	<check_box
      control_name="QAMode"
      follows="top|left"
      height="15"
@@ -222,4 +222,5 @@
      name="show_develop_menu_check"
      top_pad="5"
      width="237"/>
+	
 </panel>

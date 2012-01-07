@@ -42,6 +42,7 @@
 #include "llagentcamera.h"
 #include "llagentwearables.h"
 #include "llagentpilot.h"
+#include "llclipboard.h"
 #include "llcompilequeue.h"
 #include "llconsole.h"
 #include "lldaycyclemanager.h"
@@ -78,6 +79,7 @@
 #include "llpanelblockedlist.h"
 #include "llmoveview.h"
 #include "llparcel.h"
+#include "piemenu.h"
 #include "llrootview.h"
 #include "llsceneview.h"
 #include "llselectmgr.h"
@@ -110,6 +112,10 @@
 #include "lleconomy.h"
 #include "lltoolgrab.h"
 #include "llwindow.h"
+#include "boost/unordered_map.hpp"
+#include "llavatarpropertiesprocessor.h"
+#include "lltexturecache.h"
+#include "particleeditor.h"
 #include "boost/unordered_map.hpp"
 
 using namespace LLVOAvatarDefines;
@@ -147,13 +153,21 @@ LLMenuGL		*gPopupMenuView = NULL;
 LLMenuGL		*gEditMenu = NULL;
 LLMenuBarGL		*gLoginMenuBarView = NULL;
 
-// Pie menus
+// Context menus
 LLContextMenu	*gMenuAvatarSelf	= NULL;
 LLContextMenu	*gMenuAvatarOther = NULL;
 LLContextMenu	*gMenuObject = NULL;
 LLContextMenu	*gMenuAttachmentSelf = NULL;
 LLContextMenu	*gMenuAttachmentOther = NULL;
 LLContextMenu	*gMenuLand	= NULL;
+
+// Pie menus
+PieMenu		*gPieMenuAvatarSelf	= NULL;
+PieMenu		*gPieMenuAvatarOther = NULL;
+PieMenu		*gPieMenuObject = NULL;
+PieMenu		*gPieMenuAttachmentSelf = NULL;
+PieMenu		*gPieMenuAttachmentOther = NULL;
+PieMenu		*gPieMenuLand	= NULL;
 
 const std::string SAVE_INTO_INVENTORY("Save Object Back to My Inventory");
 const std::string SAVE_INTO_TASK_INVENTORY("Save Object Back to Object Contents");
@@ -167,6 +181,13 @@ LLContextMenu* gAttachBodyPartPieMenus[8];
 LLContextMenu* gDetachPieMenu = NULL;
 LLContextMenu* gDetachScreenPieMenu = NULL;
 LLContextMenu* gDetachBodyPartPieMenus[8];
+
+PieMenu* gPieAttachScreenMenu = NULL;
+PieMenu* gPieAttachMenu = NULL;
+PieMenu* gPieAttachBodyPartMenus[8];
+PieMenu* gPieDetachMenu = NULL;
+PieMenu* gPieDetachScreenMenu = NULL;
+PieMenu* gPieDetachBodyPartMenus[8];
 
 LLMenuItemCallGL* gAFKMenu = NULL;
 LLMenuItemCallGL* gBusyMenu = NULL;
@@ -414,7 +435,28 @@ void init_menus()
 
 	gMenuLand = LLUICtrlFactory::createFromFile<LLContextMenu>(
 		"menu_land.xml", gMenuHolder, registry);
+		
+	gPieMenuAvatarSelf = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_avatar_self.xml", gMenuHolder, registry);
+	gPieMenuAvatarOther = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_avatar_other.xml", gMenuHolder, registry);
+	
+	// added "Pie" to the control names to keep them unique
+	gPieDetachScreenMenu = gMenuHolder->getChild<PieMenu>("Pie Object Detach HUD", true);
+	gPieDetachMenu = gMenuHolder->getChild<PieMenu>("Pie Object Detach", true);
+	gPieMenuObject = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_object.xml", gMenuHolder, registry);
 
+	// added "Pie" to the control names to keep them unique
+	gPieAttachScreenMenu = gMenuHolder->getChild<PieMenu>("Pie Object Attach HUD");
+	gPieAttachMenu = gMenuHolder->getChild<PieMenu>("Pie Object Attach");
+	gPieMenuAttachmentSelf = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_attachment_self.xml", gMenuHolder, registry);
+	gPieMenuAttachmentOther = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_attachment_other.xml", gMenuHolder, registry);
+	gPieMenuLand = LLUICtrlFactory::createFromFile<PieMenu>(
+		"menu_pie_land.xml", gMenuHolder, registry);
+	
 	///
 	/// set up the colors
 	///
@@ -2371,6 +2413,131 @@ void cleanup_menus()
 //-----------------------------------------------------------------------------
 // Object pie menu
 //-----------------------------------------------------------------------------
+
+// Andromeda Rage:  Derender functionality, inspired by Phoenix.  TODO: RLVa stuff
+
+class LLObjectDerender : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLViewerObject* slct = LLSelectMgr::getInstance()->getSelection()->getFirstObject();
+		if(!slct)return true;
+		LLUUID id = slct->getID();
+		LLObjectSelectionHandle selection = LLSelectMgr::getInstance()->getSelection();
+		LLUUID root_key;
+		LLSelectNode* node = selection->getFirstRootNode();
+		if(node)root_key = node->getObject()->getID();
+		if(root_key.notNull())
+		{
+			id = root_key;
+		}
+		LLSelectMgr::getInstance()->removeObjectFromSelections(id);
+
+        if (!(id == gAgentID))
+		{
+			LLViewerObject *objectp = gObjectList.findObject(id);
+			{
+				gObjectList.killObject(objectp);
+			}
+		}
+		return true;
+	}
+};
+
+class LLEnableEditParticleSource : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		if(LLSelectMgr::instance().getSelection()->getObjectCount()!=0)
+		{
+			LLObjectSelection::valid_iterator iter=LLSelectMgr::instance().getSelection()->valid_begin();
+			LLSelectNode* node=*iter;
+
+			if(node->mPermissions->getOwner()==gAgent.getID())
+				return true;
+		}
+		return false;
+	}
+};
+
+class LLEditParticleSource : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+		if (objectp)
+		{
+			ParticleEditor* particleEditor=LLFloaterReg::showTypedInstance<ParticleEditor>("particle_editor", LLSD(objectp->getID()), TAKE_FOCUS_YES);
+			if(particleEditor)
+				particleEditor->setObject(objectp);
+		}
+		return true;
+	}
+};
+
+
+void destroy_texture(LLUUID id)		// will be used by the texture refresh functions below
+{
+	LLViewerFetchedTexture* tx=LLViewerTextureManager::getFetchedTexture(id);
+	tx->destroyRawImage();
+	tx->destroySavedRawImage();
+	tx->destroyGLTexture();
+	tx->destroyTexture();
+	LLAppViewer::getTextureCache()->removeFromCache(id);
+}
+
+class LLObjectTexRefresh : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		// partly copied from the texture info code in handle_selected_texture_info()
+		for (LLObjectSelection::valid_iterator iter = LLSelectMgr::getInstance()->getSelection()->valid_begin();
+			iter != LLSelectMgr::getInstance()->getSelection()->valid_end(); iter++)
+		{
+			LLSelectNode* node = *iter;
+
+			U8 te_count = node->getObject()->getNumTEs();
+			// map from texture ID to list of faces using it
+			typedef std::map< LLUUID, std::vector<U8> > map_t;
+			map_t faces_per_texture;
+			for (U8 i = 0; i < te_count; i++)
+			{
+				if (!node->isTESelected(i)) continue;
+
+				LLViewerTexture* img = node->getObject()->getTEImage(i);
+				LLUUID image_id = img->getID();
+				faces_per_texture[image_id].push_back(i);
+			}
+
+			map_t::iterator it;
+			for (it = faces_per_texture.begin(); it != faces_per_texture.end(); ++it)
+				destroy_texture(it->first);
+		}
+
+        return true;
+    }
+};
+
+class LLAvatarTexRefresh : public view_listener_t
+{
+    bool handleEvent(const LLSD& userdata)
+    {
+		LLVOAvatar* avatar=find_avatar_from_object(LLSelectMgr::getInstance()->getSelection()->getPrimaryObject());
+		if(avatar)
+		{
+			// I bet this can be done more elegantly, but this is just straightforward
+			destroy_texture(avatar->getTE(TEX_HEAD_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_UPPER_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_LOWER_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_EYES_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_SKIRT_BAKED)->getID());
+			destroy_texture(avatar->getTE(TEX_HAIR_BAKED)->getID());
+			LLAvatarPropertiesProcessor::getInstance()->sendAvatarTexturesRequest(avatar->getID());
+		}
+
+        return true;
+    }
+};
 
 class LLObjectReportAbuse : public view_listener_t
 {
@@ -7856,6 +8023,67 @@ class LLToggleUIHints : public view_listener_t
 	}
 };
 
+class LLObjectGetUUID : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+		if (objectp)
+		{
+			LLUUID id = objectp->getID();	
+			gClipboard.copyFromString(utf8str_to_wstring(id.asString()));
+		}
+		return true;
+	}
+};
+
+class TogglePie : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("UsePieMenu", !gSavedSettings.getBOOL("UsePieMenu"));
+		return true;
+	}
+};
+
+class ToggleSaveMono : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("SaveInventoryScriptsAsMono", !gSavedSettings.getBOOL("SaveInventoryScriptsAsMono"));
+		return true;
+	}
+};
+
+class ToggleFetchInv : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("FetchInventoryOnLogin", !gSavedSettings.getBOOL("FetchInventoryOnLogin"));
+		return true;
+	}
+};
+
+class ToggleNotifications : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("NotificationAlignment", !gSavedSettings.getBOOL("NotificationAlignment"));
+		return true;
+	}
+	
+};
+
+class ToggleMeshDeformer : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("MeshDeformer", !gSavedSettings.getBOOL("MeshDeformer"));
+		return true;
+	}
+	
+};
+
 void LLUploadCostCalculator::calculateCost()
 {
 	S32 upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
@@ -8267,6 +8495,8 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAvatarCall(), "Avatar.Call");
 	enable.add("Avatar.EnableCall", boost::bind(&LLAvatarActions::canCall));
 	view_listener_t::addMenu(new LLAvatarReportAbuse(), "Avatar.ReportAbuse");
+	view_listener_t::addMenu(new LLAvatarTexRefresh(), "Avatar.TexRefresh");
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Avatar.GetUUID");
 	view_listener_t::addMenu(new LLAvatarToggleMyProfile(), "Avatar.ToggleMyProfile");
 	enable.add("Avatar.IsMyProfileOpen", boost::bind(&my_profile_visible));
 
@@ -8285,7 +8515,12 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectReturn(), "Object.Return");
 	view_listener_t::addMenu(new LLObjectReportAbuse(), "Object.ReportAbuse");
 	view_listener_t::addMenu(new LLObjectMute(), "Object.Mute");
-
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Object.GetUUID");
+	view_listener_t::addMenu(new LLObjectDerender(), "Object.Derender");
+	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");
+	view_listener_t::addMenu(new LLEditParticleSource(), "Object.EditParticles");
+   	view_listener_t::addMenu(new LLEnableEditParticleSource(), "Object.EnableEditParticles");
+	
 	enable.add("Object.VisibleTake", boost::bind(&visible_take_object));
 	enable.add("Object.VisibleBuy", boost::bind(&visible_buy_object));
 
@@ -8319,6 +8554,7 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAttachmentPointFilled(), "Attachment.PointFilled");
 	view_listener_t::addMenu(new LLAttachmentEnableDrop(), "Attachment.EnableDrop");
 	view_listener_t::addMenu(new LLAttachmentEnableDetach(), "Attachment.EnableDetach");
+	view_listener_t::addMenu(new LLObjectGetUUID(), "Attach.GetUUID");
 
 	// Land pie menu
 	view_listener_t::addMenu(new LLLandBuild(), "Land.Build");
@@ -8358,4 +8594,9 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLEditableSelected(), "EditableSelected");
 	view_listener_t::addMenu(new LLEditableSelectedMono(), "EditableSelectedMono");
 	view_listener_t::addMenu(new LLToggleUIHints(), "ToggleUIHints");
+	view_listener_t::addMenu(new TogglePie(), "UsePieMenu");
+	view_listener_t::addMenu(new ToggleSaveMono(), "SaveInventoryScriptsAsMono");
+	view_listener_t::addMenu(new ToggleFetchInv(), "FetchInventoryOnLogin");
+	view_listener_t::addMenu(new ToggleNotifications(), "NotificationAlignment");
+	view_listener_t::addMenu(new ToggleMeshDeformer(), "MeshDeformer");
 }

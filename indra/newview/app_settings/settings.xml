@@ -2,6 +2,126 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>MeshDeformer</key>
+    <map>
+      <key>Comment</key>
+      <string>Toggles Qarl's Rigged Mesh Deformer (1 = On; 0 = Off).</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+	<key>NotificationAlignment</key>
+    <map>
+      <key>Comment</key>
+      <string>Notification Vertical Alignment (1 = Top; 0 = Bottom).
+	  Requires Restart.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+	<key>UsePieMenu</key>
+		<map>
+		<key>Comment</key>
+		<string>Use the classic V1.x circular menu instead of the rectangular context menus when right clicking on land, avatars, objects or attachments.</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>Boolean</string>
+		<key>Value</key>
+		<integer>1</integer>
+		</map>
+	<key>DisableMinZoomDist</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Allows much closer camera zooming.</string>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>UIImgInvisibleUUID</key>
+	<map>
+	  <key>Comment</key>
+	  <string />
+	  <key>Persist</key>
+	  <integer>0</integer>
+	  <key>Type</key>
+	  <string>String</string>
+	  <key>Value</key>
+	  <string>f54a0c32-3cd1-d49a-5b4f-7b792bebc204</string>
+	</map>
+	<key>DisableBeaconAfterTeleport</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Disables the beacon of the teleport destination after a teleport.</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>TurnAroundWhenWalkingBackwards</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Turns your avatar around to face the camera when you are walking backwards.</string>
+      <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>ShowAOButton</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Shows/Hides Animation Overrider button in the bottom tray.</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>SaveInventoryScriptsAsMono</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Saves scripts edited directly from inventory as Mono instead of LSL</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>FetchInventoryOnLogin</key>
+    <map>
+      <key>Comment</key>
+      <string>Automatically fetch the inventory in the background after login</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+	<key>TemporaryUpload</key>
+    <map>
+      <key>Comment</key>
+      <string>Temporary texture upload flag (volatile)</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
 	<key>CrashHostUrl</key>
     <map>
       <key>Comment</key>
@@ -25,7 +145,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <real>300</real>
+      <real>0</real>
     </map>
     <key>AdminMenu</key>
     <map>
@@ -91,7 +211,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>AllowTapTapHoldRun</key>
     <map>
@@ -168,7 +288,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>AskedAboutCrashReports</key>
     <map>
@@ -201,7 +321,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelDoppler</key>
     <map>
@@ -212,7 +332,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelMaster</key>
     <map>
@@ -234,7 +354,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelMic</key>
     <map>
@@ -256,7 +376,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>AudioLevelRolloff</key>
     <map>
@@ -278,7 +398,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>AudioLevelUI</key>
     <map>
@@ -289,7 +409,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelVoice</key>
     <map>
@@ -300,7 +420,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
     <key>AudioLevelWind</key>
     <map>
@@ -311,7 +431,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>0.0</real>
     </map>
 	<key>AudioStreamingMedia</key>
     <map>
@@ -322,7 +442,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>AudioStreamingMusic</key>
     <map>
@@ -652,7 +772,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>AvatarSex</key>
     <map>
@@ -675,7 +795,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>40</integer>
+      <integer>0</integer>
     </map>
     <key>BottomPanelNew</key>
     <map>
@@ -1225,7 +1345,7 @@
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>512</integer>
+      <integer>1024</integer>
     </map>
     <key>CacheValidateCounter</key>
     <map>
@@ -1538,7 +1658,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ChatPersistTime</key>
     <map>
@@ -1555,6 +1675,17 @@
     <map>
       <key>Comment</key>
       <string>Show timestamps in chat</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>ChatVisible</key>
+    <map>
+      <key>Comment</key>
+      <string>Chat bar is visible</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -1891,17 +2022,6 @@
       <integer>1</integer>
       <key>Type</key>
       <string>S32</string>
-      <key>Value</key>
-      <integer>1</integer>
-    </map>
-    <key>DebugHideEmptySystemFolders</key>
-    <map>
-      <key>Comment</key>
-      <string>Hide empty system folders when on</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
       <key>Value</key>
       <integer>1</integer>
     </map>
@@ -2718,7 +2838,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>DisableMouseWarp</key>
     <map>
@@ -3158,7 +3278,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>EnergyFromTop</key>
     <map>
@@ -3829,7 +3949,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ForceMandatoryUpdate</key>
     <map>
@@ -4280,7 +4400,7 @@
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>7</integer>
+      <integer>0</integer>
     </map>
     <key>InvertMouse</key>
     <map>
@@ -4754,7 +4874,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>LimitSelectDistance</key>
     <map>
@@ -4765,7 +4885,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>LipSyncAah</key>
     <map>
@@ -5007,7 +5127,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MapShowInfohubs</key>
     <map>
@@ -5018,7 +5138,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MapShowLandForSale</key>
     <map>
@@ -5051,7 +5171,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>MiniMapAutoCenter</key>
     <map>
@@ -6107,7 +6227,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>5</integer>
+      <integer>3</integer>
     </map>
     <key>NotificationTipToastLifeTime</key>
     <map>
@@ -6118,7 +6238,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>10</integer>
+      <integer>3</integer>
     </map>
     <key>ToastFadingTime</key>
     <map>
@@ -6151,7 +6271,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>23</integer>
+      <integer>3</integer>
     </map>
     <key>StartUpToastLifeTime</key>
     <map>
@@ -6502,7 +6622,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ParticipantListShowIcons</key>
     <map>
@@ -7071,7 +7191,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>QAModeEventHostPort</key>
     <map>
@@ -7360,7 +7480,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>RenderAppleUseMultGL</key>
     <map>
@@ -7415,7 +7535,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
   <key>RenderAvatarComplexityLimit</key>
     <map>
@@ -7508,7 +7628,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.0</real>
     </map>
     <key>RenderAvatarMaxVisible</key>
     <map>
@@ -7519,7 +7639,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>12</integer>
+      <integer>4</integer>
     </map>
     <key>RenderAvatarPhysicsLODFactor</key>
     <map>
@@ -7530,7 +7650,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>0.0</real>
     </map>
     <key>RenderAvatarVP</key>
     <map>
@@ -7858,6 +7978,18 @@
     <integer>0</integer>
   </map>
 
+  <key>RenderAnimateTrees</key>
+  <map>
+    <key>Comment</key>
+    <string>Use GL matrix ops to animate tree branches.</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+  </map>
+  
   <key>RenderMinimumLODTriangleCount</key>
   <map>
     <key>Comment</key>
@@ -8790,7 +8922,7 @@
       <key>Type</key>
       <string>S32</string>
       <key>Value</key>
-      <integer>2</integer>
+      <integer>4</integer>
     </map>
     <key>RenderShadowDetail</key>
     <map>
@@ -8890,7 +9022,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>2.0</real>
     </map>
     <key>RenderTerrainScale</key>
     <map>
@@ -8923,7 +9055,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
 	<key>RenderTransparentWater</key>
 	<map>
@@ -8945,7 +9077,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>0.5</real>
+      <real>1.5</real>
     </map>
     <key>RenderUIInSnapshot</key>
     <map>
@@ -8978,7 +9110,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
   <key>RenderUseTriStrips</key>
   <map>
@@ -9099,7 +9231,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1.0</real>
+      <real>5.0</real>
     </map>
     <key>RenderWater</key>
     <map>
@@ -9232,7 +9364,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
   <key>SafeMode</key>
     <map>
@@ -9452,7 +9584,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAllObjectHoverTip</key>
     <map>
@@ -9716,7 +9848,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
+      <integer>0</integer>   
     </map>
     <key>ShowNavbarNavigationPanel</key>        
     <map>
@@ -9727,7 +9859,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>   
+      <integer>0</integer>   
     </map>
     <key>ShowWorldMapButton</key>
     <map>
@@ -9874,7 +10006,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultSearchAll</key>
     <map>
@@ -9887,7 +10019,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGGroups</key>
     <map>
@@ -9913,7 +10045,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultGroups</key>
     <map>
@@ -9926,7 +10058,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGClassifieds</key>
     <map>
@@ -9952,7 +10084,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultClassifieds</key>
     <map>
@@ -9965,7 +10097,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGEvents</key>
     <map>
@@ -9991,7 +10123,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultEvents</key>
     <map>
@@ -10004,7 +10136,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGLand</key>
     <map>
@@ -10030,7 +10162,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultLand</key>
     <map>
@@ -10043,7 +10175,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowPGSims</key>
     <map>
@@ -10069,7 +10201,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowAdultSims</key>
     <map>
@@ -10082,7 +10214,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowNearClip</key>
     <map>
@@ -10104,7 +10236,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowInInventory</key>
         <map>
@@ -10192,7 +10324,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowStartLocation</key>
     <map>
@@ -10203,7 +10335,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>ShowTangentBasis</key>
     <map>
@@ -10367,6 +10499,39 @@
       <key>Value</key>
       <integer>0</integer>
     </map>  
+    <key>SnapshotLocalLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next local snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>SnapshotProfileLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next profile snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>SnapshotPostcardLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next postcard snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
     <key>SnapshotQuality</key>
     <map>
       <key>Comment</key>
@@ -10399,6 +10564,17 @@
       <string>String</string>
       <key>Value</key>
       <string>http://photos.apps.staging.avatarsunited.com/viewer_config</string>
+    </map>
+    <key>SnapshotTextureLastResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Take next texture snapshot at this resolution</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
     </map>
     <key>SpeedTest</key>
     <map>
@@ -10629,7 +10805,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>500.0</real>
+      <real>1500.0</real>
     </map>
     <key>UpdaterMaximumBandwidth</key>
     <map>
@@ -10727,7 +10903,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>TranslateLanguage</key>
     <map>
@@ -11576,6 +11752,179 @@
       <key>Value</key>
       <string>00000000-0000-0000-0000-000000000000</string>
     </map>
+			
+
+	<key>UISndPieMenuAppear</key>
+	<map>
+		<key>Comment</key>
+		<string>Sound file for opening pie menu (uuid for sound asset)</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>String</string>
+		<key>Value</key>
+		<string>8eaed61f-92ff-6485-de83-4dcc938a478e</string>
+	</map>
+	<key>UISndPieMenuHide</key>
+	<map>
+		<key>Comment</key>
+		<string>Sound file for closing pie menu (uuid for sound asset)</string>
+		<string>String</string>
+		<key>Value</key>
+		<string>00000000-0000-0000-0000-000000000000</string>
+	</map>
+	<key>UISndPieMenuSliceHighlight0</key>
+	<map>
+		<key>Comment</key>
+		<string>Sound file for selecting pie menu item 0 (uuid for sound asset)</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>String</string>
+		<key>Value</key>
+		<string>d9f73cf8-17b4-6f7a-1565-7951226c305d</string>
+	</map>
+	<key>UISndPieMenuSliceHighlight1</key>
+	<map>
+		<key>Comment</key>
+		<string>Sound file for selecting pie menu item 1 (uuid for sound asset)</string>
+		<key>Persist</key>
+		<integer>1</integer>
+		<key>Type</key>
+		<string>String</string>
+		<key>Value</key>
+		<string>f6ba9816-dcaf-f755-7b67-51b31b6233e5</string>
+	</map>
+	<key>UISndPieMenuSliceHighlight2</key>
+	<map>
+		<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 2 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>7aff2265-d05b-8b72-63c7-dbf96dc2f21f</string>
+
+		</map>
+
+		<key>UISndPieMenuSliceHighlight3</key>
+
+		<map>
+
+			<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 3 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>09b2184e-8601-44e2-afbb-ce37434b8ba1</string>
+
+		</map>
+
+		<key>UISndPieMenuSliceHighlight4</key>
+
+		<map>
+
+			<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 4 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>bbe4c7fc-7044-b05e-7b89-36924a67593c</string>
+
+		</map>
+
+		<key>UISndPieMenuSliceHighlight5</key>
+
+		<map>
+
+			<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 5 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>d166039b-b4f5-c2ec-4911-c85c727b016c</string>
+
+		</map>
+
+		<key>UISndPieMenuSliceHighlight6</key>
+
+		<map>
+
+			<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 6 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>242af82b-43c2-9a3b-e108-3b0c7e384981</string>
+
+		</map>
+
+		<key>UISndPieMenuSliceHighlight7</key>
+
+		<map>
+
+			<key>Comment</key>
+
+			<string>Sound file for selecting pie menu item 7 (uuid for sound asset)</string>
+
+			<key>Persist</key>
+
+			<integer>1</integer>
+
+			<key>Type</key>
+
+			<string>String</string>
+
+			<key>Value</key>
+
+			<string>c1f334fb-a5be-8fe7-22b3-29631c21cf0b</string>
+
+		</map>
+
     <key>UISndSnapshot</key>
     <map>
       <key>Comment</key>
@@ -11904,7 +12253,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>UseDebugMenus</key>
     <map>
@@ -11915,7 +12264,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>UseDefaultColorPicker</key>
     <map>
@@ -12014,7 +12363,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <boolean>1</boolean>
+      <integer>1</integer>
     </map>
     <key>UseFreezeFrame</key>
     <map>
@@ -12620,17 +12969,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>MinWindowHeight</key>
-    <map>
-      <key>Comment</key>
-      <string>SL viewer minimum window height in pixels</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>U32</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
     <key>WindowHeight</key>
     <map>
       <key>Comment</key>
@@ -12638,7 +12976,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>U32</string>
+      <string>S32</string>
       <key>Value</key>
       <integer>738</integer>
     </map>
@@ -12653,17 +12991,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>
-    <key>MinWindowWidth</key>
-    <map>
-      <key>Comment</key>
-      <string>SL viewer minimum window width in pixels</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>U32</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
     <key>WindowWidth</key>
     <map>
       <key>Comment</key>
@@ -12671,7 +12998,7 @@
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
-      <string>U32</string>
+      <string>S32</string>
       <key>Value</key>
       <integer>1024</integer>
     </map>
@@ -13157,7 +13484,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>EnableClassifieds</key>
     <map>
@@ -13322,7 +13649,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>1</integer>
+      <integer>0</integer>
     </map>
     <key>ShowOfferedInventory</key>
     <map>
@@ -13368,10 +13695,10 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
-     <key>WebProfileFloaterRect</key>
+     <key>WebProfileRect</key>
     <map>
       <key>Comment</key>
-      <string>Web profile floater dimensions</string>
+      <string>Web profile dimensions</string>
       <key>Persist</key>
       <integer>1</integer>
       <key>Type</key>
@@ -13379,8 +13706,8 @@
       <key>Value</key>
       <array>
         <integer>0</integer>
-        <integer>680</integer>
-        <integer>485</integer>
+        <integer>650</integer>
+        <integer>490</integer>
         <integer>0</integer>
         </array>
         </map>

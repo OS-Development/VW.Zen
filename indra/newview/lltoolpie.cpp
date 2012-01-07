@@ -47,6 +47,7 @@
 #include "llmediaentry.h"
 #include "llmenugl.h"
 #include "llmutelist.h"
+#include "piemenu.h"
 #include "llresmgr.h"  // getMonetaryString
 #include "llselectmgr.h"
 #include "lltoolfocus.h"
@@ -1621,6 +1622,9 @@ BOOL LLToolPie::handleRightClickPick()
 	{
 		LLParcelSelectionHandle selection = LLViewerParcelMgr::getInstance()->selectParcelAt( mPick.mPosGlobal );
 		gMenuHolder->setParcelSelection(selection);
+		if(gSavedSettings.getBOOL("UsePieMenu"))
+			gPieMenuLand->show(x, y);
+		else
 		gMenuLand->show(x, y);
 
 		showVisualContextMenuEffect();
@@ -1628,15 +1632,31 @@ BOOL LLToolPie::handleRightClickPick()
 	}
 	else if (mPick.mObjectID == gAgent.getID() )
 	{
-		if(!gMenuAvatarSelf) 
+		if(gSavedSettings.getBOOL("UsePieMenu")) 
 		{
-			//either at very early startup stage or at late quitting stage,
-			//this event is ignored.
-			return TRUE ;
-		}
+			if(!gPieMenuAvatarSelf)
+			{
+				//either at very early startup stage or at late quitting stage,
+				//this event is ignored.
+				return TRUE ;
+			}
 
-		gMenuAvatarSelf->show(x, y);
+			gPieMenuAvatarSelf->show(x, y);
+		}
+		
+		else
+		{
+			if(!gMenuAvatarSelf)
+			{
+				//either at very early startup stage or at late quitting stage,
+				//this event is ignored.
+				return TRUE ;
+			}
+			
+			gMenuAvatarSelf->show(x, y);
+		}
 	}
+	
 	else if (object)
 	{
 		gMenuHolder->setObjectSelection(LLSelectMgr::getInstance()->getSelection());
@@ -1673,16 +1693,25 @@ BOOL LLToolPie::handleRightClickPick()
 			if (is_other_attachment)
 			{
 				gMenuAttachmentOther->getChild<LLUICtrl>("Avatar Mute")->setValue(mute_msg);
+				if(gSavedSettings.getBOOL("UsePieMenu"))
+					gPieMenuAttachmentOther->show(x, y);
+				else
 				gMenuAttachmentOther->show(x, y);
 			}
 			else
 			{
 				gMenuAvatarOther->getChild<LLUICtrl>("Avatar Mute")->setValue(mute_msg);
+				if(gSavedSettings.getBOOL("UsePieMenu"))
+					gPieMenuAvatarOther->show(x, y);
+				else
 				gMenuAvatarOther->show(x, y);
 			}
 		}
 		else if (object->isAttachment())
 		{
+			if(gSavedSettings.getBOOL("UsePieMenu"))
+				gPieMenuAttachmentSelf->show(x, y);
+			else
 			gMenuAttachmentSelf->show(x, y);
 		}
 		else
@@ -1705,6 +1734,9 @@ BOOL LLToolPie::handleRightClickPick()
 			}
 			
 			gMenuHolder->getChild<LLUICtrl>("Object Mute")->setValue(mute_msg);
+			if(gSavedSettings.getBOOL("UsePieMenu"))
+				gPieMenuObject->show(x, y);
+			else
 			gMenuObject->show(x, y);
 
 			showVisualContextMenuEffect();

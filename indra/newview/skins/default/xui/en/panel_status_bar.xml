@@ -33,8 +33,27 @@
      name="buycurrencylabel">
         L$ [AMT]
     </panel.string>
+	<slider
+	control_name="RenderFarClip"
+	decimal_digits="0"
+	follows="right|top"
+	height="16"
+	layout="topleft"
+	tool_tip="Slider for Setting the Draw Distance (View Distance) in Meters"
+	top="4"
+    label="Draw:"
+	label_length="40"
+	increment="16"
+	initial_value="64"
+	max_val="1024"
+	min_val="32"
+	name="drawdistance"
+	left="-700"
+	width="200" >
+	<slider.value_text follows="left|top"/>
+	</slider>
   <panel
-    height="18"
+	height="18"
     left="-370"
     width="160"
     top="1"
@@ -48,7 +67,7 @@
      left="0" 
      name="balance"
      tool_tip="Click to refresh your L$ balance"
-     v_pad="4"
+     v_pad="3"
      top="0"
      wrap="false" 
      value="L$20" 
@@ -67,7 +86,7 @@
      label_shadow="true"
      name="buyL"
      pad_right="0"
-     pad_bottom="2"
+     pad_bottom="3"
      tool_tip="Click to buy more L$"
      top="0"
      width="55" />
@@ -88,7 +107,7 @@
      label_shadow="true"
      name="goShop"
      pad_right="0"
-     pad_bottom="2"
+     pad_bottom="3"
      tool_tip="Open Second Life Marketplace"
      top="0"
      width="65" />

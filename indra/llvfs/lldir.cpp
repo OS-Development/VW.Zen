@@ -268,7 +268,7 @@ std::string LLDir::buildSLOSCacheDir() const
 	}
 	else
 	{
-		res = getOSCacheDir() + mDirDelimiter + "SecondLife";
+		res = getOSCacheDir() + mDirDelimiter + "Zen Viewer";
 	}
 	return res;
 }
