@@ -193,6 +193,7 @@ public:
 		return min_dim;
 	}
 
+	F32 getCollapseFactor();
 	void setOrientation(LLLayoutStack::ELayoutOrientation orientation) { mOrientation = orientation; }
 
 	typedef boost::signals2::signal<void (LLUICtrl* ctrl, const LLRect& rect)> reshape_signal_t;
@@ -201,8 +202,6 @@ public:
 protected:
 	LLLayoutPanel(const Params& p);
 	
-	F32 getCollapseFactor();
-
 	bool	mExpandedMinDimSpecified;
 	S32		mExpandedMinDim;
 	
