@@ -847,9 +847,10 @@ bool LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 samples)
 
 		if (shadow_detail > 0)
 		{ //allocate 4 sun shadow maps
+			U32 mSunShadowMapWidth = ((U32(resX*scale)+1)&~1); // must be even to avoid a stripe in the horizontal shadow blur
 			for (U32 i = 0; i < 4; i++)
 			{
-				if (!mShadow[i].allocate(U32(resX*scale),U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE)) return false;
+				if (!mShadow[i].allocate(mSunShadowMapWidth,U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE)) return false;
 			}
 		}
 		else
