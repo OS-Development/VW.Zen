@@ -46,13 +46,13 @@
      layout="topleft"
      left="10"
      name="show_label"
-     top_pad="8"
+     top_pad="10"
      width="450">
         Always show:
     </text>
     <scroll_list
      follows="top|left|right"
-     height="140"
+     height="115"
      layout="topleft"
      left="10"
      multi_select="true"
@@ -69,7 +69,7 @@
      layout="topleft"
      left="200"
      name="enable_this_popup"
-     top_pad="5"
+     top_pad="10"
      width="40">
         <button.commit_callback
          function="Pref.ClickEnablePopup" />
@@ -96,13 +96,13 @@
      layout="topleft"
      left="10"
      name="dont_show_label"
-     top_pad="-10"
+     top_pad="-5"
      width="450">
         Never show:
     </text>
     <scroll_list
      follows="top|left|right"
-     height="140"
+     height="115"
      layout="topleft"
      left="10"
      sort_column="0"
@@ -110,4 +110,56 @@
      multi_select="true"
      name="disabled_popups"
      width="495" />
+	 <text
+     type="string"
+     length="1"
+     follows="top|left"
+     height="12"
+     layout="topleft"
+     left="90"
+     name="ignore_popups_label"
+     top_pad="15"
+     width="100">
+        Ignore All Popups
+    </text>
+	 <button
+	 enabled_control="IgnoreAllPopups"
+     follows="top|left"
+     height="23"
+     image_overlay="Arrow_Left"
+     hover_glow_amount="0.15"
+     layout="topleft"
+     left_pad="10"
+     name="ignore_all_popups"
+	 top_delta="-5"
+     width="40">
+        <button.commit_callback
+         function="Pref.IgnoreAllPopups" />
+    </button>
+    <button
+	 enabled_control="ResetAllPopups"
+	 follows="top|left"
+     height="23"
+     image_overlay="Arrow_Right"
+     hover_glow_amount="0.15"
+     layout="topleft"
+     left_pad="20"
+     name="reset_all_popups"
+     top_delta="0"
+     width="40">
+        <button.commit_callback
+         function="Pref.ResetAllIgnored" />
+    </button>
+	<text
+     type="string"
+     length="1"
+     follows="top|left"
+     height="12"
+     layout="topleft"
+     left_pad="10"
+     name="ignore_popups_label"
+     top_delta="5"
+     width="100">
+        Reset All Popups
+    </text>
 </panel>

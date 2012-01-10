@@ -332,7 +332,11 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 //	mCommitCallbackRegistrar.add("Pref.ClickSkipDialogs",		boost::bind(&LLFloaterPreference::onClickSkipDialogs, this));
 //	mCommitCallbackRegistrar.add("Pref.ClickResetDialogs",		boost::bind(&LLFloaterPreference::onClickResetDialogs, this));
 	mCommitCallbackRegistrar.add("Pref.ClickEnablePopup",		boost::bind(&LLFloaterPreference::onClickEnablePopup, this));
-	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));	
+	mCommitCallbackRegistrar.add("Pref.ClickDisablePopup",		boost::bind(&LLFloaterPreference::onClickDisablePopup, this));
+	
+	mCommitCallbackRegistrar.add("Pref.IgnoreAllPopups",		boost::bind(&LLFloaterPreference::setAllIgnored, this));
+	mCommitCallbackRegistrar.add("Pref.ResetAllIgnored",		boost::bind(&LLFloaterPreference::resetAllIgnored, this));
+	
 	mCommitCallbackRegistrar.add("Pref.LogPath",				boost::bind(&LLFloaterPreference::onClickLogPath, this));
 	mCommitCallbackRegistrar.add("Pref.HardwareSettings",		boost::bind(&LLFloaterPreference::onOpenHardwareSettings, this));
 	mCommitCallbackRegistrar.add("Pref.HardwareDefaults",		boost::bind(&LLFloaterPreference::setHardwareDefaults, this));
@@ -1359,6 +1363,8 @@ void LLFloaterPreference::resetAllIgnored()
 			iter->second->mForm->setIgnored(false);
 		}
 	}
+	
+	buildPopupLists();
 }
 
 void LLFloaterPreference::setAllIgnored()
@@ -1372,6 +1378,8 @@ void LLFloaterPreference::setAllIgnored()
 			iter->second->mForm->setIgnored(true);
 		}
 	}
+	
+	buildPopupLists();
 }
 
 void LLFloaterPreference::onClickLogPath()
