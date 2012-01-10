@@ -1,25 +1,34 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <toolbars>
-  <bottom_toolbar
-    button_display_mode="icons_with_text">
-    <command name="chat"/>
-    <command name="speak"/>
-    <command name="destinations"/>
-    <command name="people"/>
-    <command name="profile"/>
-    <command name="move"/>
-    <command name="view"/>
-    <command name="howto"/>
-  </bottom_toolbar>
-  <left_toolbar
-    button_display_mode="icons_only">
-    <command name="avatar"/>
-    <command name="appearance"/>
-    <command name="inventory"/>
-    <command name="search"/>
-    <command name="places"/>
-    <command name="voice"/>
-    <command name="minimap"/>
-    <command name="snapshot"/>
-  </left_toolbar>
+    <right_toolbar
+     button_display_mode="icons_only" />
+    <bottom_toolbar
+     button_display_mode="icons_with_text">
+        <command
+         name="chat" />
+        <command
+         name="people" />
+        <command
+         name="snapshot" />
+        <command
+         name="profile" />
+        <command
+         name="minimap" />
+        <command
+         name="view" />
+        <command
+         name="map" />
+        <command
+         name="search" />
+        <command
+         name="build" />
+        <command
+         name="inventory" />
+		<command
+         name="aoswitch" />
+		<command
+         name="aomenu" />
+    </bottom_toolbar>
+    <left_toolbar
+     button_display_mode="icons_only" />
 </toolbars>

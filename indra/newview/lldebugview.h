@@ -56,7 +56,7 @@ public:
 	~LLDebugView();
 
 	void init();
-	void draw();
+	void onFloaterSnapRegionChanged(LLView* floater_snap_viewp);
 	
 	void setStatsVisible(BOOL visible);
 	
