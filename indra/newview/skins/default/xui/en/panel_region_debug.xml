@@ -171,17 +171,7 @@
      tool_tip="List of objects experiencing the most potential collisions"
      top="313"
      width="150" />
-    <button
-     follows="left|top"
-     height="20"
-     label="Restart Region"
-     layout="topleft"
-     left_pad="155"
-     name="restart_btn"
-     tool_tip="Give 2 minute countdown and restart region"
-     top_delta="0"
-     width="150" />
-    <button
+	<button
      follows="left|top"
      height="20"
      label="Get Top Scripts..."
@@ -191,14 +181,51 @@
      tool_tip="List of objects spending the most time running scripts"
      top_pad="5"
      width="150" />
-    <button
+    
+	<button
+     follows="left|top"
+     height="20"
+     label="Restart Region"
+     layout="topleft"
+     left="10"
+     name="restart_btn"
+     tool_tip="Give 2 minute countdown and restart region"
+     top_pad="5"
+     width="150" />
+		<spinner 
+		 decimal_digits="0" 
+		 follows="left|top" 
+		 top_delta="0"
+		 height="20"
+		 increment="1" 
+		 initial_value="120" 
+		 left_pad="20" 
+		 max_val="3600" 
+		 min_val="1"
+		 mouse_opaque="true" 
+		 name="rcount"
+		 width="60" />
+		 <text
+		name="restart_spinner_label"
+		follows="left|top"
+		top_delta="5"
+		layout="topleft"
+		left_pad="10" 
+		height="10"
+		width="60">
+		Seconds
+		</text>
+	 <button
      follows="left|top"
      height="20"
      label="Delay Restart"
      layout="topleft"
-     left_pad="155"
+     left="10"
      name="cancel_restart_btn"
      tool_tip="Delay region restart by one hour"
-     top_delta="0"
+     top_pad="5"
      width="150" />
+    
+	
+
 </panel>
