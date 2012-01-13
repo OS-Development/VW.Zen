@@ -136,7 +136,7 @@ protected:
 	std::string					mSearchableLabel;
 	S32							mLabelWidth;
 	bool						mLabelWidthDirty;
-	mutable time_t				mCreationDate;
+	time_t						mCreationDate;
 	LLFolderViewFolder*			mParentFolder;
 	LLFolderViewEventListener*	mListener;
 	BOOL						mIsCurSelection;
@@ -159,6 +159,7 @@ protected:
 	BOOL                        mIsLoading;
 	LLTimer                     mTimeSinceRequestStart;
 	bool						mShowLoadStatus;
+	bool						mIsMouseOverTitle;
 
 	// helper function to change the selection from the root.
 	void changeSelectionFromRoot(LLFolderViewItem* selection, BOOL selected);
@@ -172,6 +173,8 @@ protected:
 	virtual BOOL addFolder(LLFolderViewFolder*) { return FALSE; }
 
 	static LLFontGL* getLabelFontForStyle(U8 style);
+
+	virtual void setCreationDate(time_t creation_date_utc)	{ mCreationDate = creation_date_utc; }
 
 public:
 	BOOL postBuild();
@@ -228,7 +231,7 @@ public:
 	void deselectItem();
 
 	// this method is used to select this element
-	void selectItem();
+	virtual void selectItem();
 
 	// gets multiple-element selection
 	virtual std::set<LLUUID> getSelectionList() const;
@@ -264,7 +267,7 @@ public:
 
 	// This method returns the actual name of the thing being
 	// viewed. This method will ask the viewed object itself.
-	std::string getName( void ) const;
+	const std::string& getName( void ) const;
 
 	const std::string& getSearchableLabel( void ) const;
 
@@ -325,6 +328,10 @@ public:
 	virtual BOOL handleHover( S32 x, S32 y, MASK mask );
 	virtual BOOL handleMouseUp( S32 x, S32 y, MASK mask );
 	virtual BOOL handleDoubleClick( S32 x, S32 y, MASK mask );
+
+	virtual void onMouseLeave(S32 x, S32 y, MASK mask);
+
+	virtual LLView* findChildView(const std::string& name, BOOL recurse) const { return NULL; }
 
 	//	virtual void handleDropped();
 	virtual void draw();
@@ -549,6 +556,10 @@ public:
 	folders_t::const_iterator getFoldersBegin() const { return mFolders.begin(); }
 	folders_t::const_iterator getFoldersEnd() const { return mFolders.end(); }
 	folders_t::size_type getFoldersCount() const { return mFolders.size(); }
+
+	items_t::const_iterator getItemsBegin() const { return mItems.begin(); }
+	items_t::const_iterator getItemsEnd() const { return mItems.end(); }
+	items_t::size_type getItemsCount() const { return mItems.size(); }
 };
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

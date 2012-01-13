@@ -990,7 +990,7 @@ public:
 	S32 getNumTriangleIndices() const;
 	static void getLoDTriangleCounts(const LLVolumeParams& params, S32* counts);
 
-	S32 getNumTriangles() const;
+	S32 getNumTriangles(S32* vcount = NULL) const;
 
 	void generateSilhouetteVertices(std::vector<LLVector3> &vertices, 
 									std::vector<LLVector3> &normals, 
@@ -1058,14 +1058,14 @@ protected:
 public:
 	virtual bool unpackVolumeFaces(std::istream& is, S32 size);
 
-	virtual void makeTetrahedron();
-	virtual BOOL isTetrahedron();
+	virtual void setMeshAssetLoaded(BOOL loaded);
+	virtual BOOL isMeshAssetLoaded();
 
  protected:
 	BOOL mUnique;
 	F32 mDetail;
 	S32 mSculptLevel;
-	BOOL mIsTetrahedron;
+	BOOL mIsMeshAssetLoaded;
 	
 	LLVolumeParams mParams;
 	LLPath *mPathp;

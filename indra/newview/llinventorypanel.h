@@ -86,6 +86,7 @@ public:
 		Optional<bool>						use_label_suffix;
 		Optional<bool>						show_load_status;
 		Optional<LLScrollContainer::Params>	scroll;
+		Optional<bool>						accepts_drag_and_drop;
 
 		Params()
 		:	sort_order_setting("sort_order_setting"),
@@ -96,7 +97,8 @@ public:
 			start_folder("start_folder"),
 			use_label_suffix("use_label_suffix", true),
 			show_load_status("show_load_status"),
-			scroll("scroll")
+			scroll("scroll"),
+			accepts_drag_and_drop("accepts_drag_and_drop")
 		{}
 	};
 
@@ -124,6 +126,9 @@ public:
 	// LLUICtrl methods
 	 /*virtual*/ void onFocusLost();
 	 /*virtual*/ void onFocusReceived();
+
+	// LLBadgeHolder methods
+	bool addBadge(LLBadge * badge);
 
 	// Call this method to set the selection.
 	void openAllFolders();
@@ -170,6 +175,8 @@ public:
 	// Find whichever inventory panel is active / on top.
 	// "Auto_open" determines if we open an inventory panel if none are open.
 	static LLInventoryPanel *getActiveInventoryPanel(BOOL auto_open = TRUE);
+	
+	static void openInventoryPanelAndSetSelection(BOOL auto_open, const LLUUID& obj_id);
 
 protected:
 	void openStartFolderOrMyInventory(); // open the first level of inventory
@@ -178,6 +185,7 @@ protected:
 	LLInventoryModel*			mInventory;
 	LLInventoryObserver*		mInventoryObserver;
 	LLInvPanelComplObserver*	mCompletionObserver;
+	BOOL						mAcceptsDragAndDrop;
 	BOOL 						mAllowMultiSelect;
 	BOOL 						mShowItemLinkOverlays; // Shows link graphic over inventory item icons
 	BOOL						mShowLoadStatus;
@@ -205,6 +213,8 @@ public:
 	
 	void setSortOrder(U32 order);
 	U32 getSortOrder() const;
+	void requestSort();
+
 private:
 	std::string					mSortOrderSetting;
 

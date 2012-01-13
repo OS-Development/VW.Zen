@@ -40,6 +40,7 @@
 #include "lldrawpoolalpha.h"
 #include "llviewerobject.h"
 #include "llcharacter.h"
+#include "llcontrol.h"
 #include "llviewerjointmesh.h"
 #include "llviewerjointattachment.h"
 #include "llrendertarget.h"
@@ -273,6 +274,7 @@ public:
 	//--------------------------------------------------------------------
 public:
 	BOOL			isFullyLoaded() const;
+	bool			isTooComplex() const;
 	bool visualParamWeightsAreDefault();
 protected:
 	virtual BOOL	getIsCloud();
@@ -285,6 +287,7 @@ private:
 	BOOL			mPreviousFullyLoaded;
 	BOOL			mFullyLoadedInitialized;
 	S32				mFullyLoadedFrameCounter;
+	S32				mVisualComplexity;
 	LLFrameTimer	mFullyLoadedTimer;
 	LLFrameTimer	mRuthTimer;
 protected:
@@ -448,6 +451,8 @@ private:
 	F32			mImpostorDistance;
 	F32			mImpostorPixelArea;
 	LLVector3	mLastAnimExtents[2];  
+	
+	LLCachedControl<bool> mRenderUnloadedAvatar;
 
 	//--------------------------------------------------------------------
 	// Wind rippling in clothes
