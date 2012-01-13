@@ -362,7 +362,7 @@ void FloaterAO::onClickActivate()
 	AOEngine::instance().selectSet(mSelectedSet);
 }
 
-LLScrollListItem* FloaterAO::addAnimation(const std::string name)
+LLScrollListItem* FloaterAO::addAnimation(const std::string& name)
 {
 	LLSD row;
 	row["columns"][0]["type"]="icon";

@@ -130,30 +130,33 @@ void AOEngine::stopAllSitVariants()
 	gAgentAvatarp->LLCharacter::stopMotion(ANIM_AGENT_SIT_GROUND_CONSTRAINED);
 }
 
-void AOEngine::setLastMotion(LLUUID motion)
+void AOEngine::setLastMotion(const LLUUID& motion)
 {
 	if(motion!=ANIM_AGENT_TYPE)
 		mLastMotion=motion;
 }
 
-void AOEngine::setLastOverriddenMotion(LLUUID motion)
+void AOEngine::setLastOverriddenMotion(const LLUUID& motion)
 {
 	if(motion!=ANIM_AGENT_TYPE)
 		mLastOverriddenMotion=motion;
 }
 
-BOOL AOEngine::foreignAnimations()
+BOOL AOEngine::foreignAnimations(const LLUUID& seat)
 {
 	for(LLVOAvatar::AnimSourceIterator sourceIterator=gAgentAvatarp->mAnimationSources.begin();
 		sourceIterator!=gAgentAvatarp->mAnimationSources.end();sourceIterator++)
 	{
 		if(sourceIterator->first!=gAgent.getID())
-			return TRUE;
+		{
+			if(seat.isNull() || sourceIterator->first==seat)
+				return TRUE;
+		}
 	}
 	return FALSE;
 }
 
-LLUUID AOEngine::mapSwimming(LLUUID motion)
+const LLUUID& AOEngine::mapSwimming(const LLUUID& motion) const
 {
 	S32 stateNum;
 
@@ -175,6 +178,10 @@ LLUUID AOEngine::mapSwimming(LLUUID motion)
 void AOEngine::checkBelowWater(BOOL yes)
 {
 	if(mUnderWater==yes)
+		return;
+		
+	// only restart underwater/above water motion if the overridden motion is the one currently playing
+	if(mLastMotion!=mLastOverriddenMotion)
 		return;
 
 	gAgent.sendAnimationRequest(override(mLastOverriddenMotion,FALSE),ANIM_REQUEST_STOP);
@@ -273,8 +280,8 @@ void AOEngine::enable(BOOL yes)
 				lldebugs << "state "<< index <<" returned NULL." << llendl;
 		}
 
-		/*if(!foreignAnimations())
-			gAgent.sendAnimationRequest(mLastMotion,ANIM_REQUEST_START);*/
+		if(!foreignAnimations(LLUUID::null))
+			gAgent.sendAnimationRequest(mLastMotion,ANIM_REQUEST_START);
 
 		mCurrentSet->stopTimer();
 		gAgent.stopCurrentAnimations();
@@ -290,7 +297,7 @@ void AOEngine::setStateCycleTimer(const AOSet::AOState* state)
 		mCurrentSet->startTimer(timeout);
 }
 
-const LLUUID AOEngine::override(const LLUUID pMotion,BOOL start)
+const LLUUID AOEngine::override(const LLUUID& pMotion,BOOL start)
 {
 	LLUUID animation;
 
@@ -481,7 +488,13 @@ const LLUUID AOEngine::override(const LLUUID pMotion,BOOL start)
 
 void AOEngine::checkSitCancel()
 {
-	if(foreignAnimations())
+	LLUUID seat;
+
+	const LLViewerObject* agentRoot=dynamic_cast<LLViewerObject*>(gAgentAvatarp->getRoot());
+	if(agentRoot)
+		seat=agentRoot->getID();
+
+	if(foreignAnimations(seat))
 	{
 		LLUUID animation=mCurrentSet->getStateByRemapID(ANIM_AGENT_SIT)->mCurrentAnimationID;
 		if(animation.notNull())
@@ -626,7 +639,7 @@ void AOEngine::updateSortOrder(AOSet::AOState* state)
 	}
 }
 
-LLUUID AOEngine::addSet(const std::string name,BOOL reload)
+LLUUID AOEngine::addSet(const std::string& name,BOOL reload)
 {
 	if(mAOFolder.isNull())
 	{
@@ -711,7 +724,7 @@ BOOL AOEngine::addAnimation(const AOSet* set,AOSet::AOState* state,const LLInven
 }
 
 // needs a three-step process, since purge of categories only seems to work from trash
-void AOEngine::purgeFolder(LLUUID uuid)
+void AOEngine::purgeFolder(const LLUUID& uuid) const
 {
 	// unprotect it
 	BOOL wasProtected=gSavedPerAccountSettings.getBOOL("ProtectAOFolders");
@@ -1033,7 +1046,7 @@ void AOEngine::reload( bool aFromTimer )
 		enable(TRUE);
 }
 
-AOSet* AOEngine::getSetByName(const std::string name)
+AOSet* AOEngine::getSetByName(const std::string& name) const
 {
 	AOSet* found=0;
 	for(U32 index=0;index<mSets.size();index++)
@@ -1081,7 +1094,7 @@ void AOEngine::selectSet(AOSet* set)
 	}
 }
 
-AOSet* AOEngine::selectSetByName(const std::string name)
+AOSet* AOEngine::selectSetByName(const std::string& name)
 {
 	AOSet* set=getSetByName(name);
 	if(set)
@@ -1133,7 +1146,7 @@ void AOEngine::saveSet(const AOSet* set)
 	mUpdatedSignal();
 }
 
-BOOL AOEngine::renameSet(AOSet* set,const std::string name)
+BOOL AOEngine::renameSet(AOSet* set,const std::string& name)
 {
 	if(name.empty() || name.find(":")!=std::string::npos)
 		return FALSE;
@@ -1493,10 +1506,14 @@ void AOEngine::parseNotecard(const char* buffer)
 		if(index==lines.size()-1)
 			line=line.substr(0,line.size()-1);
 
-		if( line.size() > 0 && line[0] == '#' ) // <ND/> FIRE-3801; skip comments to reduce spam to local chat.
+		LLStringUtil::trim(line);
+		
+		if(line.empty())
 			continue;
 
-		LLStringUtil::trim(line);
+		if(line[0]=='#') // <ND/> FIRE-3801; skip comments to reduce spam to local chat.
+			continue;
+		
 		if(line.find("[")!=0)
 		{
 			LLSD args;
@@ -1633,7 +1650,7 @@ void AOEngine::processImport( bool aFromTimer )
 	}
 }
 
-const LLUUID AOEngine::getAOFolder()
+const LLUUID& AOEngine::getAOFolder() const
 {
 	return mAOFolder;
 }

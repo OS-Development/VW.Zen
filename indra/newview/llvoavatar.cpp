@@ -3353,7 +3353,7 @@ void LLVOAvatar::idleUpdateBelowWater()
 	
 	mBelowWater =  avatar_height < water_height;
 	
-	if (wasBelowWater != mBelowWater)
+	if (isSelf() && wasBelowWater!=mBelowWater)
 		AOEngine::instance().checkBelowWater(mBelowWater);
 }
 
