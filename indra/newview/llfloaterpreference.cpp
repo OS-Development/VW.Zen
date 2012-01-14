@@ -350,6 +350,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.BlockList",				boost::bind(&LLFloaterPreference::onClickBlockList, this));
 	mCommitCallbackRegistrar.add("Pref.Proxy",					boost::bind(&LLFloaterPreference::onClickProxySettings, this));
 	mCommitCallbackRegistrar.add("Pref.TranslationSettings",	boost::bind(&LLFloaterPreference::onClickTranslationSettings, this));
+	mCommitCallbackRegistrar.add("Pref.SetPreprocInclude",      boost::bind(&LLFloaterPreference::setPreprocInclude, this));
 	
 	sSkin = gSavedSettings.getString("SkinCurrent");
 
@@ -1565,6 +1566,26 @@ void LLFloaterPreference::setCacheLocation(const LLStringExplicit& location)
 	cache_location_editor->setToolTip(location);
 }
 
+void LLFloaterPreference::setPreprocInclude()
+{
+	std::string cur_name(gSavedSettings.getString("PreProcHDDIncludeLocation"));
+
+	std::string proposed_name(cur_name);
+
+	LLDirPicker& picker = LLDirPicker::instance();
+	if (! picker.getDir(&proposed_name ) )
+	{
+		return; //Canceled!
+	}
+
+	std::string dir_name = picker.getDirName();
+	if (!dir_name.empty() && dir_name != cur_name)
+	{
+		std::string new_top_folder(gDirUtilp->getBaseFileName(dir_name));	
+		gSavedSettings.setString("PreProcHDDIncludeLocation", dir_name);
+	}
+}
+
 //------------------------------Updater---------------------------------------
 
 static bool handleBandwidthChanged(const LLSD& newvalue)
@@ -2080,3 +2101,4 @@ void LLFloaterPreferenceProxy::onChangeSocksSettings()
 	}
 
 };
+

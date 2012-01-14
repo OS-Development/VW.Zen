@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<panel
+ border="true"
+ follows="all"
+ height="408"
+ label="General"
+ layout="topleft"
+ left="102"
+ name="lslpreproc_panel"
+ top="1"
+ width="517">
+    <check_box
+     control_name="LSLPreprocessor"
+     height="15"
+     initial_value="false"
+     label="Enable Preprocessor"
+     layout="topleft"
+     name="preproc_checkbox"
+     top="30"
+	 left="30"
+     width="200" />
+    <check_box
+     control_name="PreProcLSLOptimizer"
+     height="15"
+     initial_value="false"
+     label="Enable Optimizer"
+     layout="topleft"
+     name="preprocoptimizer_checkbox"
+     top_delta="0"
+	 left="256"
+     width="200" />
+    <check_box
+     control_name="PreProcLSLSwitch"
+     height="15"
+     initial_value="false"
+     label="Enable Switches"
+     layout="topleft"
+     name="preprocswitch_checkbox"
+     top_delta="20"
+	 left="30"
+     width="200" />
+    <check_box
+     control_name="PreProcLSLLazyLists"
+     height="15"
+     initial_value="false"
+     label="Enable Lazy Lists"
+     layout="topleft"
+     name="preproclazy_checkbox"
+     top_delta="0"
+	 left="256"
+     width="200" />
+    <check_box
+     control_name="PreProcEnableHDDInclude"
+     height="15"
+     initial_value="false"
+     label="Enable Preprocessor HDD Include"
+     layout="topleft"
+     name="preprocinclude_checkbox"
+     top_delta="20"
+	 left="30"
+     width="200" />
+   <text
+	 height="15"
+     type="string"
+     length="1"
+	 layout="topleft"
+     name="lslpreprocinclude_textbox"
+     top_delta="50"
+     left="30"
+     width="256">
+        Preprocessor include path:
+    </text>
+  <line_editor
+   control_name="PreProcHDDIncludeLocation"
+   border_style="line"
+   border_thickness="1"
+   follows="left|top"
+   font="SansSerif"
+   height="23"
+   layout="topleft"
+   left="30"
+   max_length="4096"
+   name="preprocinclude_location"
+   top_delta="15"
+   width="310" />
+  <button
+   follows="left|top"
+   height="23"
+   label="Browse"
+   label_selected="Browse"
+   layout="topleft"
+   left_pad="5"
+   name="set_cache"
+   top_delta="0"
+   width="100">
+  <button.commit_callback
+   function="Pref.SetPreprocInclude" />
+  </button>
+</panel>

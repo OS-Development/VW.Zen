@@ -120,7 +120,7 @@ protected:
 public:
 
 	void setCacheLocation(const LLStringExplicit& location);
-
+	void setPreprocInclude();
 	void onClickSetCache();
 	void onClickResetCache();
 	void onClickSkin(LLUICtrl* ctrl,const LLSD& userdata);
