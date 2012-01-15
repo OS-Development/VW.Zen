@@ -8064,16 +8064,6 @@ class ToggleFetchInv : public view_listener_t
 	}
 };
 
-class ToggleNotifications : public view_listener_t
-{
-	bool handleEvent(const LLSD& userdata)
-	{
-		gSavedSettings.setBOOL("NotificationAlignment", !gSavedSettings.getBOOL("NotificationAlignment"));
-		return true;
-	}
-	
-};
-
 class ToggleMeshDeformer : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
@@ -8597,6 +8587,5 @@ void initialize_menus()
 	view_listener_t::addMenu(new TogglePie(), "UsePieMenu");
 	view_listener_t::addMenu(new ToggleSaveMono(), "SaveInventoryScriptsAsMono");
 	view_listener_t::addMenu(new ToggleFetchInv(), "FetchInventoryOnLogin");
-	view_listener_t::addMenu(new ToggleNotifications(), "NotificationAlignment");
 	view_listener_t::addMenu(new ToggleMeshDeformer(), "MeshDeformer");
 }

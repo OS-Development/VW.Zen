@@ -1216,20 +1216,6 @@
 		
 				
 		<menu_item_check
-		label="Notifications on Top   (Requires Restart)"
-		name="NotificationAlignment">
-		  <menu_item_check.on_click
-		    function="ToggleControl"
-			parameter="NotificationAlignment" />
-	      <menu_item_check.on_check
-			    control="NotificationAlignment"/>
-		</menu_item_check>
-		
-		
-		<menu_item_separator/>
-		
-		
-		<menu_item_check
 		label="Use Pie Menu"
 		name="UsePieMenu">
 		  <menu_item_check.on_click

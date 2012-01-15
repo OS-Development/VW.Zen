@@ -296,6 +296,11 @@ const std::string &LLDir::getSkinDir() const
 	return mSkinDir;
 }
 
+const std::string& LLDir::getSkinThemeDir() const
+{
+	return mSkinThemeDir;
+}
+
 const std::string &LLDir::getUserSkinDir() const
 {
 	return mUserSkinDir;
@@ -390,6 +395,10 @@ std::string LLDir::getExpandedFilename(ELLPath location, const std::string& subd
 
 	case LL_PATH_TOP_SKIN:
 		prefix = getSkinDir();
+		break;
+		
+	case LL_PATH_TOP_SKINTHEME:
+		prefix = getSkinThemeDir();
 		break;
 
 	case LL_PATH_DEFAULT_SKIN:
@@ -523,6 +532,7 @@ std::string LLDir::findSkinnedFilename(const std::string &subdir1, const std::st
 	std::vector<std::string> search_paths;
 	
 	search_paths.push_back(getUserSkinDir() + subdirs);		// first look in user skin override
+	search_paths.push_back(getSkinThemeDir() + subdirs);	// then in the skin theme
 	search_paths.push_back(getSkinDir() + subdirs);			// then in current skin
 	search_paths.push_back(getDefaultSkinDir() + subdirs);  // then default skin
 	search_paths.push_back(getCacheDir() + subdirs);		// and last in preload directory
@@ -630,6 +640,8 @@ void LLDir::setSkinFolder(const std::string &skin_folder)
 	mSkinDir = getSkinBaseDir();
 	mSkinDir += mDirDelimiter;
 	mSkinDir += skin_folder;
+	
+	setSkinThemeFolder("default");
 
 	// user modifications to current skin
 	// e.g. c:\documents and settings\users\username\application data\second life\skins\dazzle
@@ -644,6 +656,15 @@ void LLDir::setSkinFolder(const std::string &skin_folder)
 	mDefaultSkinDir = getSkinBaseDir();
 	mDefaultSkinDir += mDirDelimiter;	
 	mDefaultSkinDir += "default";
+}
+
+void LLDir::setSkinThemeFolder(const std::string& theme_folder)
+{
+	mSkinThemeDir = mSkinDir;
+	mSkinThemeDir += mDirDelimiter;
+	mSkinThemeDir += "themes";
+	mSkinThemeDir += mDirDelimiter;
+	mSkinThemeDir += theme_folder;
 }
 
 bool LLDir::setCacheDir(const std::string &path)
@@ -688,6 +709,7 @@ void LLDir::dumpCurrentDirectories()
 	LL_DEBUGS2("AppInit","Directories") << "  CAFile:				 " << getCAFile() << LL_ENDL;
 	LL_DEBUGS2("AppInit","Directories") << "  SkinBaseDir:           " << getSkinBaseDir() << LL_ENDL;
 	LL_DEBUGS2("AppInit","Directories") << "  SkinDir:               " << getSkinDir() << LL_ENDL;
+	LL_DEBUGS2("AppInit","Directories") << "  SkinThemeDir:          " << getSkinThemeDir() << LL_ENDL;
 }
 
 

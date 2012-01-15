@@ -33,6 +33,7 @@
 #include "lluicolortable.h"
 #include "lluictrlfactory.h"
 
+
 LLUIColorTable::ColorParams::ColorParams()
 :	value("value"),
 	reference("reference")
@@ -55,7 +56,7 @@ void LLUIColorTable::insertFromParams(const Params& p, string_color_map_t& table
 	// this map will contain all color references after the following loop
 	typedef std::map<std::string, std::string> string_string_map_t;
 	string_string_map_t unresolved_refs;
-
+	
 	for(LLInitParam::ParamIterator<ColorEntryParams>::const_iterator it = p.color_entries.begin();
 		it != p.color_entries.end();
 		++it)
@@ -213,6 +214,12 @@ bool LLUIColorTable::loadFromSettings()
 	if(current_filename != default_filename)
 	{
 		result |= loadFromFilename(current_filename, mLoadedColors);
+	}
+	
+	std::string theme_filename = gDirUtilp->getExpandedFilename(LL_PATH_TOP_SKINTHEME, "colors.xml");
+	if ( (gDirUtilp->fileExists(theme_filename)) && (current_filename != default_filename) )
+	{
+		result |= loadFromFilename(theme_filename, mLoadedColors);
 	}
 
 	current_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SKIN, "colors.xml");

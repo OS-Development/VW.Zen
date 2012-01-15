@@ -78,6 +78,13 @@
          layout="topleft"
          help_topic="preferences_chat_tab"
          name="chat" />
+		 <panel
+		 class="panel_preference"
+         filename="panel_preferences_colors.xml"
+         label="Chat Colors"
+         layout="topleft"
+         help_topic="preferences_colors_tab"
+         name="colors" />
         <panel
 		 class="panel_preference"
          filename="panel_preferences_move.xml"
@@ -92,13 +99,6 @@
          layout="topleft"
          help_topic="preferences_msgs_tab"
          name="msgs" />
-        <panel
-		 class="panel_preference"
-         filename="panel_preferences_colors.xml"
-         label="Colors"
-         layout="topleft"
-         help_topic="preferences_colors_tab"
-         name="colors" />
         <panel
 		 class="panel_preference"
          filename="panel_preferences_privacy.xml"
@@ -127,6 +127,13 @@
          layout="topleft"
          help_topic="preferences_lsl_tab"
          name="lslpreproc_panel" />
+		 <panel
+		 class="panel_preference_skins"
+         filename="panel_preferences_skins.xml"
+         label="UI Skinning"
+         layout="topleft"
+         help_topic="preferences_skins_tab"
+         name="skins" />
     </tab_container>
 
 </floater>

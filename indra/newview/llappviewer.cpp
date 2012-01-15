@@ -2486,7 +2486,14 @@ bool LLAppViewer::initConfiguration()
     {   
 		// hack to force the skin to default.
         gDirUtilp->setSkinFolder(skinfolder->getValue().asString());
-		//gDirUtilp->setSkinFolder("default");
+		loadSettingsFromDirectory("CurrentSkin");
+
+		const LLControlVariable* themefolder = gSavedSettings.getControl("SkinCurrentTheme");
+		if ( (themefolder) && (LLStringUtil::null != themefolder->getValue().asString()) )
+		{
+			gDirUtilp->setSkinThemeFolder(themefolder->getValue().asString());
+			loadSettingsFromDirectory("CurrentSkinTheme");
+		}
     }
 
     mYieldTime = gSavedSettings.getS32("YieldTime");

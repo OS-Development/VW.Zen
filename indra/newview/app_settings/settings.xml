@@ -2,6 +2,17 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>SkinCurrentTheme</key>
+    <map>
+      <key>Comment</key>
+      <string>The selected theme for the current skin.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string>blue</string>
+    </map>
 	<key>LSLPreprocessor</key>
 	<map>
 	  <key>Comment</key>
@@ -10478,7 +10489,7 @@
       <key>Type</key>
       <string>String</string>
       <key>Value</key>
-      <string>default</string>
+      <string>zen</string>
     </map>
     <key>SkinningSettingsFile</key>
     <map>

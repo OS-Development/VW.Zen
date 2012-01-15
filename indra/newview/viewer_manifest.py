@@ -108,6 +108,7 @@ class ViewerManifest(LLManifest):
             # skins
             if self.prefix(src="skins"):
                     self.path("paths.xml")
+                    self.path("skins.xml")
                     # include the entire textures directory recursively
                     if self.prefix(src="*/textures"):
                             self.path("*/*.tga")
@@ -122,6 +123,18 @@ class ViewerManifest(LLManifest):
                             self.end_prefix("*/textures")
                     self.path("*/xui/*/*.xml")
                     self.path("*/xui/*/widgets/*.xml")
+                    self.path("*/themes/*/colors.xml")
+		    if self.prefix(src="*/themes/*/textures"):
+                            self.path("*/*.tga")
+                            self.path("*/*.j2c")
+                            self.path("*/*.jpg")
+                            self.path("*/*.png")
+                            self.path("*.tga")
+                            self.path("*.j2c")
+                            self.path("*.jpg")
+                            self.path("*.png")
+                            self.end_prefix("*/themes/*/textures")
+                            
                     self.path("*/*.xml")
 
                     # Local HTML files (e.g. loading screen)
@@ -164,7 +177,7 @@ class ViewerManifest(LLManifest):
     def channel(self):
         return self.args['channel']
     def channel_unique(self):
-        return self.channel().replace("Zen Viewer", "").strip()
+        return self.channel().replace("Second Life", "").strip()
     def channel_oneword(self):
         return "".join(self.channel_unique().split())
     def channel_lowerword(self):
@@ -243,7 +256,7 @@ class WindowsManifest(ViewerManifest):
     def final_exe(self):
         if self.default_channel():
             if self.default_grid():
-                return "Zen Viewer.exe"
+                return "SecondLife.exe"
             else:
                 return "SecondLifePreview.exe"
         else:
@@ -593,11 +606,11 @@ class WindowsManifest(ViewerManifest):
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLife%(grid_caps)s"
-                !define SHORTCUT   "Second Life (%(grid_caps)s)"
+                !define INSTNAME   "Zen Viewer%(grid_caps)s"
+                !define SHORTCUT   "Zen Viewer (%(grid_caps)s)"
                 !define URLNAME   "secondlife%(grid)s"
                 !define UNINSTALL_SETTINGS 1
-                Caption "Second Life %(grid)s ${VERSION}"
+                Caption "Zen Viewer %(grid)s ${VERSION}"
                 """
         else:
             # some other channel on some grid
