@@ -81,7 +81,6 @@ set(viewer_SOURCE_FILES
 	aoset.cpp
 	fsareasearch.cpp
 	groupchatlistener.cpp
-	jclslpreproc.cpp
     llaccountingcostmanager.cpp
     llagent.cpp
     llagentaccess.cpp
@@ -644,7 +643,6 @@ set(viewer_HEADER_FILES
 	aoset.h
 	fsareasearch.h
 	groupchatlistener.h
-	jclslpreproc.h
     llaccountingcostmanager.h
     llagent.h
     llagentaccess.h

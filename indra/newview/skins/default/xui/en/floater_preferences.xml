@@ -121,13 +121,6 @@
          help_topic="preferences_advanced1_tab"
          name="advanced1" />
 		 <panel
-		 class="panel_preference"
-         filename="panel_preferences_lslpreproc.xml"
-         label="LSL Pre-Processor"
-         layout="topleft"
-         help_topic="preferences_lsl_tab"
-         name="lslpreproc_panel" />
-		 <panel
 		 class="panel_preference_skins"
          filename="panel_preferences_skins.xml"
          label="UI Skinning"

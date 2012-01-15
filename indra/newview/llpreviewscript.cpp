@@ -86,7 +86,6 @@
 #include "lltrans.h"
 #include "llviewercontrol.h"
 #include "llappviewer.h"
-#include "jclslpreproc.h"
 
 const std::string HELLO_LSL =
 	"default\n"
@@ -352,16 +351,7 @@ LLScriptEdCore::LLScriptEdCore(
 	setFollowsAll();
 	setBorderVisible(FALSE);
 
-	static LLCachedControl<bool> LSLPreprocessor(gSavedSettings,"LSLPreprocessor");
-	BOOL preproc = LSLPreprocessor;
-	if(preproc)
-	{
-		setXMLFilename("panel_script_ed_preproc.xml");
-		mLSLProc = new JCLSLPreprocessor(this);
-	}
-	else
-		setXMLFilename("panel_script_ed.xml");
-	
+	setXMLFilename("panel_script_ed.xml");
 	llassert_always(mContainer != NULL);
 }
 
@@ -389,18 +379,6 @@ BOOL LLScriptEdCore::postBuild()
 	childSetCommitCallback("Insert...", &LLScriptEdCore::onBtnInsertFunction, this);
 
 	mEditor = getChild<LLViewerTextEditor>("Script Editor");
-	
-	static LLCachedControl<bool> LSLPreprocessor(gSavedSettings,"LSLPreprocessor");
-	BOOL preproc = LSLPreprocessor;
-	if(preproc)
-	{
-		mPostEditor = getChild<LLViewerTextEditor>("Post Editor");
-		if(mPostEditor)
-		{
-			mPostEditor->setFollowsAll();
-			mPostEditor->setEnabled(TRUE);
-		}
-	}
 
 	childSetCommitCallback("lsl errors", &LLScriptEdCore::onErrorList, this);
 	childSetAction("Save_btn", boost::bind(&LLScriptEdCore::doSave,this,FALSE));
@@ -460,64 +438,6 @@ BOOL LLScriptEdCore::postBuild()
 		{
 			secondary_keywords.push_back( wstring_to_utf8str(token->getToken()) );
 		}
-	}
-	
-	if(gSavedSettings.getBOOL("LSLPreprocessor"))
-	if(mPostEditor)
-	{
-		mPostEditor->loadKeywords(gDirUtilp->getExpandedFilename(LL_PATH_APP_SETTINGS,"keywords.ini"), funcs, tooltips, color);
-		mEditor->addToken(LLKeywordToken::WORD,"#assert",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#define",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#elif",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#else",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#endif",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#error",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#ident",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#sccs",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#if",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#ifdef",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#ifndef",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#import",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#include",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#include_next",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#line",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#pragma",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#unassert",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#undef",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#warning",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-		mEditor->addToken(LLKeywordToken::WORD,"#",LLColor3(0.0f,0.0f,0.8f),
-			std::string("Preprocessor command. See Advanced menu of the script editor."));
-
-		if(gSavedSettings.getBOOL("PreProcLSLSwitch"))
-		{
-			mEditor->addToken(LLKeywordToken::WORD,"switch",LLColor3(0.0f,0.0f,0.8f),
-				std::string("Switch statement. See Advanced menu of the script editor."));
-			mEditor->addToken(LLKeywordToken::WORD,"case",LLColor3(0.0f,0.0f,0.8f),
-				std::string("Switch case. See Advanced menu of the script editor."));
-			mEditor->addToken(LLKeywordToken::WORD,"break",LLColor3(0.0f,0.0f,0.8f),
-				std::string("Switch break. See Advanced menu of the script editor."));
-		}
-
-		//couldn'tr define in file because # represented a comment
 	}
 
 	// Case-insensitive dictionary sort for primary keywords. We don't sort the secondary
@@ -584,7 +504,7 @@ void LLScriptEdCore::initMenu()
 
 	menuItem = getChild<LLMenuItemCallGL>("Keyword Help...");
 	menuItem->setClickCallback(boost::bind(&LLScriptEdCore::onBtnDynamicHelp, this));
-	
+
 	menuItem = getChild<LLMenuItemCallGL>("LoadFromFile");
 	menuItem->setClickCallback(boost::bind(&LLScriptEdCore::onBtnLoadFromFile, this));
 	menuItem->setEnableCallback(boost::bind(&LLScriptEdCore::enableLoadFromFileMenu, this));
@@ -594,43 +514,13 @@ void LLScriptEdCore::initMenu()
 	menuItem->setEnableCallback(boost::bind(&LLScriptEdCore::enableSaveToFileMenu, this));
 }
 
-void LLScriptEdCore::onToggleProc(void* userdata)
-{
-	LLScriptEdCore* corep = (LLScriptEdCore*)userdata;
-	corep->mErrorList->setCommentText(std::string("Toggling the preprocessor will not take full effect unless you close and reopen this editor."));
-	corep->mErrorList->selectFirstItem();
-	gSavedSettings.setBOOL("LSLPreprocessor",!gSavedSettings.getBOOL("LSLPreprocessor"));
-}
-
 void LLScriptEdCore::setScriptText(const std::string& text, BOOL is_valid)
 {
 	if (mEditor)
 	{
-		std::string ntext = text;
-		if(gSavedSettings.getBOOL("LSLPreprocessor"))
-		{
-			if(mPostEditor)mPostEditor->setText(ntext);
-			ntext = mLSLProc->decode(ntext);
-		}
-		LLStringUtil::replaceTabsWithSpaces(ntext, 4);
-		
-		mEditor->setText(ntext);
+		mEditor->setText(text);
 		mHasScriptData = is_valid;
 	}
-}
-
-std::string LLScriptEdCore::getScriptText()
-{
-	if(gSavedSettings.getBOOL("LSLPreprocessor") && mPostEditor)
-	{
-		//return mPostEditor->getText();
-		return mPostScript;
-	}
-	else if (mEditor)
-	{
-		return mEditor->getText();
-	}
-	return std::string();
 }
 
 bool LLScriptEdCore::loadScriptText(const std::string& filename)
@@ -681,7 +571,7 @@ bool LLScriptEdCore::writeToFile(const std::string& filename)
 		return false;
 	}
 
-	std::string utf8text = this->getScriptText();
+	std::string utf8text = mEditor->getText();
 
 	// Special case for a completely empty script - stuff in one space so it can store properly.  See SL-46889
 	if (utf8text.size() == 0)
@@ -1052,24 +942,7 @@ void LLScriptEdCore::onBtnInsertFunction(LLUICtrl *ui, void* userdata)
 
 void LLScriptEdCore::doSave( BOOL close_after_save )
 {
-	if(gSavedSettings.getBOOL("LSLPreprocessor"))
-	{
-		llinfos << "passing to preproc" << llendl;
-		this->mLSLProc->preprocess_script(close_after_save);
-	}
-	else
-	{
-		if( mSaveCallback )
-		{
-			mSaveCallback( mUserdata, close_after_save );
-		}
-	}
-}
-
-void LLScriptEdCore::doSaveComplete( void* userdata, BOOL close_after_save )
-{
 	LLViewerStats::getInstance()->incStat( LLViewerStats::ST_LSL_SAVE_COUNT );
-
 
 	if( mSaveCallback )
 	{
@@ -1146,20 +1019,8 @@ void LLScriptEdCore::onErrorList(LLUICtrl*, void* user_data)
 		sscanf(line.c_str(), "%d %d", &row, &column);
 		//llinfos << "LLScriptEdCore::onErrorList() - " << row << ", "
 		//<< column << llendl;
-		if(gSavedSettings.getBOOL("LSLPreprocessor") && self->mPostEditor)
-		{
-			LLPanel* tab = self->getChild<LLPanel>("Preprocessed");
-			LLTabContainer* tabset = self->getChild<LLTabContainer>("Tabset");
-			if(tabset)tabset->selectTabByName("Preprocessed");
-			if(tab)tab->setFocus(TRUE);
-			self->mPostEditor->setFocus(TRUE);
-			self->mPostEditor->setCursor(row, column);
-		}
-		else
-		{
-		  self->mEditor->setCursor(row, column);
-		  self->mEditor->setFocus(TRUE);
-		}
+		self->mEditor->setCursor(row, column);
+		self->mEditor->setFocus(TRUE);
 	}
 }
 
@@ -1225,14 +1086,7 @@ BOOL LLScriptEdCore::handleKeyHere(KEY key, MASK mask)
 		if(mSaveCallback)
 		{
 			// don't close after saving
-			if (!hasChanged())
-			{
-				llinfos << "Save Not Needed" << llendl;
-				return TRUE;
-			}
-			doSave(FALSE);
-				
-			//mSaveCallback(mUserdata, FALSE);
+			mSaveCallback(mUserdata, FALSE);
 		}
 
 		return TRUE;
@@ -1271,7 +1125,7 @@ void LLScriptEdCore::onBtnLoadFromFile( void* data )
 	std::string text;
 	std::string linetotal;
 	while (!fin.eof())
-	{
+	{ 
 		getline(fin,line);
 		text += line;
 		if (!fin.eof())
@@ -1282,7 +1136,6 @@ void LLScriptEdCore::onBtnLoadFromFile( void* data )
 	fin.close();
 
 	// Only replace the script if there is something to replace with.
-
 	if (text.length() > 0)
 	{
 		self->mEditor->selectAll();
@@ -1293,6 +1146,7 @@ void LLScriptEdCore::onBtnLoadFromFile( void* data )
 
 void LLScriptEdCore::onBtnSaveToFile( void* userdata )
 {
+
 	LLViewerStats::getInstance()->incStat( LLViewerStats::ST_LSL_SAVE_COUNT );
 
 	LLScriptEdCore* self = (LLScriptEdCore*) userdata;
@@ -1300,17 +1154,15 @@ void LLScriptEdCore::onBtnSaveToFile( void* userdata )
 	if( self->mSaveCallback )
 	{
 		LLFilePicker& file_picker = LLFilePicker::instance();
-		if( !file_picker.getSaveFile( LLFilePicker::FFSAVE_SCRIPT ) )
+		if( file_picker.getSaveFile( LLFilePicker::FFSAVE_SCRIPT ) )
 		{
-			//File picking cancelled by user, so nothing to do.
-			return;
+			std::string filename = file_picker.getFirstFile();
+			std::string scriptText=self->mEditor->getText();
+			std::ofstream fout(filename.c_str());
+			fout<<(scriptText);
+			fout.close();
+			self->mSaveCallback( self->mUserdata, FALSE );
 		}
-		std::string filename = file_picker.getFirstFile();
-		std::string scriptText=self->mEditor->getText();
-		std::ofstream fout(filename.c_str());
-		fout<<(scriptText);
-		fout.close();
-		self->mSaveCallback( self->mUserdata, FALSE );
 	}
 }
 
@@ -1332,9 +1184,8 @@ bool LLScriptEdCore::enableSaveToFileMenu(void* userdata)
 bool LLScriptEdCore::enableLoadFromFileMenu(void* userdata)
 {
 	LLScriptEdCore* self = (LLScriptEdCore*)userdata;
-	if (!self || !self->mEditor) return FALSE;
-	return self->mEditor->canLoadOrSaveToFile();
-	}
+	return (self && self->mEditor) ? self->mEditor->canLoadOrSaveToFile() : FALSE;
+}
 
 /// ---------------------------------------------------------------------------
 /// LLScriptEdContainer
@@ -1586,29 +1437,13 @@ void LLPreviewLSL::saveIfNeeded(bool sync /*= true*/)
 	const LLInventoryItem *inv_item = getItem();
 	// save it out to asset server
 	std::string url = gAgent.getRegion()->getCapability("UpdateScriptAgent");
-	
-	std::string scripttext = mScriptEd->getScriptText();
-	BOOL domono = JCLSLPreprocessor::mono_directive(scripttext);
-	if(domono == FALSE)
-	{
-		LLSD row;
-		if(gSavedSettings.getBOOL("SaveInventoryScriptsAsMono"))
-		{
-			row["columns"][0]["value"] = "Detected compile-as-LSL2 directive, but debug setting SaveInventoryScriptsAsMono overrided it.";
-			domono = TRUE;
-		}else row["columns"][0]["value"] = "Detected compile-as-LSL2 directive";
-		//domono = FALSE;
-		row["columns"][0]["font"] = "SANSSERIF_SMALL";
-		mScriptEd->mErrorList->addElement(row);
-	}
-	
 	if(inv_item)
 	{
 		getWindow()->incBusyCount();
 		mPendingUploads++;
 		if (!url.empty())
 		{
-			uploadAssetViaCaps(url, filename, mItemUUID, domono);
+			uploadAssetViaCaps(url, filename, mItemUUID);
 		}
 		else if (gAssetStorage)
 		{
@@ -1619,8 +1454,7 @@ void LLPreviewLSL::saveIfNeeded(bool sync /*= true*/)
 
 void LLPreviewLSL::uploadAssetViaCaps(const std::string& url,
 									  const std::string& filename,
-									  const LLUUID& item_id,
-									  bool mono)
+									  const LLUUID& item_id)
 {
 	llinfos << "Update Agent Inventory via capability" << llendl;
 	LLSD body;
@@ -1633,7 +1467,6 @@ void LLPreviewLSL::uploadAssetViaCaps(const std::string& url,
 	{
 		body["target"] = "lsl2";
 	}
-	
 	LLHTTPClient::post(url, body, new LLUpdateAgentInventoryResponder(body, filename, LLAssetType::AT_LSL_TEXT));
 }
 
@@ -1723,10 +1556,8 @@ void LLPreviewLSL::uploadAssetLegacy(const std::string& filename,
 
 
 // static
-void LLPreviewLSL::onSaveComplete(const LLUUID& iuuid, void* user_data, S32 status, LLExtStat ext_status) // StoreAssetData callback (fixed)
+void LLPreviewLSL::onSaveComplete(const LLUUID& asset_uuid, void* user_data, S32 status, LLExtStat ext_status) // StoreAssetData callback (fixed)
 {
-	LLUUID asset_uuid = iuuid;
-	
 	LLScriptSaveInfo* info = reinterpret_cast<LLScriptSaveInfo*>(user_data);
 	if(0 == status)
 	{
@@ -1737,10 +1568,6 @@ void LLPreviewLSL::onSaveComplete(const LLUUID& iuuid, void* user_data, S32 stat
 			if(item)
 			{
 				LLPointer<LLViewerInventoryItem> new_item = new LLViewerInventoryItem(item);
-				
-				if(asset_uuid.isNull())
-					asset_uuid.generate();
-				
 				new_item->setAssetUUID(asset_uuid);
 				new_item->setTransactionID(info->mTransactionID);
 				new_item->updateServer(FALSE);
