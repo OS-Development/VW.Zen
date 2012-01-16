@@ -37,6 +37,8 @@
 #include "llfloaterreg.h"
 #include "lltrans.h"
 
+#include "llchicletbar.h"
+
 #include "lldockablefloater.h"
 #include "llsyswellwindow.h"
 #include "llimfloater.h"
@@ -50,30 +52,6 @@ using namespace LLNotificationsUI;
 bool LLScreenChannel::mWasStartUpToastShown = false;
 
 LLFastTimer::DeclareTimer FTM_GET_CHANNEL_RECT("Calculate Notification Channel Region");
-LLRect LLScreenChannelBase::getChannelRect()
-{
-	LLFastTimer _(FTM_GET_CHANNEL_RECT);
-
-	if (mFloaterSnapRegion == NULL)
-	{
-		mFloaterSnapRegion = gViewerWindow->getRootView()->getChildView("floater_snap_region");
-	}
-	
-	if (mChicletRegion == NULL)
-	{
-		mChicletRegion = gViewerWindow->getRootView()->getChildView("chiclet_container");
-	}
-	
-	LLRect channel_rect;
-	LLRect chiclet_rect;
-
-	mFloaterSnapRegion->localRectToScreen(mFloaterSnapRegion->getLocalRect(), &channel_rect);
-	mChicletRegion->localRectToScreen(mChicletRegion->getLocalRect(), &chiclet_rect);
-
-	channel_rect.mTop = chiclet_rect.mBottom;
-	return channel_rect;
-}
-
 
 //--------------------------------------------------------------------------
 //////////////////////
@@ -98,26 +76,8 @@ LLScreenChannelBase::LLScreenChannelBase(const Params& p)
 
 	setMouseOpaque( false );
 	setVisible(FALSE);
-}
-
-BOOL LLScreenChannelBase::postBuild()
-{
-	if (mFloaterSnapRegion == NULL)
-	{
-		mFloaterSnapRegion = gViewerWindow->getRootView()->getChildView("floater_snap_region");
-	}
 	
-	if (mChicletRegion == NULL)
-	{
-		mChicletRegion = gViewerWindow->getRootView()->getChildView("chiclet_container");
-	}
-	
-	return TRUE;
-}
-
-void LLScreenChannelBase::reshape(S32 width, S32 height, BOOL called_from_parent)
-{
-	redrawToasts();
+	LLFloaterView::setFloaterSnapChangedCallback(boost::bind(&LLScreenChannelBase::onFloaterSnapRegionChanged, this, _1));
 }
 
 bool  LLScreenChannelBase::isHovering()
@@ -168,6 +128,28 @@ void	LLScreenChannelBase::updateRect()
 	S32 channel_left = getRect().mLeft;
 	S32 channel_right = getRect().mRight;
 	setRect(LLRect(channel_left, channel_top, channel_right, channel_bottom));
+}
+
+void LLScreenChannelBase::onFloaterSnapRegionChanged(LLView* floater_snap_viewp)
+{
+	LLFastTimer _(FTM_GET_CHANNEL_RECT);
+
+	floater_snap_viewp->localRectToScreen(floater_snap_viewp->getLocalRect(), &mChannelRect);
+
+	LLRect chiclet_rect;
+	
+	if (LLChicletBar::instanceExists())
+	{
+		LLChicletBar* chiclet_bar = LLChicletBar::getInstance();
+		chiclet_bar->localRectToScreen(chiclet_bar->getLocalRect(), &chiclet_rect);
+
+		if (LLChicletBar::ALIGN_TOP == chiclet_bar->getAlignment())
+			mChannelRect.mTop = chiclet_rect.mBottom;
+		else
+			mChannelRect.mBottom = chiclet_rect.mTop;
+	}
+
+	redrawToasts();
 }
 
 //--------------------------------------------------------------------------
@@ -499,13 +481,6 @@ void LLScreenChannel::modifyToastByNotificationID(LLUUID id, LLPanel* panel)
 //--------------------------------------------------------------------------
 void LLScreenChannel::redrawToasts()
 {
-	if (!getParent())
-	{
-		// connect to floater snap region just to get resize events, we don't care about being a proper widget 
-		mFloaterSnapRegion->addChild(this);
-		setFollows(FOLLOWS_ALL);
-	}
-
 	if(mToastList.size() == 0)
 		return;
 
@@ -527,8 +502,9 @@ void LLScreenChannel::redrawToasts()
 //--------------------------------------------------------------------------
 void LLScreenChannel::showToastsBottom()
 {
-	LLRect	toast_rect;	
-	S32		bottom = getRect().mBottom - gFloaterView->getRect().mBottom;
+	LLRect channel_rect = getChannelRect();
+	LLRect	toast_rect;
+	S32		bottom = channel_rect.mBottom;
 	S32		toast_margin = 0;
 	std::vector<ToastElem>::reverse_iterator it;
 
@@ -564,7 +540,7 @@ void LLScreenChannel::showToastsBottom()
 				(*it).toast->translate(0, shift);
 			}
 
-			LLRect channel_rect = getChannelRect();
+			// LLRect channel_rect = getChannelRect();
 			// don't show toasts if there is not enough space
 			if(toast_rect.mTop > channel_rect.mTop)
 			{
@@ -964,9 +940,14 @@ LLToast* LLScreenChannel::getToastByNotificationID(LLUUID id)
 {
 	std::vector<ToastElem>::iterator it = find(mStoredToastList.begin(),
 			mStoredToastList.end(), id);
-
+	
 	if (it == mStoredToastList.end())
-		return NULL;
+	{
+		// If we can't find it among the stored toasts then widen it to "all visible toasts"
+		it = find(mToastList.begin(), mToastList.end(), id);
+		if (it == mToastList.end())
+			return NULL;
+	}
 
 	return it->toast;
 }

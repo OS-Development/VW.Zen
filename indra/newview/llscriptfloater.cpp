@@ -295,7 +295,7 @@ void LLScriptFloater::dockToChiclet(bool dock)
 		setSavePosition(false);
 
 		setDockControl(new LLDockControl(chiclet, this, getDockTongue(),
-			LLDockControl::BOTTOM));
+			(LLChicletBar::ALIGN_TOP == LLChicletBar::getInstance()->getAlignment()) ? LLDockControl::BOTTOM : LLDockControl::TOP));
 
 		setDocked(dock);
 

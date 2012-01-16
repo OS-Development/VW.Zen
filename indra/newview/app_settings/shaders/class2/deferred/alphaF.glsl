@@ -56,20 +56,28 @@ uniform float shadow_bias;
 
 uniform mat4 inv_proj;
 
-float pcfShadow(sampler2DRectShadow shadowMap, vec4 stc, float scl)
+float mex(float a, float b)
+{
+  return a;
+}
+
+float pcfShadow(sampler2DRectShadow shadowMap, vec4 stc)
 {
 	stc.xyz /= stc.w;
 	stc.z += shadow_bias;
+
+	//stc.x = floor(stc.x + fract(stc.y) * 1.5);
+	stc.x = floor(stc.x + fract(stc.y*12345));
 	
 	float cs = shadow2DRect(shadowMap, stc.xyz).x;
 	float shadow = cs;
 
-	shadow += max(shadow2DRect(shadowMap, stc.xyz+vec3(scl, scl, 0.0)).x, cs);
-	shadow += max(shadow2DRect(shadowMap, stc.xyz+vec3(scl, -scl, 0.0)).x, cs);
-	shadow += max(shadow2DRect(shadowMap, stc.xyz+vec3(-scl, scl, 0.0)).x, cs);
-	shadow += max(shadow2DRect(shadowMap, stc.xyz+vec3(-scl, -scl, 0.0)).x, cs);
-			
-	return shadow/5.0;
+        shadow += mex(shadow2DRect(shadowMap, stc.xyz+vec3(2.0, 1.5, 0.0)).x,cs);
+        shadow += mex(shadow2DRect(shadowMap, stc.xyz+vec3(1.0, -1.5, 0.0)).x,cs);
+        shadow += mex(shadow2DRect(shadowMap, stc.xyz+vec3(-1.0, 1.5, 0.0)).x,cs);
+        shadow += mex(shadow2DRect(shadowMap, stc.xyz+vec3(-2.0, -1.5, 0.0)).x,cs);
+                        
+        return shadow*shadow*0.04;
 }
 
 
@@ -91,26 +99,26 @@ void main()
 		{
 			lpos = shadow_matrix[3]*spos;
 			lpos.xy *= shadow_res;
-			shadow = pcfShadow(shadowMap3, lpos, 1.5);
+			shadow = pcfShadow(shadowMap3, lpos);
 			shadow += max((pos.z+shadow_clip.z)/(shadow_clip.z-shadow_clip.w)*2.0-1.0, 0.0);
 		}
 		else if (spos.z < -shadow_clip.y)
 		{
 			lpos = shadow_matrix[2]*spos;
 			lpos.xy *= shadow_res;
-			shadow = pcfShadow(shadowMap2, lpos, 1.5);
+			shadow = pcfShadow(shadowMap2, lpos);
 		}
 		else if (spos.z < -shadow_clip.x)
 		{
 			lpos = shadow_matrix[1]*spos;
 			lpos.xy *= shadow_res;
-			shadow = pcfShadow(shadowMap1, lpos, 1.5);
+			shadow = pcfShadow(shadowMap1, lpos);
 		}
 		else
 		{
 			lpos = shadow_matrix[0]*spos;
 			lpos.xy *= shadow_res;
-			shadow = pcfShadow(shadowMap0, lpos, 1.5);
+			shadow = pcfShadow(shadowMap0, lpos);
 		}
 	}
 	

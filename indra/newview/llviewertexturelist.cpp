@@ -1588,6 +1588,17 @@ bool LLUIImageList::initFromFile()
 	{
 		parser.readXUI(update_root, images, skin_update_path);
 	}
+	
+	// add components defined in current theme
+	std::string theme_update_path = gDirUtilp->getSkinThemeDir() 
+									+ "textures"
+									+ gDirUtilp->getDirDelimiter()
+									+ "textures.xml";
+	if (theme_update_path != skin_update_path
+		&& LLXMLNode::parseFile(theme_update_path, update_root, NULL))
+	{
+		parser.readXUI(update_root, images, theme_update_path);
+	}
 
 	// add components defined in user override of current skin
 	skin_update_path = gDirUtilp->getUserSkinDir() 

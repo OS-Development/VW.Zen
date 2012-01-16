@@ -77,6 +77,7 @@ namespace
 
 LLChicletBar::LLChicletBar(const LLSD&)
 :	mChicletPanel(NULL),
+	mAlignment(ALIGN_TOP),
 	mToolbarStack(NULL)
 {
 	// Firstly add our self to IMSession observers, so we catch session events

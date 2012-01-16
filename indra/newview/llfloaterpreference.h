@@ -44,6 +44,7 @@ class LLScrollListCtrl;
 class LLSliderCtrl;
 class LLSD;
 class LLTextBox;
+class LLComboBox;
 
 typedef enum
 	{
@@ -123,8 +124,8 @@ public:
 
 	void onClickSetCache();
 	void onClickResetCache();
-	void onClickSkin(LLUICtrl* ctrl,const LLSD& userdata);
-	void onSelectSkin();
+//	void onClickSkin(LLUICtrl* ctrl,const LLSD& userdata);
+//	void onSelectSkin();
 	void onClickSetKey();
 	void setKey(KEY key);
 	void onClickSetMiddleMouse();
@@ -161,9 +162,9 @@ public:
 	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	
 	void buildPopupLists();
-	static void refreshSkin(void* data);
+//	static void refreshSkin(void* data);
 private:
-	static std::string sSkin;
+//	static std::string sSkin;
 	bool mClickActionDirty; ///< Set to true when the click/double-click options get changed by user.
 	bool mGotPersonalInfo;
 	bool mOriginalIMViaEmail;
@@ -254,6 +255,28 @@ private:
 	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
 	control_values_map_t mSavedValues;
 
+};
+
+class LLPanelPreferenceSkins : public LLPanelPreference
+{
+public:
+	LLPanelPreferenceSkins();
+
+	/*virtual*/ BOOL postBuild();
+	/*virtual*/ void apply();
+	/*virtual*/ void cancel();
+protected:
+	void onSkinChanged();
+	void onSkinThemeChanged();
+	void refreshSkinList();
+	void refreshSkinThemeList();
+
+protected:
+	std::string m_Skin;
+	LLComboBox* m_pSkinCombo;
+	std::string m_SkinTheme;
+	LLComboBox* m_pSkinThemeCombo;
+	LLSD        m_SkinsInfo;
 };
 
 

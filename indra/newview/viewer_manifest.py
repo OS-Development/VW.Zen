@@ -108,6 +108,7 @@ class ViewerManifest(LLManifest):
             # skins
             if self.prefix(src="skins"):
                     self.path("paths.xml")
+                    self.path("skins.xml")
                     # include the entire textures directory recursively
                     if self.prefix(src="*/textures"):
                             self.path("*/*.tga")
@@ -122,6 +123,18 @@ class ViewerManifest(LLManifest):
                             self.end_prefix("*/textures")
                     self.path("*/xui/*/*.xml")
                     self.path("*/xui/*/widgets/*.xml")
+                    self.path("*/themes/*/colors.xml")
+		    if self.prefix(src="*/themes/*/textures"):
+                            self.path("*/*.tga")
+                            self.path("*/*.j2c")
+                            self.path("*/*.jpg")
+                            self.path("*/*.png")
+                            self.path("*.tga")
+                            self.path("*.j2c")
+                            self.path("*.jpg")
+                            self.path("*.png")
+                            self.end_prefix("*/themes/*/textures")
+                            
                     self.path("*/*.xml")
 
                     # Local HTML files (e.g. loading screen)
@@ -182,7 +195,7 @@ class ViewerManifest(LLManifest):
         elif re.match('project.*',channel_type) :
             icon_path += 'project'
         else :
-            icon_path += 'test'
+            icon_path += 'zen'
         return icon_path
 
     def flags_list(self):
@@ -316,8 +329,8 @@ class WindowsManifest(ViewerManifest):
         #self.enable_crt_manifest_check()
 
         if self.is_packaging_viewer():
-            # Find secondlife-bin.exe in the 'configuration' dir, then rename it to the result of final_exe.
-            self.path(src='%s/secondlife-bin.exe' % self.args['configuration'], dst=self.final_exe())
+            # Find Zen-bin.exe in the 'configuration' dir, then rename it to the result of final_exe.
+            self.path(src='%s/Zen-bin.exe' % self.args['configuration'], dst=self.final_exe())
 
         # Plugin host application
         self.path(os.path.join(os.pardir,
@@ -370,6 +383,7 @@ class WindowsManifest(ViewerManifest):
                 self.path("openjpegd.dll")
             else:
                 self.path("openjpeg.dll")
+                self.path("libmmd.dll")
 
             # These need to be installed as a SxS assembly, currently a 'private' assembly.
             # See http://msdn.microsoft.com/en-us/library/ms235291(VS.80).aspx
@@ -379,6 +393,8 @@ class WindowsManifest(ViewerManifest):
             else:
                  self.path("msvcr100.dll")
                  self.path("msvcp100.dll")
+            
+
 
             # Vivox runtimes
             self.path("SLVoice.exe")
@@ -388,6 +404,8 @@ class WindowsManifest(ViewerManifest):
             self.path("zlib1.dll")
             self.path("vivoxplatform.dll")
             self.path("vivoxoal.dll")
+
+
             
             # Security
             self.path("ssleay32.dll")
@@ -407,6 +425,7 @@ class WindowsManifest(ViewerManifest):
         self.path(src="licenses-win32.txt", dst="licenses.txt")
         self.path("featuretable.txt")
         self.path("featuretable_xp.txt")
+        self.path("VivoxAUP.txt")
 
         #self.enable_no_crt_manifest_check()
 
@@ -551,6 +570,7 @@ class WindowsManifest(ViewerManifest):
             'version' : '.'.join(self.args['version']),
             'version_short' : '.'.join(self.args['version'][:-1]),
             'version_dashes' : '-'.join(self.args['version']),
+			'version_dots' : '.'.join(self.args['version']),
             'final_exe' : self.final_exe(),
             'grid':self.args['grid'],
             'grid_caps':self.args['grid'].upper(),
@@ -566,18 +586,19 @@ class WindowsManifest(ViewerManifest):
         !define VERSION "%(version_short)s"
         !define VERSION_LONG "%(version)s"
         !define VERSION_DASHES "%(version_dashes)s"
+		!define VERSION_DOTS "%(version_dots)s"
         """ % substitution_strings
         if self.default_channel():
             if self.default_grid():
                 # release viewer
-                installer_file = "Second_Life_%(version_dashes)s_Setup.exe"
+                installer_file = "Zen Viewer %(version_dots)s Installer.exe"
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLifeViewer"
-                !define SHORTCUT   "Second Life Viewer"
+                !define INSTNAME   "Zen Viewer"
+                !define SHORTCUT   "Zen Viewer"
                 !define URLNAME   "secondlife"
-                Caption "Second Life"
+                Caption "Zen Viewer"
                 """
             else:
                 # beta grid viewer
@@ -585,20 +606,20 @@ class WindowsManifest(ViewerManifest):
                 grid_vars_template = """
                 OutFile "%(installer_file)s"
                 !define INSTFLAGS "%(flags)s"
-                !define INSTNAME   "SecondLife%(grid_caps)s"
-                !define SHORTCUT   "Second Life (%(grid_caps)s)"
+                !define INSTNAME   "Zen Viewer%(grid_caps)s"
+                !define SHORTCUT   "Zen Viewer (%(grid_caps)s)"
                 !define URLNAME   "secondlife%(grid)s"
                 !define UNINSTALL_SETTINGS 1
-                Caption "Second Life %(grid)s ${VERSION}"
+                Caption "Zen Viewer %(grid)s ${VERSION}"
                 """
         else:
             # some other channel on some grid
-            installer_file = "Second_Life_%(version_dashes)s_%(channel_oneword)s_Setup.exe"
+            installer_file = "Zen Viewer %(version_dots)s Installer.exe"
             grid_vars_template = """
             OutFile "%(installer_file)s"
             !define INSTFLAGS "%(flags)s"
-            !define INSTNAME   "SecondLife%(channel_oneword)s"
-            !define SHORTCUT   "%(channel)s"
+            !define INSTNAME   "Zen Viewer"
+            !define SHORTCUT   "Zen Viewer"
             !define URLNAME   "secondlife"
             !define UNINSTALL_SETTINGS 1
             Caption "%(channel)s ${VERSION}"
@@ -609,7 +630,7 @@ class WindowsManifest(ViewerManifest):
             installer_file = installer_file % substitution_strings
         substitution_strings['installer_file'] = installer_file
 
-        tempfile = "secondlife_setup_tmp.nsi"
+        tempfile = "zen_setup_tmp.nsi"
         # the following replaces strings in the nsi template
         # it also does python-style % substitution
         self.replace_in("installers/windows/installer_template.nsi", tempfile, {
@@ -673,6 +694,7 @@ class DarwinManifest(ViewerManifest):
                 self.path("licenses-mac.txt", dst="licenses.txt")
                 self.path("featuretable_mac.txt")
                 self.path("SecondLife.nib")
+                self.path("VivoxAUP.txt")
 
                 icon_path = self.icon_path()
                 if self.prefix(src=icon_path, dst="") :
@@ -805,11 +827,11 @@ class DarwinManifest(ViewerManifest):
             self.run_command("chmod +x %r" % os.path.join(self.get_dst_prefix(), script))
 
     def package_finish(self):
-        channel_standin = 'Second Life Viewer'  # hah, our default channel is not usable on its own
+        channel_standin = 'Zen Viewer'  # hah, our default channel is not usable on its own
         if not self.default_channel():
             channel_standin = self.channel()
 
-        imagename="SecondLife_" + '_'.join(self.args['version'])
+        imagename="Zen_" + '_'.join(self.args['version'])
 
         # MBW -- If the mounted volume name changes, it breaks the .DS_Store's background image and icon positioning.
         #  If we really need differently named volumes, we'll need to create multiple DS_Store file images, or use some other trick.
@@ -867,6 +889,7 @@ class DarwinManifest(ViewerManifest):
             for s,d in {self.get_dst_prefix():app_name + ".app",
                         os.path.join(dmg_template, "_VolumeIcon.icns"): ".VolumeIcon.icns",
                         os.path.join(dmg_template, "background.jpg"): "background.jpg",
+                        os.path.join(dmg_template, "VivoxAUP.txt"): "Vivox (Voice Services) Usage Policy.txt",
                         os.path.join(dmg_template, "_DS_Store"): ".DS_Store"}.items():
                 print "Copying to dmg", s, d
                 self.copy_action(self.src_path_of(s), os.path.join(volpath, d))
@@ -915,6 +938,7 @@ class LinuxManifest(ViewerManifest):
     def construct(self):
         super(LinuxManifest, self).construct()
         self.path("licenses-linux.txt","licenses.txt")
+        self.path("VivoxAUP.txt")
         if self.prefix("linux_tools", dst=""):
             self.path("client-readme.txt","README-linux.txt")
             self.path("client-readme-voice.txt","README-linux-voice.txt")
@@ -930,7 +954,7 @@ class LinuxManifest(ViewerManifest):
         # Create an appropriate gridargs.dat for this package, denoting required grid.
         self.put_in_file(self.flags_list(), 'etc/gridargs.dat')
 
-        self.path("secondlife-bin","bin/do-not-directly-run-secondlife-bin")
+        self.path("Zen-bin","bin/do-not-directly-run-Zen-bin")
         self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
         self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
         self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")

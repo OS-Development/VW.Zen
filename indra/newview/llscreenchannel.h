@@ -70,9 +70,7 @@ public:
 
 	LLScreenChannelBase(const Params&);
 	
-	BOOL postBuild();
-
-	void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
+	// void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 
 	// Channel's outfit-functions
 	// update channel's size and position in the World View
@@ -121,7 +119,11 @@ public:
 
 protected:
 	void	updateRect();
-	LLRect	getChannelRect();
+	
+	const LLRect& getChannelRect() const { return mChannelRect; }
+	void          onFloaterSnapRegionChanged(LLView* floater_snap_viewp);
+
+	LLRect		mChannelRect;
 
 	// Channel's flags
 	bool		mControlHovering;
