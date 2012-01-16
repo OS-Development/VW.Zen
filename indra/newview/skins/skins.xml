@@ -9,17 +9,22 @@
             <array>
                 <map>
                 <key>name</key>
-                    <string>Teal</string>
-                <key>folder</key>
-                    <string>teal</string>
-                </map>
-                <map>
-                <key>name</key>
                     <string>Blue</string>
                 <key>folder</key>
                     <string>blue</string>
                 </map>
-                
+				<map>
+                <key>name</key>
+                    <string>Purple</string>
+                <key>folder</key>
+                    <string>purple</string>
+                </map>
+                <map>
+                <key>name</key>
+                    <string>Teal</string>
+                <key>folder</key>
+                    <string>teal</string>
+                </map>
             </array>
     </map>
 	</array>

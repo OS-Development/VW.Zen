@@ -9,106 +9,6 @@
  name="general_panel"
  top="1"
  width="517">
-   <text
-     type="string"
-     length="1"
-     follows="left|top"
-     height="15"
-     layout="topleft"
-     left="30"
-     name="language_textbox"
-     top="10"
-     width="400">
-        Language:
-    </text>
-    <combo_box
-     control_name="Language"
-     follows="left|top"
-     height="23"
-     layout="topleft"
-     left="30"
-     max_chars="135"
-     name="language_combobox"
-     width="200">
-        <combo_box.item
-         enabled="true"
-         label="System default"
-         name="System Default Language"
-         value="default" />
-        <combo_box.item
-         enabled="true"
-         label="English"
-         name="English"
-         value="en" />
-        <combo_box.item
-         enabled="true"
-         label="Dansk (Danish) - Beta"
-         name="Danish"
-         value="da" />
-        <combo_box.item
-         enabled="true"
-         label="Deutsch (German) - Beta"
-         name="Deutsch(German)"
-         value="de" />
-        <combo_box.item
-         enabled="true"
-         label="Español (Spanish) - Beta"
-         name="Spanish"
-         value="es" />
-        <combo_box.item
-         enabled="true"
-         label="Français (French) - Beta"
-         name="French"
-         value="fr" />
-        <combo_box.item
-         enabled="true"
-         label="Italiano (Italian) - Beta"
-         name="Italian"
-         value="it" />
-        <combo_box.item
-         enabled="true"
-         label="Polski (Polish) - Beta"
-         name="Polish"
-         value="pl" />
-        <combo_box.item
-         enabled="true"
-         label="Português (Portuguese) - Beta"
-         name="Portugese"
-         value="pt" />
-        <combo_box.item
-         enabled="true"
-         label="Русский (Russian) - Beta"
-         name="Russian"
-         value="ru" />
-        <combo_box.item
-         enabled="true"
-         label="Türkçe (Turkish) - Beta"
-         name="Turkish"
-         value="tr" />
-        <combo_box.item
-         enabled="true"
-         label="日本語 (Japanese) - Beta"
-         name="(Japanese)"
-         value="ja" />
-        <combo_box.item
-         enabled="true"
-         label="正體中文 (Traditional Chinese) - Beta"
-         name="Traditional Chinese"
-         value="zh" />
-    </combo_box>
-    <text
- font="SansSerifSmall"
-     type="string"
-     text_color="White_50"
-     length="1"
-     follows="left|top"
-     height="18"
-     layout="topleft"
-     left_pad="10"
-     name="language_textbox2"
-     width="200">
-        (Requires restart)
-    </text>
     <text
      type="string"
      length="1"
@@ -116,7 +16,7 @@
      height="15"
      layout="topleft"
      left="30"
-     top_pad="20"
+     top="20"
      name="maturity_desired_prompt"
      width="200">
         I want to access content rated:

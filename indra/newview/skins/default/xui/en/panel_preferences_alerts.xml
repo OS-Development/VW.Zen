@@ -73,7 +73,7 @@
 	<text
      font="SansSerifSmall"
      type="string"
-     text_color="White_50"
+     text_color="Yellow"
      length="1"
      follows="left|top"
      height="18"
