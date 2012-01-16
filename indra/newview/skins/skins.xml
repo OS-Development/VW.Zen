@@ -19,6 +19,12 @@
                 <key>folder</key>
                     <string>purple</string>
                 </map>
+				<map>
+                <key>name</key>
+                    <string>Red</string>
+                <key>folder</key>
+                    <string>red</string>
+                </map>
                 <map>
                 <key>name</key>
                     <string>Teal</string>

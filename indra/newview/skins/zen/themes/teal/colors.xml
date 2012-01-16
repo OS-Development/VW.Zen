@@ -44,9 +44,6 @@
 	<color
 	 name="DkGray_66"
 	 value="0.125 0.125 0.125 .66" />
-	 <color
-	 name="DkGray_86"
-	 value="0.125 0.125 0.125 .86" />
 	<color
 	 name="DkGray2"
 	 value="0.169 0.169 0.169 1" />
@@ -101,11 +98,10 @@
 	<color
 	name="MdBlue"
 	value=".07 .38 .51 1" />
-	
+
   <!-- This color name makes potentially unused colors show up bright purple.
   Leave this here until all Unused? are removed below, otherwise
   the viewer generates many warnings on startup. -->
-  
   <color
 	 name="Unused?"
 	 value=".831 1 0 1" />
@@ -442,9 +438,6 @@
     <color
      name="InventorySearchStatusColor"
      reference="EmphasisColor" />
-	<color
-     name="InventoryProtectedColor"
-     reference="EmphasisColor" />
     <color
      name="LabelDisabledColor"
      reference="White_25" />
@@ -504,7 +497,7 @@
      reference="FrogGreen" />
     <color
      name="MenuDefaultBgColor"
-     value="0 0 0 0.75" />
+     reference="DkGray2" />
     <color
      name="MenuItemDisabledColor"
 	 reference="LtGray_50" />
@@ -525,7 +518,7 @@
      value="0.263 0.325 0.345 1" />
     <color
      name="MenuPopupBgColor"
-	 value="0 0 0 0.75" />
+	  reference="DkGray2" />
     <color
      name="ModelUploaderLabels"
      value="1 0.6 0 1" />	  
@@ -572,7 +565,7 @@
      reference="White" />
     <color
      name="NetMapBackgroundColor"
-     reference="Black_25" />
+     value="0 0 0 1" />
     <color
      name="NetMapGroupOwnAboveWater"
      reference="Purple" />
@@ -634,9 +627,6 @@
      name="PieMenuSelectedColor"
      value="0.72 0.72 0.74 0.3" />
     <color
-	 name="PieMenuTextColor"
-	 reference="White" />
-	<color
      name="PropertyColorAuction"
      value="0.5 0 1 0.4" />
     <color
@@ -714,9 +704,6 @@
     <color
      name="SliderTrackColor"
      reference="Unused?" />
-	<color
-	 name="SL-White"
-	 value="1 1 1 1" />
     <color
      name="SpeakingColor"
      reference="FrogGreen" />

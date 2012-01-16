@@ -12,6 +12,9 @@
 	 name="EmphasisColor_35"
 	 value=".1485 .664 .879 0.35" />
 	<color
+	 name="EmphasisColor_50"
+	 value=".1485 .664 .879 0.5" />
+	<color
 	 name="White"
 	 value="1 1 1 1" />
 	<color
@@ -810,8 +813,8 @@
      reference="LtOrange" />
 
     <color
-      name="ToolbarDropZoneColor"
-      value=".48 .69 1 .5" />
+     name="ToolbarDropZoneColor"
+     reference="EmphasisColor_50" />
   
     <!-- Generic color names (legacy) -->
   <color
