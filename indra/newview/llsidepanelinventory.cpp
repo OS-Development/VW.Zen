@@ -221,7 +221,6 @@ BOOL LLSidepanelInventory::postBuild()
 
 		// Disable user_resize on main inventory panel by default
 		inv_stack->setPanelUserResize(MAIN_INVENTORY_LAYOUT_PANEL_NAME, false);
-		inv_stack->setPanelUserResize(INBOX_LAYOUT_PANEL_NAME, false);
 
 		// Collapse inbox panel
 		inv_stack->collapsePanel(getChild<LLLayoutPanel>(INBOX_LAYOUT_PANEL_NAME), true);
