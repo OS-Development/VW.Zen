@@ -74,7 +74,7 @@
    layout="topleft"
    left="80"
    name="Cache location"
-   top_pad="5"
+   top_pad="10"
    width="300">
     Cache location:
   </text>
@@ -125,7 +125,7 @@
    layout="topleft"
    left="33"
    name="UI Size:"
-   top_pad="20"
+   top_pad="30"
    width="100">
     UI size:
   </text>
@@ -150,7 +150,7 @@
      label="Show script errors in:"
      layout="topleft"
      left="30"
-     top_pad="10" 
+     top_pad="20" 
      name="show_script_errors"
      width="256" />
     <radio_group
@@ -190,7 +190,7 @@
      layout="topleft"
      left="30"
      name="allow_multiple_viewer_check"
-     top_pad="20"
+     top_pad="30"
      width="237"/>
     <check_box
      control_name="ForceShowGrid"
@@ -213,14 +213,27 @@
      top_pad="5"
      width="237"/>
 	<check_box
-     control_name="QAMode"
+     control_name="FullScreen"
      follows="top|left"
      height="15"
-     label="Show Developer Menu"
+     label="Full Screen"
      layout="topleft"
      left="30"
-     name="show_develop_menu_check"
+     name="full_screen"
      top_pad="5"
-     width="237"/>
-	
+     width="100"/>
+	<text
+     font="SansSerifSmall"
+     type="string"
+     text_color="Yellow"
+     length="1"
+     follows="left|top"
+     height="18"
+     layout="topleft"
+	 top_delta="-1"
+     left_pad="-10"
+     name="skin_textbox1"
+     width="200">
+        (Requires Restart)
+    </text>
 </panel>
