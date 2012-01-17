@@ -19,7 +19,7 @@
     name="name_tags_textbox"
     top_pad="10"
     width="400">
-       Name tags:
+       Name Tags:
    </text>
    <radio_group
      control_name="AvatarNameTagMode"
@@ -136,7 +136,7 @@
       top_pad="20" 
       width="300"
       >
-    Name in viewer colors:   (changes require restart)
+    Name in Viewer Colors:   (changes require restart)
     </text>  
   
     <color_swatch
@@ -236,7 +236,7 @@
    top_pad="30"
    width="495"
    >
-    Name tag background color (also affects Bubble Chat):
+    Name Tag Background Color (also affects Bubble Chat):
   </text>
   <color_swatch
    can_apply_immediately="true"

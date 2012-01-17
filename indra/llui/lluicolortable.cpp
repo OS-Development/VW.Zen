@@ -207,20 +207,17 @@ bool LLUIColorTable::loadFromSettings()
 {
 	bool result = false;
 
-	std::string default_filename = gDirUtilp->getExpandedFilename(LL_PATH_DEFAULT_SKIN, "colors.xml");
-	result |= loadFromFilename(default_filename, mLoadedColors);
+//	std::string default_filename = gDirUtilp->getExpandedFilename(LL_PATH_DEFAULT_SKIN, "colors.xml");
+//	result |= loadFromFilename(default_filename, mLoadedColors);
 
-	std::string current_filename = gDirUtilp->getExpandedFilename(LL_PATH_TOP_SKIN, "colors.xml");
-	if(current_filename != default_filename)
-	{
-		result |= loadFromFilename(current_filename, mLoadedColors);
-	}
+//	std::string current_filename = gDirUtilp->getExpandedFilename(LL_PATH_TOP_SKIN, "colors.xml");
+//	if(current_filename != default_filename)
+//	{
+//		result |= loadFromFilename(current_filename, mLoadedColors);
+//	}
 	
 	std::string theme_filename = gDirUtilp->getExpandedFilename(LL_PATH_TOP_SKINTHEME, "colors.xml");
-	if ( (gDirUtilp->fileExists(theme_filename)) && (current_filename != default_filename) )
-	{
 		result |= loadFromFilename(theme_filename, mLoadedColors);
-	}
 
 //	current_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SKIN, "colors.xml");
 //	if(current_filename != default_filename)
@@ -229,7 +226,11 @@ bool LLUIColorTable::loadFromSettings()
 //	}
 
 //	std::string user_filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "colors.xml");
-//	loadFromFilename(user_filename, mUserSetColors);
+	
+//	if(theme_filename != user_filename)
+//	{
+//		result |= loadFromFilename(user_filename, mUserSetColors);
+//	}
 
 	return result;
 }
