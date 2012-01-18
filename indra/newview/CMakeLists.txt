@@ -194,6 +194,7 @@ set(viewer_SOURCE_FILES
     llfloatereditwater.cpp
     llfloaterenvironmentsettings.cpp
     llfloaterevent.cpp
+	floaterexploresounds.cpp
     llfloaterfonttest.cpp
     llfloatergesture.cpp
     llfloatergodtools.cpp
@@ -757,6 +758,7 @@ set(viewer_HEADER_FILES
     llfloatereditwater.h
     llfloaterenvironmentsettings.h
     llfloaterevent.h
+	floaterexploresounds.h
     llfloaterfonttest.h
     llfloatergesture.h
     llfloatergodtools.h

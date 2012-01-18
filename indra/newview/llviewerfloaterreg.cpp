@@ -57,6 +57,7 @@
 #include "llfloatereditwater.h"
 #include "llfloaterenvironmentsettings.h"
 #include "llfloaterevent.h"
+#include "floaterexploresounds.h"
 #include "llfloaterdestinations.h"
 #include "llfloaterfonttest.h"
 #include "llfloatergesture.h"
@@ -315,6 +316,7 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("world_map", "floater_world_map.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterWorldMap>);	
 	
 	LLFloaterReg::add("animation_overrider", "floater_ao.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<FloaterAO>);
+	LLFloaterReg::add("sound_explorer", "floater_explore_sounds.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<FloaterExploreSounds>);
 	// *NOTE: Please keep these alphabetized for easier merges
 	
 	LLFloaterReg::registerControlVariables(); // Make sure visibility and rect controls get preserved when saving
