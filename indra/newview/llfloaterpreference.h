@@ -175,6 +175,9 @@ private:
 	std::string mDirectoryVisibility;
 	
 	LLAvatarData mAvatarProperties;
+	
+	typedef std::map<LLControlVariable*, LLSD> control_values_map_t;
+    control_values_map_t mSavedValues;
 };
 
 class LLPanelPreference : public LLPanel

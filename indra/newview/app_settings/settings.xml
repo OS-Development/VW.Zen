@@ -38,7 +38,7 @@
 	<key>NotificationAlignment</key>
     <map>
       <key>Comment</key>
-      <string>Notification Vertical Alignment (1 = Top; 0 = Bottom).
+      <string>Notification Vertical Alignment (0 = Top; 1 = Bottom).
 	  Requires Restart.</string>
       <key>Persist</key>
       <integer>1</integer>

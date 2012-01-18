@@ -76,11 +76,11 @@ LLScreenChannel* LLChannelManager::createNotificationChannel()
 	p.channel_align = CA_RIGHT;
 	if(gSavedSettings.getBOOL("NotificationAlignment"))
 	{
-		p.toast_align = NA_TOP;
+		p.toast_align = NA_BOTTOM;
 	}
 	else
 	{
-		p.toast_align = NA_BOTTOM;
+		p.toast_align = NA_TOP;
 	}
 
 	// Getting a Channel for our notifications

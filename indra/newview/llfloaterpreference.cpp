@@ -505,6 +505,12 @@ void LLFloaterPreference::saveSettings()
 		if (panel)
 			panel->saveSettings();
 	}
+	
+	// Store a copy of the current value for all settings in 'mSavedValues' so we can revert them if necessary
+	for (control_values_map_t::iterator itSavedValue = mSavedValues.begin(); itSavedValue != mSavedValues.end(); ++itSavedValue)
+	{
+		itSavedValue->second = itSavedValue->first->getValue();
+	}
 }	
 
 void LLFloaterPreference::apply()
@@ -605,6 +611,13 @@ void LLFloaterPreference::cancel()
 		if (panel)
 			panel->cancel();
 	}
+	
+	// Restore all settings in 'mSavedValues' to their previous value
+	for (control_values_map_t::iterator itSavedValue = mSavedValues.begin(); itSavedValue != mSavedValues.end(); ++itSavedValue)
+	{
+		itSavedValue->first->set(itSavedValue->second);
+	}
+	
 	// hide joystick pref floater
 	LLFloaterReg::hideInstance("pref_joystick");
 

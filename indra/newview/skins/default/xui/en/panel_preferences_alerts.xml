@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <panel
  border="true"
+ follows="left|top|right|bottom"
  height="408"
  label="Popups"
  layout="topleft"
- left="0"
+ left="102"
  name="popups"
- top="500"
+ top="1"
  width="517">
     <text
      type="string"
@@ -38,7 +39,6 @@
      name="friends_online_notify_checkbox"
      top_delta="0"
      width="100" />
-	 
 	<text
 	 follows="left|top"
 	 height="15"
@@ -63,13 +63,14 @@
 	 mouse_opaque="true"
 	 name="combo_screen_notifications"
 	 width="100">
-		<combo_box.item
-		 label="Top"
-		 value="1" />
-		 <combo_box.item
-		 label="Bottom"
-		 value="0" />
-		</combo_box>
+	 
+	 <combo_box.item
+	 label="Top"
+	 value="0" />
+	 <combo_box.item
+	 label="Bottom"
+	 value="1" />
+	 </combo_box>
 	<text
      font="SansSerifSmall"
      type="string"
