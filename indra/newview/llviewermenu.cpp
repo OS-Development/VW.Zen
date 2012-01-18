@@ -8074,6 +8074,16 @@ class ToggleMeshDeformer : public view_listener_t
 	
 };
 
+class ToggleDeferredInvisiprims : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		gSavedSettings.setBOOL("DeferredInvisiprims", !gSavedSettings.getBOOL("DeferredInvisiprims"));
+		return true;
+	}
+	
+};
+
 void LLUploadCostCalculator::calculateCost()
 {
 	S32 upload_cost = LLGlobalEconomy::Singleton::getInstance()->getPriceUpload();
@@ -8588,4 +8598,5 @@ void initialize_menus()
 	view_listener_t::addMenu(new ToggleSaveMono(), "SaveInventoryScriptsAsMono");
 	view_listener_t::addMenu(new ToggleFetchInv(), "FetchInventoryOnLogin");
 	view_listener_t::addMenu(new ToggleMeshDeformer(), "MeshDeformer");
+	view_listener_t::addMenu(new ToggleDeferredInvisiprims(), "DeferredInvisiprims");
 }

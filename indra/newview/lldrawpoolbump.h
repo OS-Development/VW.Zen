@@ -46,6 +46,8 @@ public:
 	static U32 sVertexMask;
 	BOOL mShiny;
 	
+	static BOOL sDeferredInvisiprims;
+	
 	virtual U32 getVertexDataMask() { return sVertexMask; }
 
 	LLDrawPoolBump();

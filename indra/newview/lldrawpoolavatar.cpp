@@ -61,6 +61,7 @@ BOOL	LLDrawPoolAvatar::sSkipOpaque = FALSE;
 BOOL	LLDrawPoolAvatar::sSkipTransparent = FALSE;
 S32 LLDrawPoolAvatar::sDiffuseChannel = 0;
 
+BOOL LLDrawPoolAvatar::sMeshDeformer = TRUE;
 
 static bool is_deferred_render = false;
 
@@ -1322,7 +1323,7 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		LLMatrix3 mat_normal(mat3);		
 		
 		
-		if (gSavedSettings.getBOOL("MeshDeformer"))
+		if (LLDrawPoolAvatar::sMeshDeformer)
 		{
 			LLDeformedVolume* deformed_volume = vobj->getDeformedVolume();
 			deformed_volume->deform(volume, avatar, skin, face->getTEOffset());

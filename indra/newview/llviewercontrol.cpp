@@ -72,6 +72,7 @@
 #include "llpanellogin.h"
 #include "llpaneltopinfobar.h"
 #include "llupdaterservice.h"
+#include "lldrawpoolavatar.h"
 
 #ifdef TOGGLE_HACKED_GODLIKE_VIEWER
 BOOL 				gHackGodmode = FALSE;
@@ -90,6 +91,21 @@ extern BOOL gDebugGL;
 extern BOOL gAuditTexture;
 ////////////////////////////////////////////////////////////////////////////
 // Listeners
+
+static bool handleDeferredInvisiprimsChanged(const LLSD& newvalue)
+{
+	bool status = newvalue.asBoolean();
+	LLDrawPoolBump::sDeferredInvisiprims = status;
+	return true;
+}
+
+static bool handleMeshDeformerChanged(const LLSD& newvalue)
+{
+	bool status = newvalue.asBoolean();
+	LLDrawPoolAvatar::sMeshDeformer = status;
+	return true;
+}
+
 
 static bool handleRenderAvatarMouselookChanged(const LLSD& newvalue)
 {
@@ -554,6 +570,8 @@ void toggle_updater_service_active(const LLSD& new_value)
 
 void settings_setup_listeners()
 {
+	gSavedSettings.getControl("MeshDeformer")->getSignal()->connect(boost::bind(&handleMeshDeformerChanged, _2));
+	gSavedSettings.getControl("DeferredInvisiprims")->getSignal()->connect(boost::bind(&handleDeferredInvisiprimsChanged, _2));
 	gSavedSettings.getControl("FirstPersonAvatarVisible")->getSignal()->connect(boost::bind(&handleRenderAvatarMouselookChanged, _2));
 	gSavedSettings.getControl("RenderFarClip")->getSignal()->connect(boost::bind(&handleRenderFarClipChanged, _2));
 	gSavedSettings.getControl("RenderTerrainDetail")->getSignal()->connect(boost::bind(&handleTerrainDetailChanged, _2));
