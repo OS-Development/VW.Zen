@@ -34,7 +34,7 @@ uniform float minimum_alpha;
 uniform sampler2D diffuseMap;
 
 //flat VARYING int foo;
-VARYING float pos_z;
+VARYING float pos_zd2;
 VARYING float pos_w;
 VARYING float target_pos_x;
 //VARYING vec4 pre_pos;
@@ -80,5 +80,5 @@ void main()
 
 	gl_FragColor = vec4(1,1,1,1);
 	
-	gl_FragDepth = max(pos_z/pos_w*0.5+0.5, 0.0);
+	gl_FragDepth = max(pos_zd2/pos_w+0.5, 0.0);
 }

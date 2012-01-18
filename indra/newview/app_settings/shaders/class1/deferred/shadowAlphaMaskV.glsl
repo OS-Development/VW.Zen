@@ -31,7 +31,7 @@ ATTRIBUTE vec3 position;
 ATTRIBUTE vec4 diffuse_color;
 ATTRIBUTE vec2 texcoord0;
 
-VARYING float pos_z;
+VARYING float pos_zd2;
 VARYING float pos_w;
 VARYING float target_pos_x;
 //flat VARYING int foo;
@@ -50,7 +50,7 @@ void main()
 	//post_pos = pos;
 	target_pos_x = 0.5 * (shadow_target_width - 1.0) * pos.x;
 	pos_w = pos.w;
-	pos_z = pos.z;
+	pos_zd2 = pos.z * 0.5;
 	//foo = int(posxw.x);
 	
 	gl_Position = vec4(pos.x, pos.y, pos.w*0.5, pos.w);
