@@ -9,83 +9,7 @@
  name="move_panel"
  top="1"
  width="517">
-  <icon
-     follows="left|top"
-     height="18"
-     image_name="Cam_FreeCam_Off"
-     layout="topleft"
-     name="camera_icon"
-     mouse_opaque="false"
-     visible="true"
-     width="18"
-     left="30"
-     top="10"/>
-  <slider
-   can_edit_text="true"
-   control_name="CameraAngle"
-   decimal_digits="2"
-   follows="left|top"
-   height="16"
-   increment="0.025"
-   initial_value="1.57"
-   layout="topleft"
-   label_width="100"
-   label="View angle"
-   left_pad="30"
-   max_val="2.97"
-   min_val="0.17"
-   name="camera_fov"
-   show_text="false"
-   width="240" />
-  <slider
-   can_edit_text="true"
-   control_name="CameraOffsetScale"
-   decimal_digits="2"
-   follows="left|top"
-   height="16"
-   increment="0.025"
-   initial_value="1"
-   layout="topleft"
-   label="Distance"
-   left_delta="0"
-   label_width="100"
-   max_val="3"
-   min_val="0.5"
-   name="camera_offset_scale"
-   show_text="false"
-   width="240"
-   top_pad="5"/>
-  <text
-  follows="left|top"
-  type="string"
-  length="1"
-  height="10"
-  left="80"
-  name="heading2"
-  width="270"
-  top_pad="5">
-    Automatic position for:
-  </text>
-  <check_box
-     control_name="EditCameraMovement"
-     height="20"
-     follows="left|top"
-     label="Build/Edit"
-     layout="topleft"
-     left_delta="30"
-     name="edit_camera_movement"
-     tool_tip="Use automatic camera positioning when entering and exiting edit mode"
-     width="280"
-     top_pad="5" />
-  <check_box
-   control_name="AppearanceCameraMovement"
-   follows="left|top"
-   height="16"
-   label="Appearance"
-   layout="topleft"
-   name="appearance_camera_movement"
-   tool_tip="Use automatic camera positioning while in edit mode"
-   width="242" />
+  
   <icon
 	 follows="left|top"
 	 height="18"
@@ -95,7 +19,7 @@
 	 mouse_opaque="false"
 	 visible="true"
 	 width="18"
-   top_pad="10"
+   top_pad="15"
    left="30" />
   <text
    follows="left|top"
@@ -141,16 +65,49 @@
    top_pad="15">
     Mouse:
   </text>
+  
+  <check_box
+     control_name="EnableMouselook"
+     follows="left|top"
+     height="20"
+     label="Allow Mouselook"
+     layout="topleft"
+     left_delta="5"
+     top_pad="5"
+     name="AllowMouselook"
+     width="256" />
   <check_box
    control_name="FirstPersonAvatarVisible"
    follows="left|top"
    height="20"
    label="Show me in Mouselook"
    layout="topleft"
-   left_delta="5"
+   left_delta="0"
    name="first_person_avatar_visible"
-   top_pad="5"
+   top_pad="0"
    width="256" />
+   <check_box
+     control_name="ShowCrosshairs"
+     follows="left|top"
+     height="20"
+   enabled_control="EnableMouselook"
+     label="Show Crosshairs in Mouselook"
+     layout="topleft"
+     left_delta="0"
+     top_pad="0"
+     name="ShowCrosshairs"
+     width="256" />
+  <check_box
+     control_name="MouseSmooth"
+     follows="left|top"
+   enabled_control="EnableMouselook"
+     height="20"
+     label="Smooth Mouselook"
+     layout="topleft"
+     left_delta="0"
+     top_pad="0"
+     name="MouseSmooth"
+     width="256" />
   <text
    type="string"
    length="1"
@@ -159,7 +116,7 @@
    layout="topleft"
    left_delta="3"
    name=" Mouse Sensitivity"
-   top_pad="10"
+   top_pad="15"
    width="160"
    wrap="true">
     Mouselook mouse sensitivity:
@@ -194,7 +151,7 @@
    left="86"
    name="single_click_action_lbl"
    width="150"
-   top_pad="20">
+   top_pad="30">
     Single click on land:
   </text>
   <combo_box

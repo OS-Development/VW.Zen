@@ -5,6 +5,7 @@
 <floater
 	name="local_bitmap_browser_floater"
 	title="Local Bitmap Browser"
+	open_positioning="centered"
 	can_resize="true"
 	can_minimize="true"
 	can_close="true"
@@ -14,6 +15,8 @@
 	min_width="575"
 	min_height="230"
     rect_control="FloaterLocalbitmapbrowserRect"
+	save_rect="true"
+	single_instance="true"
 	>
 
   <!-- floater definition end, left side begin -->
