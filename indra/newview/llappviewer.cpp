@@ -434,7 +434,8 @@ void idle_afk_check()
 {
 	// check idle timers
 	F32 current_idle = gAwayTriggerTimer.getElapsedTimeF32();
-	F32 afk_timeout  = gSavedSettings.getS32("AFKTimeout");
+	static LLCachedControl<S32> afkTimeout(gSavedSettings, "AFKTimeout");
+	F32 afk_timeout = (F32)afkTimeout;
 	if (afk_timeout && (current_idle > afk_timeout) && ! gAgent.getAFK())
 	{
 		LL_INFOS("IdleAway") << "Idle more than " << afk_timeout << " seconds: automatically changing to Away status" << LL_ENDL;
@@ -4083,7 +4084,8 @@ void LLAppViewer::idle()
 	// Smoothly weight toward current frame
 	gFPSClamped = (frame_rate_clamped + (4.f * gFPSClamped)) / 5.f;
 
-	F32 qas = gSavedSettings.getF32("QuitAfterSeconds");
+	static LLCachedControl<F32> quitAfterSeconds(gSavedSettings, "QuitAfterSeconds");
+	F32 qas = (F32)quitAfterSeconds;
 	if (qas > 0.f)
 	{
 		if (gRenderStartTime.getElapsedTimeF32() > qas)
@@ -4127,7 +4129,8 @@ void LLAppViewer::idle()
 	    // Update simulator agent state
 	    //
 
-		if (gSavedSettings.getBOOL("RotateRight"))
+		static LLCachedControl<bool> rotateRight(gSavedSettings, "RotateRight");
+		if (rotateRight)
 		{
 			gAgent.moveYaw(-1.f);
 		}
@@ -4648,7 +4651,8 @@ void LLAppViewer::idleNetwork()
 	gObjectList.mNumNewObjects = 0;
 	S32 total_decoded = 0;
 
-	if (!gSavedSettings.getBOOL("SpeedTest"))
+	static LLCachedControl<bool> speedTest(gSavedSettings, "SpeedTest");
+	if (!speedTest)
 	{
 		LLFastTimer t(FTM_IDLE_NETWORK); // decode
 		
