@@ -1853,7 +1853,7 @@ void LLViewerWindow::initWorldUI()
 	chiclet_container->setVisible(TRUE);
 	
 	LLChicletBar::EAlignment eAlign = LLChicletBar::ALIGN_TOP;
-	if(!gSavedSettings.getBOOL("NotificationAlignment"))
+	if(gSavedSettings.getBOOL("NotificationAlignment"))
 	{
 		eAlign = LLChicletBar::ALIGN_BOTTOM;
 
