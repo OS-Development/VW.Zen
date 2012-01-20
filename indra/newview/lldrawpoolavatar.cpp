@@ -49,6 +49,7 @@
 #include "llappviewer.h"
 #include "llrendersphere.h"
 #include "llviewerpartsim.h"
+#include "llviewercontrol.h"
 
 static U32 sDataMask = LLDrawPoolAvatar::VERTEX_DATA_MASK;
 static U32 sBufferUsage = GL_STREAM_DRAW_ARB;
@@ -60,6 +61,7 @@ BOOL	LLDrawPoolAvatar::sSkipOpaque = FALSE;
 BOOL	LLDrawPoolAvatar::sSkipTransparent = FALSE;
 S32 LLDrawPoolAvatar::sDiffuseChannel = 0;
 
+BOOL LLDrawPoolAvatar::sMeshDeformer = TRUE;
 
 static bool is_deferred_render = false;
 
@@ -1263,7 +1265,9 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 	}
 }
 
-void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* face, const LLMeshSkinInfo* skin, LLVolume* volume, const LLVolumeFace& vol_face)
+void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* face, 
+													const LLMeshSkinInfo* skin, LLVolume* volume, 
+													const LLVolumeFace& vol_face, LLVOVolume* vobj)
 {
 	LLVector4a* weight = vol_face.mWeights;
 	if (!weight)
@@ -1316,19 +1320,40 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		  m.m[4], m.m[5], m.m[6],
 		  m.m[8], m.m[9], m.m[10] };
 
-		LLMatrix3 mat_normal(mat3);				
-
-		//let getGeometryVolume know if alpha should override shiny
-		if (face->getFaceColor().mV[3] < 1.f)
+		LLMatrix3 mat_normal(mat3);		
+		
+		
+		if (LLDrawPoolAvatar::sMeshDeformer)
 		{
-			face->setPoolType(LLDrawPool::POOL_ALPHA);
+			LLDeformedVolume* deformed_volume = vobj->getDeformedVolume();
+			deformed_volume->deform(volume, avatar, skin, face->getTEOffset());
+			
+			//let getGeometryVolume know if alpha should override shiny
+			if (face->getFaceColor().mV[3] < 1.f)
+			{
+				face->setPoolType(LLDrawPool::POOL_ALPHA);
+			}
+			else
+			{
+				face->setPoolType(LLDrawPool::POOL_AVATAR);
+			}
+			
+			face->getGeometryVolume(*deformed_volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
 		}
 		else
 		{
-			face->setPoolType(LLDrawPool::POOL_AVATAR);
+			//let getGeometryVolume know if alpha should override shiny
+			if (face->getFaceColor().mV[3] < 1.f)
+			{
+				face->setPoolType(LLDrawPool::POOL_ALPHA);
+			}
+			else
+			{
+				face->setPoolType(LLDrawPool::POOL_AVATAR);
+			}
+			
+			face->getGeometryVolume(*volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
 		}
-
-		face->getGeometryVolume(*volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
 
 		buffer->flush();
 	}
@@ -1408,6 +1433,10 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 
 			if (norm)
 			{
+				// normals are not transformed by the same math as points.
+				// you need the inverse transpose.
+				// these matrices are non-uniformly scaled (by a lot) so this
+				// math is wrong.  (i think.)  -qarl
 				LLVector4a& n = vol_face.mNormals[j];
 				bind_shape_matrix.rotate(n, t);
 				final_mat.rotate(t, dst);
@@ -1597,7 +1626,7 @@ void LLDrawPoolAvatar::updateRiggedVertexBuffers(LLVOAvatar* avatar)
 			stop_glerror();
 
 			const LLVolumeFace& vol_face = volume->getVolumeFace(te);
-			updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face);
+			updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face, vobj);
 		}
 	}
 }

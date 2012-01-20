@@ -16,13 +16,13 @@
    height="12"
    name="font_size"
    width="120"
-   top="10">
+   top="15">
     Font size:
   </text>
   <radio_group
      height="30"
      layout="topleft"
-     left="40"
+     left="50"
 	 control_name="ChatFontSize"
      name="chat_font_size"
      top_pad="0"
@@ -62,7 +62,7 @@
      initial_value="true"
      label="Play typing animation when chatting"
      layout="topleft"
-     left="30"
+     left="50"
      name="play_typing_animation"
      top_pad="10"
      width="400" />
@@ -100,7 +100,7 @@
      layout="topleft"
      left="30"
      height="20"
-     width="170"
+     width="150"
      top_pad="15">
      Show IMs in:
     </text>
@@ -109,16 +109,17 @@
      follows="left|top"
      layout="topleft"
      top_delta="0" 
-     left="170" 
+     left="130" 
   	 height="20"
 	 width="130"
-     text_color="White_25">
-      (requires restart)
+	 font="SansSerifSmall"
+     text_color="Yellow">
+      (Requires Restart)
       </text>
     <radio_group
      follows="left|top"
      height="30"
-     left="40"
+     left="50"
      control_name="ChatWindow"
      name="chat_window"
      top_pad="0"
@@ -158,8 +159,8 @@
      name="EnableGroupChatPopups"
      label="Group Chats" 
      layout="topleft"
-     top_pad="5" 
-     left_delta="10" 
+     top_pad="10" 
+     left="50" 
      height="20"
      tool_tip="Check to see popups when a Group Chat message arrives"
      width="400" />
@@ -169,6 +170,7 @@
      label="IM Chats" 
      layout="topleft"
      top_pad="5"
+	 left="50" 
      height="16"
      tool_tip="Check to see popups when an instant message arrives"
      width="400" />
@@ -180,30 +182,30 @@
      increment="1"
      initial_value="23"
      label="Nearby chat toasts life time:"
-     label_width="285"
+     label_width="200"
      layout="topleft"
-     left="45"
-     max_val="60"
+     left="30"
+	 max_val="60"
      min_val="1"
      name="nearby_toasts_lifetime"
      top_pad="10"
-     width="325" />
+     width="250" />
     <spinner
      control_name="NearbyToastFadingTime"
      decimal_digits="0"
      follows="left|top"
-     height="23"
+     height="30"
      increment="1"
      initial_value="3"
      label="Nearby chat toasts fading time:"
-     label_width="285"
+     label_width="200"
      layout="topleft"
      left_delta="0"
-     max_val="60"
+	 max_val="60"
      min_val="0"
      name="nearby_toasts_fadingtime"
      top_pad="3"
-     width="325" />
+     width="250" />
   <button
    follows="left|top"
    height="23"

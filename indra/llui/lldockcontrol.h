@@ -65,6 +65,9 @@ public:
 	{
 		return mDockWidget;
 	}
+	
+	DocAt getDockAt() const { return mDockAt; }
+	
 	void repositionDockable();
 	void drawToungue();
 	bool isDockVisible();

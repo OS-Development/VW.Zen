@@ -44,6 +44,7 @@
 #include "llagent.h"  // HACK for destinations guide on startup
 #include "llfloaterreg.h"  // HACK for destinations guide on startup
 #include "llviewercontrol.h"  // HACK for destinations guide on startup
+#include "aoengine.h"
 
 #include <boost/foreach.hpp>
 
@@ -505,6 +506,10 @@ void LLToolBarView::onToolBarButtonRemoved(LLView* button)
 	else if (button->getName() == "voice")
 	{
 		LLTransientFloaterMgr::getInstance()->removeControlView(button);
+	}
+	else if (button->getName() == "aoswitch")
+	{
+		AOEngine::getInstance()->enable(FALSE);
 	}
 }
 

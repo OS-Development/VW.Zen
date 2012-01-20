@@ -224,6 +224,10 @@ BOOL LLVorbisDecodeState::initDecode()
 	
 	bool abort_decode = false;
 	
+	if(size_guess >= 157286400)
+    abort_decode = true;
+	else
+	
 	if (vi)
 	{
 		if( vi->channels < 1 || vi->channels > LLVORBIS_CLIP_MAX_CHANNELS )
@@ -265,8 +269,21 @@ BOOL LLVorbisDecodeState::initDecode()
 		return FALSE;
 	}
 	
-	mWAVBuffer.reserve(size_guess);
-	mWAVBuffer.resize(WAV_HEADER_SIZE);
+	try
+	{
+		mWAVBuffer.reserve(size_guess);
+		mWAVBuffer.resize(WAV_HEADER_SIZE);
+	}
+	catch(std::bad_alloc)
+	{
+		llwarns << "bad_alloc" << llendl;
+		if(mInFilep)
+		{
+			delete mInFilep;
+			mInFilep = NULL;
+		}
+		return FALSE;
+	}
 
 	{
 		// write the .wav format header
@@ -439,7 +456,7 @@ BOOL LLVorbisDecodeState::finishDecode()
 			char pcmout[4096];		/*Flawfinder: ignore*/ 	
 
 			fade_length = llmin((S32)128,(S32)(data_length-36)/8);			
-			if((S32)mWAVBuffer.size() >= (WAV_HEADER_SIZE + 2* fade_length))
+			if((S32)mWAVBuffer.size() > (WAV_HEADER_SIZE + 2* fade_length))
 			{
 				memcpy(pcmout, &mWAVBuffer[WAV_HEADER_SIZE], (2 * fade_length));	/*Flawfinder: ignore*/
 			}
@@ -458,7 +475,7 @@ BOOL LLVorbisDecodeState::finishDecode()
 				memcpy(&mWAVBuffer[WAV_HEADER_SIZE], pcmout, (2 * fade_length));	/*Flawfinder: ignore*/
 			}
 			S32 near_end = mWAVBuffer.size() - (2 * fade_length);
-			if ((S32)mWAVBuffer.size() >= ( near_end + 2* fade_length))
+			if ((S32)mWAVBuffer.size() > ( near_end + 2* fade_length))
 			{
 				memcpy(pcmout, &mWAVBuffer[near_end], (2 * fade_length));	/*Flawfinder: ignore*/
 			}
@@ -557,12 +574,19 @@ void LLAudioDecodeMgr::Impl::processQueue(const F32 num_secs)
 	{
 		if (mCurrentDecodep)
 		{
-			BOOL res;
+			BOOL res=false;
 
 			// Decode in a loop until we're done or have run out of time.
-			while(!(res = mCurrentDecodep->decodeSection()) && (decode_timer.getElapsedTimeF32() < num_secs))
+			try
 			{
-				// decodeSection does all of the work above
+				while(!(res = mCurrentDecodep->decodeSection()) && (decode_timer.getElapsedTimeF32() < num_secs))
+				{
+					// decodeSection does all of the work above
+				}
+			}
+			catch(std::bad_alloc)
+			{
+				llerrs<<"bad_alloc whilst decoding"<<llendl;
 			}
 
 			if (mCurrentDecodep->isDone() && !mCurrentDecodep->isValid())

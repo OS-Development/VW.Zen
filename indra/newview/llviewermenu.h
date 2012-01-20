@@ -37,6 +37,7 @@ class LLView;
 class LLParcelSelection;
 class LLObjectSelection;
 class LLSelectNode;
+class PieMenu;
 
 void initialize_edit_menu();
 void init_menus();
@@ -176,6 +177,23 @@ extern LLContextMenu* gAttachPieMenu;
 extern LLContextMenu* gDetachPieMenu;
 extern LLContextMenu* gAttachBodyPartPieMenus[8];
 extern LLContextMenu* gDetachBodyPartPieMenus[8];
+
+// Pie menus in 3D scene
+extern PieMenu			*gPieMenuAvatarSelf;
+extern PieMenu			*gPieMenuAvatarOther;
+extern PieMenu			*gPieMenuObject;
+extern PieMenu			*gPieMenuAttachmentSelf;
+extern PieMenu			*gPieMenuAttachmentOther;
+extern PieMenu			*gPieMenuLand;
+
+// Needed to build pie menus when attachment site list available
+extern PieMenu* gPieAttachScreenMenu;
+extern PieMenu* gPieDetachScreenMenu;
+extern PieMenu* gPieAttachMenu;
+extern PieMenu* gPieDetachMenu;
+extern PieMenu* gPieAttachBodyPartMenus[8];
+extern PieMenu* gPieDetachBodyPartMenus[8];
+
 
 extern LLMenuItemCallGL* gAFKMenu;
 extern LLMenuItemCallGL* gBusyMenu;

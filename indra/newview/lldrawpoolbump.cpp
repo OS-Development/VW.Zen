@@ -67,6 +67,7 @@ const U32 VERTEX_MASK_BUMP = LLVertexBuffer::MAP_VERTEX |LLVertexBuffer::MAP_TEX
 
 U32 LLDrawPoolBump::sVertexMask = VERTEX_MASK_SHINY;
 
+BOOL LLDrawPoolBump::sDeferredInvisiprims = TRUE; //gSavedSettings.getBOOL("DeferredInvisiprims");
 
 static LLGLSLShader* shader = NULL;
 static S32 cube_channel = -1;
@@ -1589,7 +1590,13 @@ void LLDrawPoolInvisible::endDeferredPass( S32 pass )
 
 void LLDrawPoolInvisible::renderDeferred( S32 pass )
 { //render invisiprims; this doesn't work becaue it also blocks all the post-deferred stuff
-#if 0 
+#if 1
+
+	if (!sDeferredInvisiprims)
+	{
+		return;
+	}
+
 	LLFastTimer t(FTM_RENDER_INVISIBLE);
   
 	U32 invisi_mask = LLVertexBuffer::MAP_VERTEX;

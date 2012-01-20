@@ -99,6 +99,7 @@
 #include "llvlmanager.h"
 #include "llvoavatarself.h"
 #include "llworld.h"
+#include "llworldmap.h"
 #include "pipeline.h"
 #include "llfloaterworldmap.h"
 #include "llviewerdisplay.h"
@@ -107,7 +108,7 @@
 #include "llagentui.h"
 #include "llpanelblockedlist.h"
 #include "llpanelplaceprofile.h"
-
+#include "fsareasearch.h"
 #include <boost/algorithm/string/split.hpp> //
 #include <boost/regex.hpp>
 
@@ -3642,6 +3643,13 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 	gMessageSystem->enableCircuit(sim_host, TRUE);
 	LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
 
+	if (gSavedSettings.getBOOL("DisableBeaconAfterTeleport"))
+	{
+		LLTracker::stopTracking((void *)(intptr_t)TRUE);
+		LLWorldMap::getInstance()->cancelTracking();
+	}
+
+	
 /*
 	// send camera update to new region
 	gAgentCamera.updateCamera();
@@ -4299,6 +4307,16 @@ void process_kill_object(LLMessageSystem *mesgsys, void **user_data)
 		}
 	}
 }
+
+void process_object_properties_family(LLMessageSystem *msg, void**user_data)
+{
+	// Send the result to the corresponding requesters.
+	LLSelectMgr::processObjectPropertiesFamily(msg, user_data);
+
+	FSAreaSearch* area_search_floater = dynamic_cast<FSAreaSearch*>(LLFloaterReg::getInstance("area_search"));
+	area_search_floater->processObjectPropertiesFamily(msg);
+}
+
 
 void process_time_synch(LLMessageSystem *mesgsys, void **user_data)
 {

@@ -2,7 +2,7 @@
 <floater
  legacy_header_height="18"
  can_resize="true"
- height="350"
+ height="460"
  layout="topleft"
  min_height="200"
  min_width="370"
@@ -27,7 +27,7 @@
      left="10"
      name="desc txt"
      top="21"
-     width="90">
+	 width="90">
         Description:
     </text>
     <line_editor
@@ -38,6 +38,7 @@
      height="19"
      layout="topleft"
      left_pad="0"
+	 botoom_pad="5"
      max_length_bytes="127"
      name="desc"
      width="190" />
@@ -50,7 +51,7 @@
      layout="topleft"
      left="110"
      name="dimensions"
-     top="255"
+     top="370"
      width="200">
         [WIDTH]px x [HEIGHT]px
     </text>
@@ -79,9 +80,6 @@
      width="108"
      name="combo_aspect_ratio"
      tool_tip="Preview at a fixed aspect ratio">
-    	<combo_item name="Unconstrained" value="Unconstrained">
-    		Unconstrained
-    	</combo_item>
    	<combo_item name="1:1" value="1:1" tool_tip="Group insignia or Real World profile">
 		1:1
 	</combo_item>
@@ -103,6 +101,9 @@
 	<combo_item name="2:1" value="2:1">
 		2:1
 	</combo_item>
+	<combo_item name="Unconstrained" value="Unconstrained">
+    	Unconstrained
+    </combo_item>
 	</combo_box>
     <button
      follows="right|bottom"
@@ -111,7 +112,7 @@
      layout="topleft"
      left="6"
      name="Keep"
-     top_pad="5"
+     top_pad="15"
      width="110" />
     <button
      follows="right|bottom"

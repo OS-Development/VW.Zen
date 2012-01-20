@@ -46,6 +46,7 @@ extern void request_sound(const LLUUID &sound_guid);
 
 LLAudioEngine* gAudiop = NULL;
 
+int LLAudioSource::gSoundHistoryPruneCounter;
 
 //
 // LLAudioEngine implementation
@@ -812,12 +813,12 @@ F64 LLAudioEngine::mapWindVecToPan(LLVector3 wind_vec)
 
 
 void LLAudioEngine::triggerSound(const LLUUID &audio_uuid, const LLUUID& owner_id, const F32 gain,
-								 const S32 type, const LLVector3d &pos_global)
+								 const S32 type, const LLVector3d &pos_global, const LLUUID source_object)
 {
 	// Create a new source (since this can't be associated with an existing source.
 	//llinfos << "Localized: " << audio_uuid << llendl;
 
-	if (mMuted)
+	if (mMuted || gain <FLT_EPSILON*2)
 	{
 		return;
 	}
@@ -825,7 +826,7 @@ void LLAudioEngine::triggerSound(const LLUUID &audio_uuid, const LLUUID& owner_i
 	LLUUID source_id;
 	source_id.generate();
 
-	LLAudioSource *asp = new LLAudioSource(source_id, owner_id, gain, type);
+	LLAudioSource *asp = new LLAudioSource(source_id, owner_id, gain, type, source_object, true);
 	gAudiop->addAudioSource(asp);
 	if (pos_global.isExactlyZero())
 	{
@@ -1252,7 +1253,7 @@ void LLAudioEngine::assetCallback(LLVFS *vfs, const LLUUID &uuid, LLAssetType::E
 //
 
 
-LLAudioSource::LLAudioSource(const LLUUID& id, const LLUUID& owner_id, const F32 gain, const S32 type)
+LLAudioSource::LLAudioSource(const LLUUID& id, const LLUUID& owner_id, const F32 gain, const S32 type, const LLUUID source_id, const bool isTrigger)
 :	mID(id),
 	mOwnerID(owner_id),
 	mPriority(0.f),
@@ -1268,10 +1269,74 @@ LLAudioSource::LLAudioSource(const LLUUID& id, const LLUUID& owner_id, const F32
 	mType(type),
 	mChannelp(NULL),
 	mCurrentDatap(NULL),
-	mQueuedDatap(NULL)
+	mQueuedDatap(NULL),
+	mSourceID(source_id),
+	mIsTrigger(isTrigger)
 {
+	mLogID.generate();
 }
 
+std::map<LLUUID, LLSoundHistoryItem> gSoundHistory;
+
+// static
+void LLAudioSource::logSoundPlay(LLUUID id, LLAudioSource* audio_source, LLVector3d position, S32 type, LLUUID assetid, LLUUID ownerid, LLUUID sourceid, bool is_trigger, bool is_looped)
+{
+  LLSoundHistoryItem item;
+  item.mID = id;
+  item.mAudioSource = audio_source;
+  item.mPosition = position;
+  item.mType = type;
+  item.mAssetID = assetid;
+  item.mOwnerID = ownerid;
+  item.mSourceID = sourceid;
+  item.mPlaying = true;
+  item.mTimeStarted = LLTimer::getElapsedSeconds();
+  item.mTimeStopped = F64_MAX;
+  item.mIsTrigger = is_trigger;
+  item.mIsLooped = is_looped;
+
+  item.mReviewed = false;
+  item.mReviewedCollision = false;
+
+  gSoundHistory[id] = item;
+}
+
+// static
+void LLAudioSource::logSoundStop(LLUUID id)
+{
+  if(gSoundHistory.find(id) != gSoundHistory.end())
+  {
+    gSoundHistory[id].mPlaying = false;
+    gSoundHistory[id].mTimeStopped = LLTimer::getElapsedSeconds();
+    gSoundHistory[id].mAudioSource = NULL; // just in case
+    pruneSoundLog();
+  }
+}
+
+// static
+void LLAudioSource::pruneSoundLog()
+{
+  if(++gSoundHistoryPruneCounter >= 64)
+  {
+    gSoundHistoryPruneCounter = 0;
+    while(gSoundHistory.size() > 256)
+    {
+      std::map<LLUUID, LLSoundHistoryItem>::iterator iter = gSoundHistory.begin();
+      std::map<LLUUID, LLSoundHistoryItem>::iterator end = gSoundHistory.end();
+      U64 lowest_time = (*iter).second.mTimeStopped;
+      LLUUID lowest_id = (*iter).first;
+      for( ; iter != end; ++iter)
+      {
+        if((*iter).second.mTimeStopped < lowest_time)
+        {
+          lowest_time = (*iter).second.mTimeStopped;
+          lowest_id = (*iter).first;
+        }
+      }
+      gSoundHistory.erase(lowest_id);
+    }
+  }
+}
 
 LLAudioSource::~LLAudioSource()
 {
@@ -1280,6 +1345,9 @@ LLAudioSource::~LLAudioSource()
 		// Stop playback of this sound
 		mChannelp->setSource(NULL);
 		mChannelp = NULL;
+		
+		if(mType != LLAudioEngine::AUDIO_TYPE_UI) // && mSourceID.notNull())
+		logSoundStop(mLogID);
 	}
 }
 
@@ -1378,11 +1446,16 @@ bool LLAudioSource::setupChannel()
 
 bool LLAudioSource::play(const LLUUID &audio_uuid)
 {
+	if(mType != LLAudioEngine::AUDIO_TYPE_UI) //&& mSourceID.notNull())
+    logSoundPlay(mLogID, this, mPositionGlobal, mType, audio_uuid, mOwnerID, mSourceID, mIsTrigger, mLoop);
+	
 	// Special abuse of play(); don't play a sound, but kill it.
 	if (audio_uuid.isNull())
 	{
 		if (getChannel())
 		{
+			if(getChannel()->getSource())
+			
 			getChannel()->setSource(NULL);
 			setChannel(NULL);
 			if (!isMuted())

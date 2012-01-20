@@ -76,7 +76,11 @@ include_directories(
     )
 
 set(viewer_SOURCE_FILES
-    groupchatlistener.cpp
+    ao.cpp
+	aoengine.cpp
+	aoset.cpp
+	fsareasearch.cpp
+	groupchatlistener.cpp
     llaccountingcostmanager.cpp
     llagent.cpp
     llagentaccess.cpp
@@ -190,6 +194,7 @@ set(viewer_SOURCE_FILES
     llfloatereditwater.cpp
     llfloaterenvironmentsettings.cpp
     llfloaterevent.cpp
+	floaterexploresounds.cpp
     llfloaterfonttest.cpp
     llfloatergesture.cpp
     llfloatergodtools.cpp
@@ -206,6 +211,7 @@ set(viewer_SOURCE_FILES
     llfloaterlagmeter.cpp
     llfloaterland.cpp
     llfloaterlandholdings.cpp
+	llfloaterlocalbitmap.cpp
     llfloatermap.cpp
     llfloatermediasettings.cpp
     llfloatermemleak.cpp
@@ -244,7 +250,6 @@ set(viewer_SOURCE_FILES
     llfloaterurlentry.cpp
     llfloatervoiceeffect.cpp
     llfloaterwebcontent.cpp
-    llfloaterwebprofile.cpp
     llfloaterwhitelistentry.cpp
     llfloaterwindowsize.cpp
     llfloaterworldmap.cpp
@@ -317,7 +322,7 @@ set(viewer_SOURCE_FILES
     llmediactrl.cpp
     llmediadataclient.cpp
     llmemoryview.cpp
-    llmeshrepository.cpp
+	llmeshrepository.cpp
     llmimetypes.cpp
     llmorphview.cpp
     llmoveview.cpp
@@ -393,7 +398,7 @@ set(viewer_SOURCE_FILES
     llpanelplacestab.cpp
     llpanelprimmediacontrols.cpp
     llpanelprofile.cpp
-    llpanelsnapshot.cpp
+	llpanelsnapshot.cpp
     llpanelsnapshotinventory.cpp
     llpanelsnapshotlocal.cpp
     llpanelsnapshotoptions.cpp
@@ -620,16 +625,25 @@ set(viewer_SOURCE_FILES
     llxmlrpclistener.cpp
     llxmlrpctransaction.cpp
     noise.cpp
-    pipeline.cpp
+	particleeditor.cpp
+	piemenu.cpp
+	pieseparator.cpp
+	pieslice.cpp
+	pipeline.cpp
+	qtoolalign.cpp
     )
 
-set(VIEWER_BINARY_NAME "secondlife-bin" CACHE STRING
+set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
     "The name of the viewer executable to create.")
 
 set(viewer_HEADER_FILES
     CMakeLists.txt
     ViewerInstall.cmake
-    groupchatlistener.h
+	ao.h
+	aoengine.h
+	aoset.h
+	fsareasearch.h
+	groupchatlistener.h
     llaccountingcostmanager.h
     llagent.h
     llagentaccess.h
@@ -744,6 +758,7 @@ set(viewer_HEADER_FILES
     llfloatereditwater.h
     llfloaterenvironmentsettings.h
     llfloaterevent.h
+	floaterexploresounds.h
     llfloaterfonttest.h
     llfloatergesture.h
     llfloatergodtools.h
@@ -760,6 +775,7 @@ set(viewer_HEADER_FILES
     llfloaterlagmeter.h
     llfloaterland.h
     llfloaterlandholdings.h
+	llfloaterlocalbitmap.h
     llfloatermap.h
     llfloatermediasettings.h
     llfloatermemleak.h
@@ -798,7 +814,6 @@ set(viewer_HEADER_FILES
     llfloaterurlentry.h
     llfloatervoiceeffect.h
     llfloaterwebcontent.h
-    llfloaterwebprofile.h
     llfloaterwhitelistentry.h
     llfloaterwindowsize.h
     llfloaterworldmap.h
@@ -871,7 +886,7 @@ set(viewer_HEADER_FILES
     llmediactrl.h
     llmediadataclient.h
     llmemoryview.h
-    llmeshrepository.h
+	llmeshrepository.h
     llmimetypes.h
     llmorphview.h
     llmoveview.h
@@ -941,7 +956,7 @@ set(viewer_HEADER_FILES
     llpanelplacestab.h
     llpanelprimmediacontrols.h
     llpanelprofile.h
-    llpanelsnapshot.h
+	llpanelsnapshot.h
     llpanelteleporthistory.h
     llpaneltiptoast.h
     llpanelvoicedevicesettings.h
@@ -1167,7 +1182,12 @@ set(viewer_HEADER_FILES
     llxmlrpctransaction.h
     macmain.h
     noise.h
-    pipeline.h
+	particleeditor.h
+	piemenu.h
+	pieseparator.h
+	pieslice.h
+	pipeline.h
+	qtoolalign.h
     VertexCache.h
     VorbisFramework.h
     )
@@ -1250,7 +1270,7 @@ if (WINDOWS)
 
     # Replace the icons with the appropriate ones for the channel
     # ('test' is the default)
-    set(ICON_PATH "test")
+    set(ICON_PATH "zen")
     string(TOLOWER ${VIEWER_CHANNEL} channel_lower)
     if(channel_lower MATCHES "^second life release")
         set(ICON_PATH "release")
@@ -1264,18 +1284,18 @@ if (WINDOWS)
     message("Copying icons for ${ICON_PATH}")
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife.ico"
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/zen.ico"
         "${CMAKE_CURRENT_SOURCE_DIR}/res/ll_icon.ico"
       )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife_256.BMP"
-        "${CMAKE_CURRENT_SOURCE_DIR}/res/ll_icon.BMP"
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/zen_256.PNG"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res/ll_icon.PNG"
       )
     execute_process(
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/secondlife_256.BMP"
-        "${CMAKE_CURRENT_SOURCE_DIR}/res-sdl/ll_icon.BMP"
+        "${CMAKE_CURRENT_SOURCE_DIR}/icons/${ICON_PATH}/zen_256.PNG"
+        "${CMAKE_CURRENT_SOURCE_DIR}/res-sdl/ll_icon.PNG"
       )
 
     # Add resource files to the project.
@@ -1307,8 +1327,8 @@ if (WINDOWS)
         res/lltooltranslate.cur
         res/lltoolzoomin.cur
         res/lltoolzoomout.cur
-        res-sdl/ll_icon.BMP
-        res/ll_icon.BMP
+        res-sdl/ll_icon.png
+        res/ll_icon.png
         res/ll_icon.ico
         res/resource.h
         res/toolpickobject.cur
@@ -1567,7 +1587,7 @@ if (WINDOWS)
       ${SHARED_LIB_STAGING_DIR}/Debug/msvcr100d.dll
       ${SHARED_LIB_STAGING_DIR}/Debug/msvcp100d.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/SLVoice.exe
-      ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/vivoxsdk.dll
+	  ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/vivoxsdk.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/ortp.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libsndfile-1.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/zlib1.dll
@@ -1748,6 +1768,8 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${viewer_LIBRARIES}
     ${BOOST_PROGRAM_OPTIONS_LIBRARY}
     ${BOOST_REGEX_LIBRARY}
+	${BOOST_THREAD_LIBRARY}
+    ${BOOST_WAVE_LIBRARY}
     ${DBUSGLIB_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${FMODWRAPPER_LIBRARY} # must come after LLAudio

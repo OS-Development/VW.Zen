@@ -66,6 +66,18 @@ public:
 	static void 	onCommitPhantom(		LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitCastShadows(	LLUICtrl* ctrl, void* userdata);
 	static void 	onCommitPhysics(		LLUICtrl* ctrl, void* userdata);
+	
+	void 	onCopyPos(				const LLSD& data);
+	void 	onPastePos(				const LLSD& data);
+	void 	onPastePosClip(			const LLSD& data);
+	void 	onCopySize(				const LLSD& data);
+	void 	onPasteSize(			const LLSD& data);
+	void 	onPasteSizeClip(		const LLSD& data);
+	void 	onCopyRot(				const LLSD& data);
+	void 	onPasteRot(				const LLSD& data);
+	void 	onPasteRotClip(			const LLSD& data);
+	void 	onCopyParams(			const LLSD& data);
+	void 	onPasteParams(			const LLSD& data);
 
 	static void 	onCommitParametric(LLUICtrl* ctrl, void* userdata);
 
@@ -93,6 +105,22 @@ protected:
 	void 			getVolumeParams(LLVolumeParams& volume_params);
 	
 protected:
+	
+	LLVector3		mClipboardPos;
+	LLVector3		mClipboardSize;
+	LLVector3		mClipboardRot;
+
+	BOOL			mHasPosClipboard;
+	BOOL			mHasSizeClipboard;
+	BOOL			mHasRotClipboard;
+
+	LLSD			mPramsClipboard;
+	LLVolumeParams	mClipboardVolumeParams;
+	BOOL			mHasParamClipboard;
+	BOOL			mHasFlexiParam;
+	BOOL			mHasSculptParam;
+	BOOL			mHasLightParam;
+
 	// Per-object options
 	LLComboBox*		mComboBaseType;
 
@@ -148,6 +176,21 @@ protected:
 	LLSpinCtrl*		mCtrlRotX;
 	LLSpinCtrl*		mCtrlRotY;
 	LLSpinCtrl*		mCtrlRotZ;
+	
+	LLButton		*mBtnCopyPos;
+	LLButton		*mBtnPastePos;
+	LLButton		*mBtnPastePosClip;
+	
+	LLButton		*mBtnCopySize;
+	LLButton		*mBtnPasteSize;
+	LLButton		*mBtnPasteSizeClip;
+	
+	LLButton		*mBtnCopyRot;
+	LLButton		*mBtnPasteRot;
+	LLButton		*mBtnPasteRotClip;
+
+	LLButton*		mBtnCopyParams;
+	LLButton*		mBtnPasteParams;
 
 	LLCheckBoxCtrl	*mCheckLock;
 	LLCheckBoxCtrl	*mCheckPhysics;

@@ -27,12 +27,12 @@
 #ifndef LL_LLVERSIONSERVER_H
 #define LL_LLVERSIONSERVER_H
 
-const S32 LL_VERSION_MAJOR = 2;
-const S32 LL_VERSION_MINOR = 1;
-const S32 LL_VERSION_PATCH = 0;
-const S32 LL_VERSION_BUILD = 13828;
+const S32 LL_VERSION_MAJOR = 3;
+const S32 LL_VERSION_MINOR = 2;
+const S32 LL_VERSION_PATCH = 7;
+const S32 LL_VERSION_BUILD = 4;
 
-const char * const LL_CHANNEL = "Second Life Server";
+const char * const LL_CHANNEL = "Zen";
 
 
 #endif
