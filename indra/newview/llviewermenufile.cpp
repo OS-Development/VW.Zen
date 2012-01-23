@@ -803,6 +803,11 @@ LLUUID upload_new_resource(
 		upload_error(error_message, "DoNotSupportBulkAnimationUpload", filename, args);
 		return LLUUID();
 	}
+	else if (exten == "anim")
+	{
+        asset_type = LLAssetType::AT_ANIMATION;
+        filename = src_filename;
+    }
 	else
 	{
 		// Unknown extension
