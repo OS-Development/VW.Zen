@@ -105,7 +105,7 @@ const std::string PANEL_NAMES[LLFloaterTools::PANEL_COUNT] =
 
 // Local prototypes
 void commit_select_component(void *data);
-void click_show_more(void*);
+// void click_show_more(void*);
 void click_popup_info(void*);
 void click_popup_done(void*);
 void click_popup_minimize(void*);
@@ -119,6 +119,7 @@ void commit_radio_group_move(LLUICtrl* ctrl);
 void commit_radio_group_edit(LLUICtrl* ctrl);
 void commit_radio_group_land(LLUICtrl* ctrl);
 void commit_slider_zoom(LLUICtrl *ctrl);
+void commit_show_highlight(LLUICtrl *, void*);
 
 /**
  * Class LLLandImpactsObserver
@@ -254,6 +255,10 @@ BOOL	LLFloaterTools::postBuild()
 	mCheckStretchTexture	= getChild<LLCheckBoxCtrl>("checkbox stretch textures");
 	getChild<LLUICtrl>("checkbox stretch textures")->setValue((BOOL)gSavedSettings.getBOOL("ScaleStretchTextures"));
 	mCheckStretchUniformLabel = getChild<LLTextBox>("checkbox uniform label");
+	mCheckShowHighlight = getChild<LLCheckBoxCtrl>("checkbox show highlight");
+	mOrginalShowHighlight = gSavedSettings.getBOOL("RenderHighlightSelections");
+	mCheckShowHighlight->setValue(mOrginalShowHighlight);
+	mCheckActualRoot = getChild<LLCheckBoxCtrl>("checkbox actual root");
 
 	//
 	// Create Buttons
@@ -292,8 +297,8 @@ BOOL	LLFloaterTools::postBuild()
 	mTab = getChild<LLTabContainer>("Object Info Tabs");
 	if(mTab)
 	{
-		mTab->setFollows(FOLLOWS_TOP | FOLLOWS_LEFT);
-		mTab->setBorderVisible(FALSE);
+		// mTab->setFollows(FOLLOWS_TOP | FOLLOWS_LEFT);
+		// mTab->setBorderVisible(FALSE);
 		mTab->selectFirstTab();
 	}
 
@@ -307,6 +312,21 @@ BOOL	LLFloaterTools::postBuild()
 	mStatusText["selectland"] = getString("status_selectland");
 
 	sShowObjectCost = gSavedSettings.getBOOL("ShowObjectRenderingCost");
+	
+	LLButton* btnExpand = getChild<LLButton>("btnExpand");
+	if (btnExpand)
+	{
+		mExpandedHeight = getRect().getHeight();
+		if (mTab) mCollapsedHeight = mExpandedHeight - mTab->getRect().getHeight() + btnExpand->getRect().getHeight();
+		if(!gSavedSettings.getBOOL("ToolboxExpanded"))
+		{
+			btnExpand->setImageOverlay("Arrow_Down", btnExpand->getImageOverlayHAlign());
+		}
+	}
+	else
+	{
+		gSavedSettings.setBOOL("ToolboxExpanded", TRUE);
+	}
 	
 	return TRUE;
 }
@@ -334,6 +354,8 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 	mCheckStretchUniform(NULL),
 	mCheckStretchTexture(NULL),
 	mCheckStretchUniformLabel(NULL),
+	mCheckShowHighlight(NULL),
+	mCheckActualRoot(NULL),
 
 	mBtnRotateLeft(NULL),
 	mBtnRotateReset(NULL),
@@ -398,7 +420,9 @@ LLFloaterTools::LLFloaterTools(const LLSD& key)
 
 	mCommitCallbackRegistrar.add("BuildTool.LinkObjects",		boost::bind(&LLSelectMgr::linkObjects, LLSelectMgr::getInstance()));
 	mCommitCallbackRegistrar.add("BuildTool.UnlinkObjects",		boost::bind(&LLSelectMgr::unlinkObjects, LLSelectMgr::getInstance()));
-
+	mCommitCallbackRegistrar.add("BuildTool.CopyKeys",			boost::bind(&LLFloaterTools::onClickBtnCopyKeys,this));
+	mCommitCallbackRegistrar.add("BuildTool.Expand",			boost::bind(&LLFloaterTools::onClickExpand,this));
+	
 	mLandImpactsObserver = new LLLandImpactsObserver();
 	LLViewerParcelMgr::getInstance()->addObserver(mLandImpactsObserver);
 }
@@ -450,6 +474,77 @@ void LLFloaterTools::refresh()
 
 	// Refresh object and prim count labels
 	LLLocale locale(LLLocale::USER_LOCALE);
+	
+	std::string desc_string;
+	std::string num_string;
+	bool enable_link_count = true;
+	S32 prim_count = LLSelectMgr::getInstance()->getSelection()->getObjectCount();
+	if (prim_count == 1 && LLToolMgr::getInstance()->getCurrentTool() == LLToolFace::getInstance())
+	{
+		desc_string = getString("selected_faces");
+		
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getFirstRootObject();
+		LLSelectNode* nodep = LLSelectMgr::getInstance()->getSelection()->getFirstRootNode();
+		if(!objectp || !nodep)
+		{
+			objectp = LLSelectMgr::getInstance()->getSelection()->getFirstObject();
+			nodep = LLSelectMgr::getInstance()->getSelection()->getFirstNode();
+		}
+
+		if (objectp && objectp->getNumTEs() == LLSelectMgr::getInstance()->getSelection()->getTECount())
+			num_string = "ALL_SIDES";
+		else if (objectp && nodep)
+		{
+			//S32 count = 0;
+			for (S32 i = 0; i < objectp->getNumTEs(); i++)
+			{
+				if (nodep->isTESelected(i))
+				{
+					if (!num_string.empty())
+						num_string.append(", ");
+					num_string.append(llformat("%d", i));
+					//count++;
+				}
+			}
+		}
+	}
+	else if (prim_count == 1 && gSavedSettings.getBOOL("EditLinkedParts"))
+	{
+		desc_string = getString("link_number");
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getFirstObject();
+		if (objectp && objectp->getRootEdit())
+		{
+			LLViewerObject::child_list_t children = objectp->getRootEdit()->getChildren();
+			if (children.empty())
+				num_string = "0"; //a childless prim is always link zero, and unhappy
+			else if (objectp->getRootEdit()->isSelected())
+				num_string = "1"; //root prim is always link one
+			else
+			{
+				S32 index = 1;
+				for (LLViewerObject::child_list_t::iterator iter = children.begin(); iter != children.end(); ++iter)
+				{
+					index++;
+					if ((*iter)->isSelected())
+					{
+						LLResMgr::getInstance()->getIntegerString(num_string, index);
+						break;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		enable_link_count = false;
+	}
+	getChild<LLUICtrl>("link_num_obj_count")->setTextArg("[DESC]", desc_string);
+	getChild<LLUICtrl>("link_num_obj_count")->setTextArg("[NUM]", num_string);
+	
+	std::string prim_count_string;
+	LLResMgr::getInstance()->getIntegerString(prim_count_string, prim_count);
+	getChild<LLUICtrl>("prim_count")->setTextArg("[COUNT]", prim_count_string);
+	
 #if 0
 	if (!gMeshRepo.meshRezEnabled())
 	{		
@@ -657,7 +752,8 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 
 	mBtnEdit	->setToggleState( edit_visible );
 	mRadioGroupEdit->setVisible( edit_visible );
-	bool linked_parts = gSavedSettings.getBOOL("EditLinkedParts");
+	// bool linked_parts = gSavedSettings.getBOOL("EditLinkedParts");
+	static LLCachedControl<bool> linked_parts(gSavedSettings,  "EditLinkedParts");
 	getChildView("RenderingCost")->setVisible( !linked_parts && (edit_visible || focus_visible || move_visible) && sShowObjectCost);
 
 	mBtnLink->setVisible(edit_visible);
@@ -702,7 +798,9 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	if (mCheckStretchUniform) mCheckStretchUniform->setVisible( edit_visible );
 	if (mCheckStretchTexture) mCheckStretchTexture->setVisible( edit_visible );
 	if (mCheckStretchUniformLabel) mCheckStretchUniformLabel->setVisible( edit_visible );
-
+	if (mCheckShowHighlight) mCheckShowHighlight->setVisible( edit_visible );
+	if (mCheckActualRoot) mCheckActualRoot->setVisible( edit_visible );
+	
 	// Create buttons
 	BOOL create_visible = (tool == LLToolCompCreate::getInstance());
 
@@ -753,7 +851,8 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	}
 	else if ( tool == LLToolBrushLand::getInstance() )
 	{
-		S32 dozer_mode = gSavedSettings.getS32("RadioLandBrushAction");
+		//S32 dozer_mode = gSavedSettings.getS32("RadioLandBrushAction");
+		static LLCachedControl<S32> dozer_mode(gSavedSettings,  "RadioLandBrushAction");
 		switch(dozer_mode)
 		{
 		case 0:
@@ -796,14 +895,18 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 		getChildView("Strength:")->setVisible( land_visible);
 	}
 
+	static LLCachedControl<bool> sToolboxExpanded(gSavedSettings,  "ToolboxExpanded", TRUE);
+	mTab->setVisible(!land_visible && sToolboxExpanded);
+	mPanelLandInfo->setVisible(land_visible && sToolboxExpanded);
+	
 	bool have_selection = !LLSelectMgr::getInstance()->getSelection()->isEmpty();
 
 	getChildView("selection_count")->setVisible(!land_visible && have_selection);
 	getChildView("remaining_capacity")->setVisible(!land_visible && have_selection);
 	getChildView("selection_empty")->setVisible(!land_visible && !have_selection);
 	
-	mTab->setVisible(!land_visible);
-	mPanelLandInfo->setVisible(land_visible);
+	// mTab->setVisible(!land_visible);
+	// mPanelLandInfo->setVisible(land_visible);
 }
 
 
@@ -819,6 +922,13 @@ void LLFloaterTools::onOpen(const LLSD& key)
 {
 	mParcelSelection = LLViewerParcelMgr::getInstance()->getFloatingParcelSelection();
 	mObjectSelection = LLSelectMgr::getInstance()->getEditSelection();
+	
+	if (!mOpen)
+	{
+		mOpen = TRUE;
+		mOrginalShowHighlight = gSavedSettings.getBOOL("RenderHighlightSelections");
+		mCheckShowHighlight->setValue(mOrginalShowHighlight);
+	}
 	
 	std::string panel = key.asString();
 	if (!panel.empty())
@@ -848,6 +958,9 @@ void LLFloaterTools::onClose(bool app_quitting)
 	LLSelectMgr::getInstance()->promoteSelectionToRoot();
 	gSavedSettings.setBOOL("EditLinkedParts", FALSE);
 
+	gSavedSettings.setBOOL("RenderHighlightSelections", mOrginalShowHighlight);
+	mOpen = FALSE; //hack cause onOpen runs on every selection change but onClose doesnt.
+	
 	gViewerWindow->showCursor();
 
 	resetToolState();
@@ -1907,7 +2020,7 @@ void LLFloaterTools::updateMediaSettings()
     mMediaSettings[ base_key ] = value_bool;
     mMediaSettings[ base_key + std::string( LLPanelContents::TENTATIVE_SUFFIX ) ] = ! identical;
 	
-    // security - whitelist URLs
+	// security - whitelist URLs
     std::vector<std::string> value_vector_str = default_media_data.getWhiteList();
     struct functor_getter_whitelist_urls : public LLSelectedTEGetFunctor< std::vector<std::string> >
     {
@@ -1939,3 +2052,55 @@ void LLFloaterTools::updateMediaSettings()
     mMediaSettings[ base_key + std::string( LLPanelContents::TENTATIVE_SUFFIX ) ] = ! identical;
 }
 
+struct LLFloaterToolsCopyKeysFunctor : public LLSelectedObjectFunctor
+{
+	LLFloaterToolsCopyKeysFunctor(std::string& strOut, std::string& strSep) : mOutput(strOut), mSep(strSep) {}
+	virtual bool apply(LLViewerObject* object)
+	{
+		if (!mOutput.empty())
+			mOutput.append(mSep);
+
+		mOutput.append(object->getID().asString());
+
+		return true;
+	}
+
+private:
+	std::string& mOutput;
+	std::string& mSep;
+};
+
+void LLFloaterTools::onClickBtnCopyKeys()
+{
+	std::string separator = gSavedSettings.getString("CopyObjKeySeparator");
+	std::string stringKeys;
+	LLFloaterToolsCopyKeysFunctor copy_keys(stringKeys, separator);
+	bool copied = LLSelectMgr::getInstance()->getSelection()->applyToObjects(&copy_keys);
+
+	if (copied)
+	{
+		LLView::getWindow()->copyTextToClipboard(utf8str_to_wstring(stringKeys));
+	}
+}
+
+void LLFloaterTools::onClickExpand()
+{
+	BOOL show_more = !gSavedSettings.getBOOL("ToolboxExpanded");
+	gSavedSettings.setBOOL("ToolboxExpanded", show_more);
+
+	LLButton* btnExpand = getChild<LLButton>("btnExpand");
+	if (show_more)
+	{
+		mTab->setVisible(TRUE);
+		reshape( getRect().getWidth(), mExpandedHeight);
+		translate( 0, mCollapsedHeight - mExpandedHeight );
+		btnExpand->setImageOverlay("Arrow_Up", btnExpand->getImageOverlayHAlign());
+	}
+	else
+	{
+		mTab->setVisible(FALSE);
+		reshape( getRect().getWidth(), mCollapsedHeight);
+		translate( 0, mExpandedHeight - mCollapsedHeight );
+		btnExpand->setImageOverlay("Arrow_Down", btnExpand->getImageOverlayHAlign());
+	}
+}

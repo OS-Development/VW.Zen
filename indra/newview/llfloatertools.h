@@ -105,6 +105,8 @@ public:
 	void navigateToTitleMedia( const std::string url );
 	bool selectedMediaEditable();
 	void updateLandImpacts();
+	void onClickBtnCopyKeys();
+	void onClickExpand();
 
 private:
 	void refresh();
@@ -142,6 +144,8 @@ public:
 	LLButton*		mBtnGridOptions;
 	LLCheckBoxCtrl*	mCheckStretchUniform;
 	LLCheckBoxCtrl*	mCheckStretchTexture;
+	LLCheckBoxCtrl*	mCheckShowHighlight;
+	LLCheckBoxCtrl*	mCheckActualRoot;
 
 	// !HACK! Replacement of mCheckStretchUniform label because LLCheckBoxCtrl
 	//  doesn't support word_wrap of its label. Need to fix truncation bug EXT-6658
@@ -192,6 +196,11 @@ public:
 
 private:
 	BOOL					mDirty;
+	BOOL					mOrginalShowHighlight;
+	BOOL					mOpen;
+
+	S32						mCollapsedHeight;
+	S32						mExpandedHeight;
 
 	std::map<std::string, std::string> mStatusText;
 
