@@ -158,6 +158,7 @@ public:
 	void onClickBlockList();
 	void onClickProxySettings();
 	void onClickTranslationSettings();
+	void onClickResetColors();
 	void applyUIColor(LLUICtrl* ctrl, const LLSD& param);
 	void getUIColor(LLUICtrl* ctrl, const LLSD& param);
 	

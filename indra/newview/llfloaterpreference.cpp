@@ -351,6 +351,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.BlockList",				boost::bind(&LLFloaterPreference::onClickBlockList, this));
 	mCommitCallbackRegistrar.add("Pref.Proxy",					boost::bind(&LLFloaterPreference::onClickProxySettings, this));
 	mCommitCallbackRegistrar.add("Pref.TranslationSettings",	boost::bind(&LLFloaterPreference::onClickTranslationSettings, this));
+	mCommitCallbackRegistrar.add("Pref.ResetColors",			boost::bind(&LLFloaterPreference::onClickResetColors, this));
 	
 //	sSkin = gSavedSettings.getString("SkinCurrent");
 
@@ -1536,6 +1537,12 @@ void LLFloaterPreference::onClickProxySettings()
 void LLFloaterPreference::onClickTranslationSettings()
 {
 	LLFloaterReg::showInstance("prefs_translation");
+}
+
+void LLFloaterPreference::onClickResetColors()
+{
+	LLUIColorTable::instance().resetColorSettings();
+	LLNotificationsUtil::add("ResetColors");
 }
 
 void LLFloaterPreference::onClickActionChange()

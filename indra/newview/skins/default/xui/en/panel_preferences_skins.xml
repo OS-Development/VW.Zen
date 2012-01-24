@@ -217,7 +217,7 @@
    label_height="0"
    layout="topleft"
    left_pad="10"
-   name="buttonnormal"
+   name="swatch_menu_background"
    top_delta="-7"
    width="44" >
     <color_swatch.init_callback
@@ -234,7 +234,7 @@
    label_height="0"
    layout="topleft"
    left_pad="30"
-   name="buttonselect"
+   name="swatch_menu_popup"
    top_delta="0"
    width="44" >
     <color_swatch.init_callback
@@ -441,5 +441,43 @@
    width="175">
     Floater Background Focus
   </text>
-  
+  <text
+     type="string"
+     length="1"
+     follows="top|left"
+     height="12"
+     layout="topleft"
+     left="152"
+     name="reset_colors_label"
+     top_pad="30"
+     width="90">
+        Reset Colors
+    </text>
+	 <button
+	 enabled_control="ResetColors"
+     follows="top|left"
+     height="23"
+     image_overlay="Arrow_Up"
+     hover_glow_amount="0.15"
+     layout="topleft"
+     left_pad="-10"
+     name="reset_colors_popups"
+	 top_delta="-5"
+     width="40">
+        <button.commit_callback
+         function="Pref.ResetColors" />
+    </button>
+	<text
+     font="SansSerifSmall"
+     type="string"
+     text_color="Yellow"
+     length="1"
+     follows="left|top"
+     height="18"
+     layout="topleft"
+     left_pad="10"
+     name="reset_textbox"
+     width="200">
+        (Requires Restart)
+    </text>
 </panel>

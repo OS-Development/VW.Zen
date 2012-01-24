@@ -1045,6 +1045,13 @@ Port settings take effect after you restart [APP_NAME].
    type="alertmodal">
 The new skin will appear after you restart [APP_NAME].
   </notification>
+  
+  <notification
+   icon="alertmodal.tga"
+   name="ResetColors"
+   type="alertmodal">
+The original colors will appear after you restart [APP_NAME].
+  </notification>
 
   <notification
    icon="alertmodal.tga"

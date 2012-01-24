@@ -87,6 +87,9 @@ public:
 
 	// saves colors specified by the user to the users skin directory
 	void saveUserSettings() const;
+	
+	// reset color settings
+	void LLUIColorTable::resetColorSettings() ;
 
 private:
 	bool loadFromFilename(const std::string& filename, string_color_map_t& table);
