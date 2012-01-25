@@ -1530,22 +1530,6 @@ void LLSecAPIBasicHandler::deleteCredential(LLPointer<LLCredential> cred)
 	_writeProtectedData();
 }
 
-// List saved logins
-std::vector<std::string> LLSecAPIBasicHandler::listCredentials()
-{
-	if (mProtectedDataMap.has("credential") && mProtectedDataMap["credential"].isMap())
-	{
-		std::vector<std::string> logins(mProtectedDataMap["credential"].size());
-		int i = 0;
-		for (LLSD::map_const_iterator it = mProtectedDataMap["credential"].beginMap(); it !=  mProtectedDataMap["credential"].endMap(); ++it)
-		{
-			logins[i++] = it->first;
-		}
-		return logins;
-	}
-	else return std::vector<std::string>();
-}
-
 // load the legacy hash for agni, and decrypt it given the 
 // mac address
 std::string LLSecAPIBasicHandler::_legacyLoadPassword()

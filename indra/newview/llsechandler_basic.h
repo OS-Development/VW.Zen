@@ -271,8 +271,6 @@ public:
 	
 	virtual void deleteCredential(LLPointer<LLCredential> cred);
 	
-	virtual std::vector<std::string> listCredentials();
-	
 protected:
 	void _readProtectedData();
 	void _writeProtectedData();
