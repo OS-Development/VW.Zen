@@ -448,7 +448,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 			}
 
 			floater->setDockControl(new LLDockControl(chiclet, floater, floater->getDockTongue(),
-				(LLChicletBar::ALIGN_TOP == LLChicletBar::getInstance()->getAlignment()) ? LLDockControl::BOTTOM : LLDockControl::TOP));
+					(LLChicletBar::ALIGN_TOP == LLChicletBar::getInstance()->getAlignment()) ? LLDockControl::BOTTOM : LLDockControl::TOP));
 		}
 
 		// window is positioned, now we can show it.

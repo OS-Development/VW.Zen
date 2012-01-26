@@ -117,7 +117,6 @@
           <menu_item_call.on_click
            function="Tools.StopAllAnimations" />
         </menu_item_call>
-         name="Stop Animating My Avatar">
       </menu>
 
       <menu
@@ -139,21 +138,31 @@
         </menu_item_call>
       </menu>
 
+      <menu_item_call
+       label="Request Admin Status"
+       name="Request Admin Options"
+       shortcut="control|alt|G"
+       visible="false">
+        <menu_item_call.on_click
+         function="Advanced.RequestAdminStatus" />
+      </menu_item_call>
+      <menu_item_call
+       label="Leave Admin Status"
+       name="Leave Admin Options"
+       shortcut="control|alt|shift|G"
+       visible="false">
+        <menu_item_call.on_click
+         function="Advanced.LeaveAdminStatus" />
+      </menu_item_call>
+
       <menu_item_separator/>
 
       <menu_item_call
-         label="Buy L$..."
+         label="Buy L$"
          name="Buy and Sell L$">
         <menu_item_call.on_click
          function="BuyCurrency" />
       </menu_item_call>
-         label="Merchant Outbox..."
-         name="MerchantOutbox">
-        <menu_item_call.on_click
-         function="Floater.ToggleOrBringToFront"
-         parameter="outbox" />
-      </menu_item_call>
-      <menu_item_call
 
       <menu_item_separator/>
 
@@ -492,7 +501,7 @@
         <menu
          create_jump_keys="true"
          label="Sun"
-         name="Sun"
+         name="Environment Settings"
          tear_off="true">
             <menu_item_call
              label="Sunrise"
@@ -1524,7 +1533,7 @@
          tear_off="true">
             <menu_item_check
              label="Simple"
-             name="Rendering Type Simple"
+             name="Simple"
              shortcut="control|alt|shift|1">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1535,7 +1544,7 @@
             </menu_item_check>
             <menu_item_check
              label="Alpha"
-             name="Rendering Type Alpha"
+             name="Alpha"
              shortcut="control|alt|shift|2">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1546,7 +1555,7 @@
             </menu_item_check>
             <menu_item_check
              label="Tree"
-             name="Rendering Type Tree"
+             name="Tree"
              shortcut="control|alt|shift|3">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1557,7 +1566,7 @@
             </menu_item_check>
             <menu_item_check
              label="Avatars"
-             name="Rendering Type Character"
+             name="Character"
              shortcut="control|alt|shift|4">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1568,7 +1577,7 @@
             </menu_item_check>
             <menu_item_check
              label="Surface Patch"
-             name="Rendering Type Surface Patch"
+             name="Surface Patch"
              shortcut="control|alt|shift|5">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1579,7 +1588,7 @@
             </menu_item_check>
             <menu_item_check
              label="Sky"
-             name="Rendering Type Sky"
+             name="Sky"
              shortcut="control|alt|shift|6">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1590,7 +1599,7 @@
             </menu_item_check>
             <menu_item_check
              label="Water"
-             name="Rendering Type Water"
+             name="Water"
              shortcut="control|alt|shift|7">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1601,7 +1610,7 @@
             </menu_item_check>
             <menu_item_check
              label="Ground"
-             name="Rendering Type Ground"
+             name="Ground"
              shortcut="control|alt|shift|8">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1612,7 +1621,7 @@
             </menu_item_check>
             <menu_item_check
              label="Volume"
-             name="Rendering Type Volume"
+             name="Volume"
              shortcut="control|alt|shift|9">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1623,7 +1632,7 @@
             </menu_item_check>
             <menu_item_check
              label="Grass"
-             name="Rendering Type Grass"
+             name="Grass"
              shortcut="control|alt|shift|0">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1634,7 +1643,7 @@
             </menu_item_check>
             <menu_item_check
              label="Clouds"
-             name="Rendering Type Clouds"
+             name="Clouds"
              shortcut="control|alt|shift|-">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1645,7 +1654,7 @@
             </menu_item_check>
             <menu_item_check
              label="Particles"
-             name="Rendering Type Particles"
+             name="Particles"
              shortcut="control|alt|shift|=">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1656,7 +1665,7 @@
             </menu_item_check>
             <menu_item_check
              label="Bump"
-             name="Rendering Type Bump"
+             name="Bump"
              shortcut="control|alt|shift|\">
                 <menu_item_check.on_check
                  function="Advanced.CheckRenderType"
@@ -1673,7 +1682,7 @@
          tear_off="true">
             <menu_item_check
              label="UI"
-             name="ToggleUI"
+             name="UI"
              shortcut="control|alt|F1">
                 <menu_item_check.on_check
                  function="Advanced.CheckFeature"
@@ -1806,6 +1815,28 @@
          name="Shortcuts"
          tear_off="true"
          visible="false">
+          <menu_item_call
+             label="Image (L$[COST])..."
+             name="Upload Image"
+             shortcut="control|U">
+            <menu_item_call.on_click
+               function="File.UploadImage"
+               parameter="" />
+            <menu_item_call.on_enable
+               function="File.EnableUpload" />
+            </menu_item_call>
+            <menu_item_check
+               label="Search"
+               name="Search"
+               shortcut="control|F">
+            <menu_item_check.on_check
+             function="Floater.Visible"
+             parameter="search" />
+            <menu_item_check.on_click
+             function="Floater.Toggle"
+             parameter="search" />
+            </menu_item_check>
+
             <!-- This second, alternative shortcut for Show Advanced Menu is for backward compatibility.  The main shortcut has been changed so it's Linux-friendly, where the old shortcut is typically eaten by the window manager. -->
             <menu_item_check
                label="Show Advanced Menu - legacy shortcut"
@@ -1889,6 +1920,55 @@
                 <menu_item_call.on_enable
                  function="View.EnableLastChatter" />
             </menu_item_call>
+
+            <menu_item_separator/>
+
+            <menu
+             create_jump_keys="true"
+             label="Select Build Tool"
+             name="Select Tool"
+             tear_off="true">
+                <menu_item_call
+                 label="Focus Tool"
+                 name="Focus"
+                 shortcut="control|1">
+                    <menu_item_call.on_click
+                     function="Tools.SelectTool"
+                     parameter="focus" />
+                </menu_item_call>
+                <menu_item_call
+                 label="Move Tool"
+                 name="Move"
+                 shortcut="control|2">
+                    <menu_item_call.on_click
+                     function="Tools.SelectTool"
+                     parameter="move" />
+                </menu_item_call>
+                <menu_item_call
+                 label="Edit Tool"
+                 name="Edit"
+                 shortcut="control|3">
+                    <menu_item_call.on_click
+                     function="Tools.SelectTool"
+                     parameter="edit" />
+                </menu_item_call>
+                <menu_item_call
+                 label="Create Tool"
+                 name="Create"
+                 shortcut="control|4">
+                    <menu_item_call.on_click
+                     function="Tools.SelectTool"
+                     parameter="create" />
+                </menu_item_call>
+                <menu_item_call
+                 label="Land Tool"
+                 name="Land"
+                 shortcut="control|5">
+                    <menu_item_call.on_click
+                     function="Tools.SelectTool"
+                     parameter="land" />
+                </menu_item_call>
+            </menu>
 
             <menu_item_separator/>
 
@@ -2854,7 +2934,7 @@
         <menu
          create_jump_keys="true"
          label="World"
-         name="DevelopWorld"
+         name="World"
          tear_off="true">
             <menu_item_check
              label="Sim Sun Override"
@@ -2865,6 +2945,16 @@
                 <menu_item_check.on_click
                  function="ToggleControl"
                  parameter="SkyOverrideSimSunPosition" />
+            </menu_item_check>
+            <menu_item_check
+             label="Cheesy Beacon"
+             name="Cheesy Beacon">
+                <menu_item_check.on_check
+                 function="CheckControl"
+                 parameter="CheesyBeacon" />
+                <menu_item_check.on_click
+                 function="ToggleControl"
+                 parameter="CheesyBeacon" />
             </menu_item_check>
             <menu_item_check
              label="Fixed Weather"
@@ -3090,7 +3180,7 @@
              tear_off="true">
                 <menu_item_call
                  label="Iris"
-                 name="Grab Iris">
+                 name="Iris">
                     <menu_item_call.on_click
                      function="Advanced.GrabBakedTexture"
                      parameter="iris" />
@@ -3100,7 +3190,7 @@
                 </menu_item_call>
                 <menu_item_call
                  label="Head"
-                 name="Grab Head">
+                 name="Head">
                     <menu_item_call.on_click
                      function="Advanced.GrabBakedTexture"
                      parameter="head" />
@@ -3110,7 +3200,7 @@
                 </menu_item_call>
                 <menu_item_call
                  label="Upper Body"
-                 name="Grab Upper Body">
+                 name="Upper Body">
                     <menu_item_call.on_click
                      function="Advanced.GrabBakedTexture"
                      parameter="upper" />
@@ -3120,7 +3210,7 @@
                 </menu_item_call>
                 <menu_item_call
                  label="Lower Body"
-                 name="Grab Lower Body">
+                 name="Lower Body">
                     <menu_item_call.on_click
                      function="Advanced.GrabBakedTexture"
                      parameter="lower" />
@@ -3130,7 +3220,7 @@
                 </menu_item_call>
                 <menu_item_call
                  label="Skirt"
-                 name="Grab Skirt">
+                 name="Skirt">
                     <menu_item_call.on_click
                      function="Advanced.GrabBakedTexture"
                      parameter="skirt" />
@@ -3449,11 +3539,10 @@
         <menu
          create_jump_keys="true"
          label="Object"
-         name="AdminObject"
          tear_off="true">
             <menu_item_call
              label="Take Copy"
-             name="Admin Take Copy"
+             name="Take Copy"
              shortcut="control|alt|shift|O">
                 <menu_item_call.on_click
                  function="Admin.ForceTakeCopy" />
@@ -3722,7 +3811,7 @@
         <menu
          create_jump_keys="true"
          label="Help"
-         name="DeprecatedHelp"
+         name="Help"
          tear_off="true">
             <menu_item_call
              label="Official Linden Blog"
