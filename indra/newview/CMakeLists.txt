@@ -222,6 +222,7 @@ set(viewer_SOURCE_FILES
     llfloaternotificationsconsole.cpp
     llfloaterobjectweights.cpp
     llfloateropenobject.cpp
+    llfloateroutbox.cpp
     llfloaterpay.cpp
     llfloaterperms.cpp
     llfloaterpostprocess.cpp
@@ -319,6 +320,8 @@ set(viewer_SOURCE_FILES
     llmaniprotate.cpp
     llmanipscale.cpp
     llmaniptranslate.cpp
+    llmarketplacefunctions.cpp
+    llmarketplacenotifications.cpp
     llmediactrl.cpp
     llmediadataclient.cpp
     llmemoryview.cpp
@@ -375,7 +378,6 @@ set(viewer_SOURCE_FILES
     llpanelmaininventory.cpp
     llpanelmarketplaceinbox.cpp
     llpanelmarketplaceinboxinventory.cpp
-    llpanelmarketplaceoutbox.cpp
     llpanelmarketplaceoutboxinventory.cpp
     llpanelmediasettingsgeneral.cpp
     llpanelmediasettingspermissions.cpp
@@ -786,6 +788,7 @@ set(viewer_HEADER_FILES
     llfloaternotificationsconsole.h
     llfloaterobjectweights.h
     llfloateropenobject.h
+    llfloateroutbox.h
     llfloaterpay.h
     llfloaterperms.h
     llfloaterpostprocess.h
@@ -883,6 +886,8 @@ set(viewer_HEADER_FILES
     llmaniprotate.h
     llmanipscale.h
     llmaniptranslate.h
+    llmarketplacefunctions.h
+    llmarketplacenotifications.h
     llmediactrl.h
     llmediadataclient.h
     llmemoryview.h
@@ -933,7 +938,6 @@ set(viewer_HEADER_FILES
     llpanelmaininventory.h
     llpanelmarketplaceinbox.h
     llpanelmarketplaceinboxinventory.h
-    llpanelmarketplaceoutbox.h
     llpanelmarketplaceoutboxinventory.h
     llpanelmediasettingsgeneral.h
     llpanelmediasettingspermissions.h
