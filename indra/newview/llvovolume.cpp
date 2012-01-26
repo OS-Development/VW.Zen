@@ -4306,6 +4306,32 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 	LLFastTimer ftm2(FTM_REBUILD_VOLUME_VB);
 
+	LLVOAvatar* pAvatarVO = NULL;
+
+	LLSpatialBridge* bridge = group->mSpatialPartition->asBridge();
+	if (bridge)
+	{
+		if (bridge->mAvatar.isNull())
+		{
+			LLViewerObject* vobj = bridge->mDrawable->getVObj();
+			if (vobj)
+			{
+				bridge->mAvatar = vobj->getAvatar();
+			}
+		}
+
+		pAvatarVO = bridge->mAvatar;
+	}
+
+	if (pAvatarVO)
+	{
+		pAvatarVO->mAttachmentGeometryBytes -= group->mGeometryBytes;
+		pAvatarVO->mAttachmentSurfaceArea -= group->mSurfaceArea;
+	}
+
+	group->mGeometryBytes = 0;
+	group->mSurfaceArea = 0;
+	
 	group->clearDrawMap();
 
 	mFaceList.clear();
@@ -4342,10 +4368,22 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 		LLVOVolume* vobj = drawablep->getVOVolume();
 
+		if (!vobj)
+		{
+			continue;
+		}
+
 		if (vobj->isMesh() &&
 			(vobj->getVolume() && !vobj->getVolume()->isMeshAssetLoaded() || !gMeshRepo.meshRezEnabled()))
 		{
 			continue;
+		}
+
+		LLVolume* volume = vobj->getVolume();
+		if (volume)
+		{
+			const LLVector3& scale = vobj->getScale();
+			group->mSurfaceArea += volume->getSurfaceArea() * llmax(llmax(scale.mV[0], scale.mV[1]), scale.mV[2]);
 		}
 
 		llassert_always(vobj);
@@ -4392,7 +4430,6 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 				//Determine if we've received skininfo that contains an
 				//alternate bind matrix - if it does then apply the translational component
 				//to the joints of the avatar.
-				LLVOAvatar* pAvatarVO = vobj->getAvatar();
 				bool pelvisGotSet = false;
 
 				if ( pAvatarVO )
@@ -4462,13 +4499,16 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 
 					if (type == LLDrawPool::POOL_ALPHA)
 					{
-						if (te->getFullbright())
+						if (te->getColor().mV[3] > 0.f)
 						{
-							pool->addRiggedFace(facep, LLDrawPoolAvatar::RIGGED_FULLBRIGHT_ALPHA);
-						}
-						else
-						{
-							pool->addRiggedFace(facep, LLDrawPoolAvatar::RIGGED_ALPHA);
+							if (te->getFullbright())
+							{
+								pool->addRiggedFace(facep, LLDrawPoolAvatar::RIGGED_FULLBRIGHT_ALPHA);
+							}
+							else
+							{
+								pool->addRiggedFace(facep, LLDrawPoolAvatar::RIGGED_ALPHA);
+							}
 						}
 					}
 					else if (te->getShiny())
@@ -4601,8 +4641,11 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 					}
 					else
 					{
-						drawablep->setState(LLDrawable::HAS_ALPHA);
-						alpha_faces.push_back(facep);
+						if (te->getColor().mV[3] > 0.f)
+						{
+							drawablep->setState(LLDrawable::HAS_ALPHA);
+							alpha_faces.push_back(facep);
+						}
 					}
 				}
 				else
@@ -4719,6 +4762,12 @@ void LLVolumeGeometryManager::rebuildGeom(LLSpatialGroup* group)
 	}
 
 	mFaceList.clear();
+
+	if (pAvatarVO)
+	{
+		pAvatarVO->mAttachmentGeometryBytes += group->mGeometryBytes;
+		pAvatarVO->mAttachmentSurfaceArea += group->mSurfaceArea;
+	}
 }
 
 static LLFastTimer::DeclareTimer FTM_VOLUME_GEOM("Volume Geometry");
@@ -5015,17 +5064,20 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::
 	
 		//create/delete/resize vertex buffer if needed
 		LLVertexBuffer* buffer = NULL;
-		LLSpatialGroup::buffer_texture_map_t::iterator found_iter = group->mBufferMap[mask].find(*face_iter);
+
+		{ //try to find a buffer to reuse
+			LLSpatialGroup::buffer_texture_map_t::iterator found_iter = group->mBufferMap[mask].find(*face_iter);
 		
-		if (found_iter != group->mBufferMap[mask].end())
-		{
-			if ((U32) buffer_index < found_iter->second.size())
+			if (found_iter != group->mBufferMap[mask].end())
 			{
-				buffer = found_iter->second[buffer_index];
+				if ((U32) buffer_index < found_iter->second.size())
+				{
+					buffer = found_iter->second[buffer_index];
+				}
 			}
 		}
 						
-		if (!buffer)
+		if (!buffer || !buffer->isWriteable())
 		{ //create new buffer if needed
 			buffer = createVertexBuffer(mask, buffer_usage);
 			buffer->allocateBuffer(geom_count, index_count, TRUE);
@@ -5043,6 +5095,9 @@ void LLVolumeGeometryManager::genDrawInfo(LLSpatialGroup* group, U32 mask, std::
 				buffer->resizeBuffer(geom_count, index_count);
 			}
 		}
+
+		group->mGeometryBytes += buffer->getSize() + buffer->getIndicesSize();
+
 
 		buffer_map[mask][*face_iter].push_back(buffer);
 

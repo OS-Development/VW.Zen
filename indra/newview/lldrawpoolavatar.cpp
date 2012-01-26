@@ -1289,7 +1289,7 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		face->setGeomIndex(0);
 		face->setIndicesIndex(0);
 		
-		if (buffer.isNull() || buffer->getTypeMask() != data_mask)
+		if (buffer.isNull() || buffer->getTypeMask() != data_mask || !buffer->isWriteable())
 		{ //make a new buffer
 			if (sShaderLevel > 0)
 			{
@@ -1344,6 +1344,8 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		{
 			//let getGeometryVolume know if alpha should override shiny
 			if (face->getFaceColor().mV[3] < 1.f)
+
+		if (type == LLDrawPool::POOL_ALPHA)
 			{
 				face->setPoolType(LLDrawPool::POOL_ALPHA);
 			}
