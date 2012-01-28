@@ -400,10 +400,9 @@ class WindowsManifest(ViewerManifest):
             self.path("SLVoice.exe")
             self.path("vivoxsdk.dll")
             self.path("ortp.dll")
-            self.path("libsndfile-1.dll")
-            self.path("zlib1.dll")
+            self.path("alut.dll")
+            self.path("wrap_oal.dll")
             self.path("vivoxplatform.dll")
-            self.path("vivoxoal.dll")
 
 
             

@@ -210,9 +210,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e1073b570911f87fa4e9f7e7f2bf76a0</string>
+              <string>dfc2e2ffde269566647f5fccab72946a</string>
               <key>url</key>
-              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/boost-1.45.0-windows-20111222.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.45.0-windows-20110905.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -476,7 +476,7 @@
               <key>hash</key>
               <string>e0fc52a3fe301cfafdbec8a934f34290</string>
               <key>url</key>
-              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/fmod-3.75-windows-20110910.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/3p-fmod/fmod-3.75-windows-20110910.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1184,7 +1184,7 @@
               <key>hash</key>
               <string>8d57f7240eff068cd69071cbb9294831</string>
               <key>url</key>
-              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/nd_hacdconvexdecomposition-windows-20111213.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/HACD/NACL/nd_hacdconvexdecomposition-windows-20111213.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1488,7 +1488,7 @@
               <key>hash</key>
               <string>ac05037a20ca35fe61d8030c6bcbbdc0</string>
               <key>url</key>
-              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/kv-windows-S21J-2.0.6-20111211.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/OpenJpeg/Kirstens/kv-windows-S21J-2.0.6-20111211.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1594,9 +1594,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>1e821cc7d25eabad013b7f3db260dd6b</string>
+              <string>e25529ef3ec4566fc667480d50af8992</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-slvoice/rev/231678/arch/CYGWIN/installer/slvoice-3.2.0002.10426-windows-20110601.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/SLVoice/vivox-SLVoice-2.1.3010.6270zen-Release-Win32.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1632,7 +1632,7 @@
               <key>hash</key>
               <string>dc36af5b4d93b1f1d797dcf9e83ed4bc</string>
               <key>url</key>
-              <string>https://bitbucket.org/Zena_Juran/zen-viewer/downloads/google_perftools-1.8-windows-20111205.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/Google/google_perftools-1.8-windows-20111205.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
