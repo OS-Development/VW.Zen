@@ -124,6 +124,8 @@ with the same filename but different name
   <texture name="Checkbox_On_Press" file_name="widgets/Checkbox_On_Press.png" preload="true" />
   <texture name="Checkbox_Press" file_name="widgets/Checkbox_Press.png" preload="true" />
   <texture name="Check_Mark" file_name="icons/check_mark.png" preload="true" />
+  
+   <texture name="Checker" file_name="checker.png" preload="false" />
 
   <texture name="Command_AreaSearch_Icon"   file_name="toolbar_icons/areasearch.png"   preload="true" />
   <texture name="Command_AOMenu_Icon"       file_name="toolbar_icons/ao_toggle_18.png" preload="true" />
