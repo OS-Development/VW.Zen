@@ -13,25 +13,25 @@
 	 visiblity_control="ShowAdvancedGraphicsSettings"
      border="false"
 	 follows="top|left"
-     height="300"
+     height="350"
      label="CustomGraphics"
      layout="topleft"
      left="5"
      name="CustomGraphics Panel"
      top="15"
      width="485">
-		<text
-		 type="string"
-		 length="1"
-		 follows="left|top"
-		 height="12"
-		 layout="topleft"
-		 left_delta="10"
-		 name="ShadersText"
-		 top="0"
-		 width="128">
-			Shaders:
-		</text>
+	<text
+	 type="string"
+	 length="1"
+	 follows="left|top"
+	 height="12"
+	 layout="topleft"
+	 left_delta="10"
+	 name="ShadersText"
+	 top="0"
+	 width="128">
+		Shaders:
+	</text>
 		<check_box
 		 control_name="RenderTransparentWater"
 		 height="16"
@@ -62,6 +62,8 @@
 		name="LocalLights"
 		 top_pad="1"
 		 width="256" />
+		 
+		 
 		 <check_box
 		 control_name="VertexShaderEnable"
 		 height="16"
@@ -76,6 +78,8 @@
 			<check_box.commit_callback
 		     function="Pref.VertexShaderEnable" />
 		</check_box>
+		
+		
 		<check_box
 		 control_name="WindLightUseAtmosShaders"
 		 height="16"
@@ -143,6 +147,7 @@
          name="reflection_label">
             Water Reflections:
         </text>
+		
         <combo_box
          control_name="RenderReflectionDetail"
          height="23"
@@ -174,26 +179,27 @@
         </combo_box>
     
         <text
-    type="string"
-    length="1"
-    top_pad="15"
-    follows="top|left"
-    height="18"
-    width="110"
-    word_wrap="true"
-    layout="topleft"
-    left="10"
-    name="local lights_label">
-        Maximum Lighting:
-      </text>
-      <combo_box
-      control_name="RenderShaderLightingMaxLevel"
-      height="23"
-      layout="topleft"
-      left="10"
-      top_pad="0" 
-      name="LocalLightsDetail"
-      width="150">
+		 type="string"
+		 length="1"
+		 top_pad="15"
+		 follows="top|left"
+		 height="18"
+		 width="110"
+		 word_wrap="true"
+		 layout="topleft"
+		 left="10"
+		 name="local lights_label">
+			Maximum Lighting:
+		</text>
+		
+		<combo_box
+		 control_name="RenderShaderLightingMaxLevel"
+		 height="23"
+		 layout="topleft"
+		 left="10"
+		 top_pad="0" 
+		 name="LocalLightsDetail"
+		 width="150">
         <combo_box.item
         label="Maximum (default)"
         name="3"
@@ -206,7 +212,7 @@
         label="Sun/Moon only"
         name="1"
         value="1"/>
-      </combo_box>
+		</combo_box>
 	  
 	  <text
          type="string"
