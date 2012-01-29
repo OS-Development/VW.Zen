@@ -155,6 +155,13 @@
          layout="topleft"
          help_topic="preferences_skins_tab"
          name="skins" />
+		 <panel
+		 class="panel_preference_automute"
+         filename="panel_preferences_automute.xml"
+         label="Visual Auto-Mute"
+         layout="topleft"
+         help_topic="preferences_automute_tab"
+         name="visualautomute" />
     </tab_container>
 
 </floater>

@@ -3373,7 +3373,10 @@ void LLVOAvatar::slamPosition()
 
 bool LLVOAvatar::isVisuallyMuted()
 {
-	static LLCachedControl<U32> max_attachment_bytes(gSavedSettings, "RenderAutoMuteByteLimit");
+	//static LLCachedControl<U32> max_attachment_bytes(gSavedSettings, "RenderAutoMuteByteLimit");
+	U32 scale_factor = gSavedSettings.getU32("RenderAutoMuteByteLimit");
+	U32 max_attachment_bytes = scale_factor*1000;
+	
 	static LLCachedControl<F32> max_attachment_area(gSavedSettings, "RenderAutoMuteSurfaceAreaLimit");
 	
 	return LLMuteList::getInstance()->isMuted(getID()) ||

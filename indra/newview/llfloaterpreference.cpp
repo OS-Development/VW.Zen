@@ -187,7 +187,7 @@ void LLVoiceSetKeyDialog::onCancel(void* user_data)
 // a static member and update all our static callbacks
 
 void handleNameTagOptionChanged(const LLSD& newvalue);	
-void handleDisplayNamesOptionChanged(const LLSD& newvalue);	
+void handleDisplayNamesOptionChanged(const LLSD& newvalue);		
 bool callback_clear_browser_cache(const LLSD& notification, const LLSD& response);
 bool callback_clear_cache(const LLSD& notification, const LLSD& response);
 
@@ -352,6 +352,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.Proxy",					boost::bind(&LLFloaterPreference::onClickProxySettings, this));
 	mCommitCallbackRegistrar.add("Pref.TranslationSettings",	boost::bind(&LLFloaterPreference::onClickTranslationSettings, this));
 	mCommitCallbackRegistrar.add("Pref.ResetColors",			boost::bind(&LLFloaterPreference::onClickResetColors, this));
+	mCommitCallbackRegistrar.add("Pref.AttachmentBytes",		boost::bind(&LLFloaterPreference::onAttachmentBytes, this));
 	
 //	sSkin = gSavedSettings.getString("SkinCurrent");
 
@@ -724,6 +725,14 @@ void LLFloaterPreference::onOpen(const LLSD& key)
 void LLFloaterPreference::onVertexShaderEnable()
 {
 	refreshEnabledGraphics();
+}
+
+void LLFloaterPreference::onAttachmentBytes()
+{
+	U32 info_display = 268435456; // 10000000 hex to dec.
+	LLPipeline::toggleRenderDebugControl( (void*)info_display ); // check
+	LLPipeline::toggleRenderDebug( (void*)info_display ); //toggle
+	LLPipeline::RENDER_DEBUG_ATTACHMENT_BYTES;
 }
 
 //static
