@@ -58,25 +58,31 @@ public:
 	virtual ~FSAreaSearch();
 
 	/*virtual*/ BOOL postBuild();
-
+	
 	void callbackLoadOwnerName(const LLUUID& id, const std::string& full_name);
 	void processObjectPropertiesFamily(LLMessageSystem* msg);
+	void onLookAt();
+	void onShowBeacon();
+	void onTeleport();
+	static BOOL sCheesyBeacon;
+	static BOOL sRenderTrackerBeacon;
 
 private:
 	void results();
 	void checkRegion();
 	void cancel();
+	void onClearBeacon();
 	void search();
 	void onCommitLine(class LLLineEditor* line, void* user_data);
 	void requestIfNeeded(class LLViewerObject *objectp);
-	void onDoubleClick();
 
 	enum OBJECT_COLUMN_ORDER
 	{
 		LIST_OBJECT_NAME,
 		LIST_OBJECT_DESC,
 		LIST_OBJECT_OWNER,
-		LIST_OBJECT_GROUP
+		LIST_OBJECT_GROUP,
+		LIST_OBJECT_LOCATION
 	};
 
 	S32 mRequested;
@@ -97,4 +103,5 @@ private:
 	class FSParcelChangeObserver;
 	friend class FSParcelChangeObserver;
 	FSParcelChangeObserver*	mParcelChangedObserver;
+
 };

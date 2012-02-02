@@ -16,7 +16,7 @@
 	 follows="left|top"
 	 height="20"
 	 layout="topleft"
-	 left="30"
+	 left="60"
 	 name="AutomuteText"
 	 word_wrap="true"
 	 top="20"
@@ -30,7 +30,7 @@
 	 label="Display Auto-Mute Hovertext"
 	 layout="topleft"
 	 follows="left|top"
-	 left="40"
+	 left="75"
 	 name="attachment_bytes"
 	 tool_tip="Display hovertext of attachment geometry bytes here so render cost will override."
 	 top_pad="30"
@@ -58,11 +58,11 @@
 	 follows="left|top"
 	 height="16"
 	 layout="topleft"
-	 left="40"
+	 left="35"
 	 name="AutomuteText"
 	 top_pad="-127"
 	 width="450">
-		Set limits for avatar attachments to visually auto-muted (0 = No Limit).
+		Set limits for avatar attachments to be visually auto-muted (0 = No Limit).
 	</text>
 	 
 	 
@@ -150,7 +150,7 @@
 	 follows="left|top"
 	 height="16"
 	 layout="topleft"
-	 left="35"
+	 left="65"
 	 name="AutomuteText"
 	 top_pad="40"
 	 width="400">

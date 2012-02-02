@@ -41,16 +41,22 @@
 #include "lltextbox.h"
 #include "llfloaterreg.h"
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "lltracker.h"
 #include "llviewerobjectlist.h"
 #include "llviewercontrol.h"
 #include "llviewerparcelmgr.h"
+#include "llviewermessage.h"
+#include "llvoavatarself.h"
 
 #include <boost/algorithm/string/find.hpp> //for boost::ifind_first
 
 const std::string request_string = "FSAreaSearch::Requested_ø§µ";
 const F32 min_refresh_interval = 0.25f;	// Minimum interval between list refreshes in seconds.
 
+// static
+BOOL FSAreaSearch::sCheesyBeacon = FALSE;
+BOOL FSAreaSearch::sRenderTrackerBeacon = FALSE;
 
 class FSAreaSearch::FSParcelChangeObserver : public LLParcelObserver
 {
@@ -89,13 +95,18 @@ FSAreaSearch::~FSAreaSearch()
 BOOL FSAreaSearch::postBuild()
 {
 	mResultList = getChild<LLScrollListCtrl>("result_list");
-	mResultList->setDoubleClickCallback( boost::bind(&FSAreaSearch::onDoubleClick, this));
 	mResultList->sortByColumn("Name", TRUE);
 
 	mCounterText = getChild<LLTextBox>("counter");
 
 	childSetAction("Refresh", boost::bind(&FSAreaSearch::search, this));
 	childSetAction("Stop", boost::bind(&FSAreaSearch::cancel, this));
+	childSetAction("Show Beacon", boost::bind(&FSAreaSearch::onShowBeacon, this));
+	childSetAction("Look At", boost::bind(&FSAreaSearch::onLookAt, this));
+	childSetAction("Teleport", boost::bind(&FSAreaSearch::onTeleport, this));
+	childSetAction("Clear Beacon", boost::bind(&FSAreaSearch::onClearBeacon, this));
+	// childSetAction("Follow Beam", boost::bind(&FSAreaSearch::onFollowBeam, this));
+	
 	
 	getChild<LLLineEditor>("Name query chunk")->setKeystrokeCallback( boost::bind(&FSAreaSearch::onCommitLine, this, _1, _2),NULL);
 	getChild<LLLineEditor>("Description query chunk")->setKeystrokeCallback( boost::bind(&FSAreaSearch::onCommitLine, this, _1, _2),NULL);
@@ -104,9 +115,13 @@ BOOL FSAreaSearch::postBuild()
 
 	mParcelChangedObserver = new FSParcelChangeObserver(this);
 	LLViewerParcelMgr::getInstance()->addObserver(mParcelChangedObserver);
+	
+	sCheesyBeacon = gSavedSettings.getBOOL("CheesyBeacon");
+	sCheesyBeacon = gSavedSettings.getBOOL("RenderTrackerBeacon");
 
 	return TRUE;
 }
+
 
 void FSAreaSearch::checkRegion()
 {
@@ -119,19 +134,7 @@ void FSAreaSearch::checkRegion()
 		mObjectDetails.clear();
 		
 		mResultList->deleteAllItems();
-		mCounterText->setText(std::string("Listed/Pending/Total"));
-	}
-}
-
-void FSAreaSearch::onDoubleClick()
-{
- 	LLScrollListItem *item = mResultList->getFirstSelected();
-	if (!item) return;
-	LLUUID object_id = item->getUUID();
-	LLViewerObject* objectp = gObjectList.findObject(object_id);
-	if (objectp)
-	{
-		LLTracker::trackLocation(objectp->getPositionGlobal(), mObjectDetails[object_id].name, "", LLTracker::LOCATION_ITEM);
+		mCounterText->setText(std::string("Listed / Pending / Total"));
 	}
 }
 
@@ -144,6 +147,17 @@ void FSAreaSearch::cancel()
 	mSearchedDesc = "";
 	mSearchedOwner = "";
 	mSearchedGroup = "";
+	gSavedSettings.setBOOL("DisableBeaconAfterTeleport", TRUE);
+	gSavedSettings.setBOOL("CheesyBeacon", sCheesyBeacon);
+	gSavedSettings.setBOOL("RenderTrackerBeacon", sRenderTrackerBeacon);
+	LLTracker::stopTracking(NULL);
+}
+
+void FSAreaSearch::onClearBeacon()
+{
+	gSavedSettings.setBOOL("CheesyBeacon", sCheesyBeacon);
+	gSavedSettings.setBOOL("RenderTrackerBeacon", sRenderTrackerBeacon);
+	LLTracker::stopTracking(NULL);
 }
 
 void FSAreaSearch::search()
@@ -201,7 +215,7 @@ void FSAreaSearch::results()
 	const LLUUID selected = mResultList->getCurrentID();
 	const S32 scrollpos = mResultList->getScrollPos();
 	mResultList->deleteAllItems();
-
+	
 	S32 i;
 	S32 total = gObjectList.getNumObjects();
 	LLViewerRegion* our_region = gAgent.getRegion();
@@ -213,7 +227,9 @@ void FSAreaSearch::results()
 			if (objectp->getRegion() == our_region && !objectp->isAvatar() && objectp->isRoot() &&
 				!objectp->flagTemporary() && !objectp->flagTemporaryOnRez())
 			{
+				
 				LLUUID object_id = objectp->getID();
+				LLViewerObject* objectLOC = gObjectList.findObject(object_id);
 				if (mObjectDetails.count(object_id) == 0)
 				{
 					requestIfNeeded(objectp);
@@ -225,6 +241,12 @@ void FSAreaSearch::results()
 					std::string object_desc = details->desc;
 					std::string object_owner;
 					std::string object_group;
+					
+					LLVector3 object_location = objectLOC->getPositionRegion();
+					F32 location_x = object_location.mV[VX];
+					F32 location_y = object_location.mV[VY];
+					F32 location_z = object_location.mV[VZ];
+					
 					gCacheName->getFullName(details->owner_id, object_owner);
 					gCacheName->getGroupName(details->group_id, object_group);
 					if (object_name != request_string)
@@ -238,16 +260,20 @@ void FSAreaSearch::results()
 							element["id"] = object_id;
 							element["columns"][LIST_OBJECT_NAME]["column"] = "Name";
 							element["columns"][LIST_OBJECT_NAME]["type"] = "text";
-							element["columns"][LIST_OBJECT_NAME]["value"] = details->name;
+							element["columns"][LIST_OBJECT_NAME]["value"] = "  " + details->name;
 							element["columns"][LIST_OBJECT_DESC]["column"] = "Description";
 							element["columns"][LIST_OBJECT_DESC]["type"] = "text";
-							element["columns"][LIST_OBJECT_DESC]["value"] = details->desc;
+							element["columns"][LIST_OBJECT_DESC]["value"] = "  " + details->desc;
+							element["columns"][LIST_OBJECT_LOCATION]["column"] = "Location";
+							element["columns"][LIST_OBJECT_LOCATION]["type"] = "text";
+							element["columns"][LIST_OBJECT_LOCATION]["value"] = "  " + llformat("< %0.1f , %0.1f , %0.1f >", location_x, location_y, location_z);
 							element["columns"][LIST_OBJECT_OWNER]["column"] = "Owner";
 							element["columns"][LIST_OBJECT_OWNER]["type"] = "text";
-							element["columns"][LIST_OBJECT_OWNER]["value"] = object_owner;
+							element["columns"][LIST_OBJECT_OWNER]["value"] = "  " + object_owner;
 							element["columns"][LIST_OBJECT_GROUP]["column"] = "Group";
 							element["columns"][LIST_OBJECT_GROUP]["type"] = "text";
-							element["columns"][LIST_OBJECT_GROUP]["value"] = object_group;
+							element["columns"][LIST_OBJECT_GROUP]["value"] = "  " + object_group;
+							
 							mResultList->addElement(element, ADD_BOTTOM);
 						}
 					}
@@ -259,7 +285,7 @@ void FSAreaSearch::results()
 	mResultList->updateSort();
 	mResultList->selectByID(selected);
 	mResultList->setScrollPos(scrollpos);
-	mCounterText->setText(llformat("%d listed/%d pending/%d total", mResultList->getItemCount(), mRequested, mObjectDetails.size()));
+	mCounterText->setText(llformat("Listed: %d   Pending: %d   Total %d ", mResultList->getItemCount(), mRequested, mObjectDetails.size()));
 	mLastUpdateTimer.reset();
 }
 
@@ -287,9 +313,67 @@ void FSAreaSearch::processObjectPropertiesFamily(LLMessageSystem* msg)
 		msg->getUUIDFast(_PREHASH_ObjectData, _PREHASH_GroupID, details->group_id);
 		msg->getStringFast(_PREHASH_ObjectData, _PREHASH_Name, details->name);
 		msg->getStringFast(_PREHASH_ObjectData, _PREHASH_Description, details->desc);
-		gCacheName->get(details->owner_id, false, boost::bind(
-							&FSAreaSearch::callbackLoadOwnerName, this, _1, _2));
-		gCacheName->get(details->group_id, true, boost::bind(
-							&FSAreaSearch::callbackLoadOwnerName, this, _1, _2));
+		gCacheName->get(details->owner_id, false, boost::bind(&FSAreaSearch::callbackLoadOwnerName, this, _1, _2));
+		gCacheName->get(details->group_id, true, boost::bind(&FSAreaSearch::callbackLoadOwnerName, this, _1, _2));
 	}
+}
+
+// static
+void FSAreaSearch::onLookAt()
+{
+	LLScrollListItem *item = mResultList->getFirstSelected();
+	if (!item) return;
+	LLUUID object_id = item->getUUID();
+	
+	LLViewerObject* objectp = gObjectList.findObject(object_id);
+	LLVector3d pos_global = objectp->getPositionGlobal();
+	if (objectp)
+	{
+		// Move the camera
+		// Find direction to self (reverse)
+		LLVector3d cam = gAgent.getPositionGlobal() - pos_global;
+		cam.normalize();
+		// Go 4 meters back and 3 meters up
+		cam *= 4.0f;
+		cam += pos_global;
+		cam += LLVector3d(0.f, 0.f, 3.0f);
+
+		gAgentCamera.setFocusOnAvatar(FALSE, FALSE);
+		gAgentCamera.setCameraPosAndFocusGlobal(cam, pos_global, object_id);
+		gAgentCamera.setCameraAnimating(FALSE);
+	}
+}
+
+// static
+void FSAreaSearch::onShowBeacon()
+{
+	LLScrollListItem *item = mResultList->getFirstSelected();
+	if (!item) return;
+	LLUUID object_id = item->getUUID();
+	LLViewerObject* objectp = gObjectList.findObject(object_id);
+	if (objectp)
+	{
+		if(!sCheesyBeacon)
+		{
+			gSavedSettings.setBOOL("CheesyBeacon", TRUE);
+		}
+		if(!sRenderTrackerBeacon)
+		{
+			gSavedSettings.setBOOL("RenderTrackerBeacon", TRUE);
+		}
+		LLTracker::trackLocation(objectp->getPositionGlobal(), mObjectDetails[object_id].name, "", LLTracker::LOCATION_ITEM);
+	}
+}
+
+// static
+void FSAreaSearch::onTeleport()
+{
+	LLScrollListItem *item = mResultList->getFirstSelected();
+	if (!item) return;
+	LLUUID object_id = item->getUUID();
+	LLViewerObject* objectp = gObjectList.findObject(object_id);
+	gSavedSettings.setBOOL("DisableBeaconAfterTeleport", FALSE);
+	LLVector3d pos = objectp->getPositionGlobal();
+	pos.mdV[VZ] += gAgentAvatarp->getPelvisToFoot();
+	gAgent.teleportViaLocationLookAt(pos);
 }
