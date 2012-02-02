@@ -260,7 +260,7 @@ public:
 	volatile U8* getMappedIndices() const			{ return mMappedIndexData; }
 	S32 getOffset(S32 type) const			{ return mOffsets[type]; }
 	S32 getUsage() const					{ return mUsage; }
-	bool isWriteable() const				{ return (mMappable || mUsage == GL_STREAM_DRAW_ARB) ? true : false; }
+	BOOL isWriteable() const				{ return (mMappable || mUsage == GL_STREAM_DRAW_ARB) ? TRUE : FALSE; }
 
 	void draw(U32 mode, U32 count, U32 indices_offset) const;
 	void drawArrays(U32 mode, U32 offset, U32 count) const;
@@ -293,7 +293,7 @@ protected:
 	U32		mMappedDataUsingVBOs : 1;
 	U32		mMappedIndexDataUsingVBOs : 1;
 	U32		mVertexLocked : 1;			// if true, vertex buffer is being or has been written to in client memory
-	U32		mIndexLocked : 1;			// if true, index buffer is being or has been written to in client memory
+	mutable BOOL	mMappable;     // if TRUE, use memory mapping to upload data (otherwise doublebuffer and use glBufferSubData)
 	U32		mFinal : 1;			// if true, buffer can not be mapped again
 	U32		mEmpty : 1;			// if true, client buffer is empty (or NULL). Old values have been discarded.	
 	

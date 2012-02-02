@@ -212,6 +212,13 @@ void LLVBOPool::release(U32 name, volatile U8* buffer, U32 size)
 	else
 	{
 		sBytesPooled += size;
+	
+	if (!LLVertexBuffer::sDisableVBOMapping && mUsage == GL_DYNAMIC_DRAW_ARB)
+	{
+		glDeleteBuffersARB(1, &rec.mGLName);
+	}
+	else
+	{
 		mFreeList[i].push_back(rec);
 	}
 }
@@ -547,7 +554,7 @@ void LLVertexBuffer::validateRange(U32 start, U32 end, U32 count, U32 indices_of
 void LLVertexBuffer::drawRange(U32 mode, U32 start, U32 end, U32 count, U32 indices_offset) const
 {
 	validateRange(start, end, count, indices_offset);
-	mMappable = false;
+	mMappable = FALSE;
 	gGL.syncMatrices();
 
 	llassert(mNumVerts >= 0);
@@ -602,7 +609,7 @@ void LLVertexBuffer::drawRange(U32 mode, U32 start, U32 end, U32 count, U32 indi
 void LLVertexBuffer::draw(U32 mode, U32 count, U32 indices_offset) const
 {
 	llassert(!LLGLSLShader::sNoFixedFunction || LLGLSLShader::sCurBoundShaderPtr != NULL);
-	mMappable = false;
+	mMappable = FALSE;
 	gGL.syncMatrices();
 
 	llassert(mNumIndices >= 0);
@@ -648,7 +655,7 @@ void LLVertexBuffer::draw(U32 mode, U32 count, U32 indices_offset) const
 void LLVertexBuffer::drawArrays(U32 mode, U32 first, U32 count) const
 {
 	llassert(!LLGLSLShader::sNoFixedFunction || LLGLSLShader::sCurBoundShaderPtr != NULL);
-	mMappable = false;
+	mMappable = FALSE;
 	gGL.syncMatrices();
 	
 	llassert(mNumVerts >= 0);
@@ -820,6 +827,26 @@ LLVertexBuffer::LLVertexBuffer(U32 typemask, S32 usage) :
 	else
 	{
 		mMappable = false;
+	}
+
+		if (sDisableVBOMapping)
+		{ //always use stream draw if VBO mapping is disabled
+			mUsage = GL_STREAM_DRAW_ARB;
+		}
+		else
+		{
+			mUsage = GL_DYNAMIC_DRAW_ARB;
+		}
+	}
+	
+
+	if (mUsage == GL_DYNAMIC_DRAW_ARB && !sDisableVBOMapping)
+	{
+		mMappable = TRUE;
+	}
+	else
+	{
+		mMappable = FALSE;
 	}
 
 	//zero out offsets
@@ -1072,7 +1099,7 @@ void LLVertexBuffer::destroyGLBuffer()
 		}
 		else
 		{
-			FREE_MEM(sPrivatePoolp, (void*) mMappedData);
+			FREE_MEM(sPrivatePoolp, (void*) mMappedData) ;
 			mMappedData = NULL;
 			mEmpty = true;
 		}
@@ -1093,7 +1120,7 @@ void LLVertexBuffer::destroyGLIndices()
 		}
 		else
 		{
-			FREE_MEM(sPrivatePoolp, (void*) mMappedIndexData);
+			FREE_MEM(sPrivatePoolp, (void*) mMappedIndexData) ;
 			mMappedIndexData = NULL;
 			mEmpty = true;
 		}
