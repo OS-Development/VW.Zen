@@ -108,7 +108,6 @@ public:
 	// available.  There is no garuntee the callback will ever be called.
 	boost::signals2::connection get(const LLUUID& id, bool is_group, const LLCacheNameCallback& callback);
 
-	BOOL getIfThere(const LLUUID& id, std::string& fullname, BOOL& is_group);
 	
 	// Convenience method for looking up a group name, so you can
 	// tell the difference between avatar lookup and group lookup

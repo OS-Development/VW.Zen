@@ -1250,14 +1250,6 @@
 		</menu_item_call>
 		
 		<menu_item_call
-		 label="Sound Explorer"
-		 name="Sound Explorer">
-		    <menu_item_call.on_click
-			 function="Floater.Toggle"
-			 parameter="sound_explorer" />
-		</menu_item_call>
-		
-		<menu_item_call
 			label="Local Bitmap Browser"
 			name="Local Bitmap Browser">
 			<menu_item_call.on_click
