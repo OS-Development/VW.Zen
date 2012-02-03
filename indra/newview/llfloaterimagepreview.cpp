@@ -119,7 +119,7 @@ BOOL LLFloaterImagePreview::postBuild()
 		if (mRawImagep->getWidth() * mRawImagep->getHeight () <= LL_IMAGE_REZ_LOSSLESS_CUTOFF * LL_IMAGE_REZ_LOSSLESS_CUTOFF)
 			getChildView("lossless_check")->setEnabled(TRUE);
 
-		gSavedSettings.setBOOL("_NACL_TemporaryUpload", FALSE);
+		gSavedSettings.setBOOL("TemporaryUpload", FALSE);
 		if (LLGlobalEconomy::Singleton::getInstance()->getPriceUpload() == 0)
 		{
 			childHide("temp_check");
