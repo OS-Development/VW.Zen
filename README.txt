@@ -14,4 +14,3 @@ Please visit the Wiki section for:
 - Privacy Policy
 - Customer Support
 - Disclaimers
-- Special Thanks
