@@ -1907,11 +1907,7 @@ bool idle_startup()
 		gRenderStartTime.reset();
 		gForegroundTime.reset();
 		
-		if (gSavedSettings.getBOOL("FetchInventoryOnLogin")
-#ifdef LL_RRINTERFACE_H //MK
-			|| gRRenabled
-#endif //mk
-			)
+		if (gSavedSettings.getBOOL("FetchInventoryOnLogin"))
 		{
 			// Fetch inventory in the background
 			LLInventoryModelBackgroundFetch::instance().start();
