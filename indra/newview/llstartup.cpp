@@ -752,7 +752,7 @@ bool idle_startup()
 			if (gUserCredential.isNull())                                                                          
 			{                                                  
 				display_startup();
-				gUserCredential = gLoginHandler.initializeLoginInfo();                 
+				gUserCredential = gSecAPIHandler->loadCredential(gSavedSettings.getString("UserLoginInfo"));                
 				display_startup();
 			}     
 			if (gHeadlessClient)
@@ -769,7 +769,7 @@ bool idle_startup()
 			// connect dialog is already shown, so fill in the names
 			if (gUserCredential.notNull())                                                                         
 			{                                                                                                      
-				LLPanelLogin::setFields( gUserCredential, gRememberPassword);                                  
+				LLPanelLogin::setFields( gUserCredential);                                  
 			}     
 			display_startup();
 			LLPanelLogin::giveFocus();
@@ -867,13 +867,12 @@ bool idle_startup()
 		std::string userid = "unknown";                                                                                
 		if(gUserCredential.notNull())                                                                                  
 		{  
-			userid = gUserCredential->userID();                                                                    
-			gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword);  
+			userid = gUserCredential->userID(); 
 		}
 		gSavedSettings.setBOOL("RememberPassword", gRememberPassword);                                                 
 		LL_INFOS("AppInit") << "Attempting login as: " << userid << LL_ENDL;                                           
-		gDebugInfo["LoginName"] = userid;                                                                              
-         
+		gDebugInfo["LoginName"] = userid; 
+		
 		// create necessary directories
 		// *FIX: these mkdir's should error check
 		gDirUtilp->setLindenUserDir(userid);
@@ -1159,7 +1158,8 @@ bool idle_startup()
 				LLVoiceClient::getInstance()->userAuthorized(gUserCredential->userID(), gAgentID);
 				// create the default proximal channel
 				LLVoiceChannel::initClass();
-				LLGridManager::getInstance()->setFavorite(); 
+				gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword); 
+				// LLGridManager::getInstance()->setFavorite(); 
 				LLStartUp::setStartupState( STATE_WORLD_INIT);
 			}
 			else
