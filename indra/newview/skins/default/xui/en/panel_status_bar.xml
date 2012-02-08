@@ -45,16 +45,16 @@
 	label_length="40"
 	increment="16"
 	initial_value="64"
-	max_val="1024"
+	max_val="512"
 	min_val="32"
 	name="drawdistance"
-	left="-700"
-	width="200" >
+	left="-550"
+	width="150" >
 	<slider.value_text follows="left|top"/>
 	</slider>
   <panel
 	height="18"
-    left="-370"
+    left="-340"
     width="160"
     top="1"
     follows="right|top" 
@@ -89,7 +89,7 @@
      pad_bottom="3"
      tool_tip="Click to buy more L$"
      top="0"
-     width="80" />
+     width="65" />
     <button
      halign="left"
      font="SansSerifSmall"
@@ -120,7 +120,7 @@
      height="16"
      top="5"
      layout="topleft"
-     left_pad="0"
+     left_pad="-30"
      name="TimeText"
      tool_tip="Current time (Pacific)"
      width="145">
