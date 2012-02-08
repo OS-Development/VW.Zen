@@ -12374,7 +12374,7 @@
       <key>Type</key>
       <string>U32</string>
       <key>Value</key>
-      <integer>3</integer>
+      <integer>0</integer>
     </map>
     <key>UpdaterServiceCheckPeriod</key>
     <map>
