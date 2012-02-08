@@ -80,9 +80,7 @@
             name="Group Invite...">
             <pie_slice.on_click
                 function="Avatar.InviteToGroup" />
-            <pie_slice.on_enable
-                function="Avatar.InviteToGroup"
-                parameter="shownames" />
+            
         </pie_slice>
         <pie_separator />
         <pie_slice
