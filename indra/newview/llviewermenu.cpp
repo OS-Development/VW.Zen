@@ -115,6 +115,7 @@
 #include "boost/unordered_map.hpp"
 #include "llavatarpropertiesprocessor.h"
 #include "lltexturecache.h"
+#include "particleeditor.h"
 #include "boost/unordered_map.hpp"
 
 using namespace LLVOAvatarDefines;
@@ -2442,6 +2443,37 @@ class LLObjectDerender : public view_listener_t
 			{
 				gObjectList.killObject(objectp);
 			}
+		}
+		return true;
+	}
+};
+
+class LLEnableEditParticleSource : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		if(LLSelectMgr::instance().getSelection()->getObjectCount()!=0)
+		{
+			LLObjectSelection::valid_iterator iter=LLSelectMgr::instance().getSelection()->valid_begin();
+			LLSelectNode* node=*iter;
+
+			if(node->mPermissions->getOwner()==gAgent.getID())
+				return true;
+		}
+		return false;
+	}
+};
+
+class LLEditParticleSource : public view_listener_t
+{
+	bool handleEvent(const LLSD& userdata)
+	{
+		LLViewerObject* objectp = LLSelectMgr::getInstance()->getSelection()->getPrimaryObject();
+		if (objectp)
+		{
+			ParticleEditor* particleEditor=LLFloaterReg::showTypedInstance<ParticleEditor>("particle_editor", LLSD(objectp->getID()), TAKE_FOCUS_YES);
+			if(particleEditor)
+				particleEditor->setObject(objectp);
 		}
 		return true;
 	}
@@ -8512,7 +8544,9 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLObjectGetUUID(), "Object.GetUUID");
 	view_listener_t::addMenu(new LLObjectDerender(), "Object.Derender");
 	view_listener_t::addMenu(new LLObjectTexRefresh(), "Object.TexRefresh");
-	
+	view_listener_t::addMenu(new LLEditParticleSource(), "Object.EditParticles");
+	view_listener_t::addMenu(new LLEnableEditParticleSource(), "Object.EnableEditParticles");
+
 	enable.add("Object.VisibleTake", boost::bind(&visible_take_object));
 	enable.add("Object.VisibleBuy", boost::bind(&visible_buy_object));
 
