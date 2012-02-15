@@ -26,9 +26,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2DRect depthMap;
@@ -81,6 +79,6 @@ void main()
 
 	color.rgb += diff.rgb * vary_pointlight_col.rgb;
 
-	frag_color = color;
+	gl_FragColor = color;
 }
 

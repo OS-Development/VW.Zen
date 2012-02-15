@@ -24,9 +24,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 vec3 scaleSoftClip(vec3 inColor);
@@ -137,5 +135,5 @@ void main()
 	color.rgb = scaleSoftClip(color.rgb);
 	color.a = spec * sunAngle2;
 
-	frag_color = color;
+	gl_FragColor = color;
 }

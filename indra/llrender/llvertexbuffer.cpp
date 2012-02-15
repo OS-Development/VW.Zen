@@ -284,12 +284,6 @@ void LLVertexBuffer::setupClientArrays(U32 data_mask)
 	{
 		bool error = false;
 
-		if (gGLManager.mGLSLVersionMajor < 2 && gGLManager.mGLSLVersionMinor < 30)
-		{
-			//make sure texture index is disabled
-			data_mask = data_mask & ~MAP_TEXTURE_INDEX;
-		}
-
 		if (LLGLSLShader::sNoFixedFunction)
 		{
 			for (U32 i = 0; i < TYPE_MAX; ++i)
@@ -1199,7 +1193,7 @@ void LLVertexBuffer::setupVertexArray()
 		1, //TYPE_WEIGHT,
 		4, //TYPE_WEIGHT4,
 		4, //TYPE_CLOTHWEIGHT,
-		4, //TYPE_TEXTURE_INDEX
+		1, //TYPE_TEXTURE_INDEX
 	};
 
 	U32 attrib_type[] =
@@ -1216,24 +1210,7 @@ void LLVertexBuffer::setupVertexArray()
 		GL_FLOAT, //TYPE_WEIGHT,
 		GL_FLOAT, //TYPE_WEIGHT4,
 		GL_FLOAT, //TYPE_CLOTHWEIGHT,
-		GL_UNSIGNED_BYTE, //TYPE_TEXTURE_INDEX
-	};
-
-	bool attrib_integer[] = 
-	{
-		false, //TYPE_VERTEX,
-		false, //TYPE_NORMAL,
-		false, //TYPE_TEXCOORD0,
-		false, //TYPE_TEXCOORD1,
-		false, //TYPE_TEXCOORD2,
-		false, //TYPE_TEXCOORD3,
-		false, //TYPE_COLOR,
-		false, //TYPE_EMISSIVE,
-		false, //TYPE_BINORMAL,
-		false, //TYPE_WEIGHT,
-		false, //TYPE_WEIGHT4,
-		false, //TYPE_CLOTHWEIGHT,
-		true, //TYPE_TEXTURE_INDEX
+		GL_FLOAT, //TYPE_TEXTURE_INDEX
 	};
 
 	U32 attrib_normalized[] =
@@ -1261,21 +1238,7 @@ void LLVertexBuffer::setupVertexArray()
 		if (mTypeMask & (1 << i))
 		{
 			glEnableVertexAttribArrayARB(i);
-
-			if (attrib_integer)
-			{
-#if !LL_DARWIN
-				//glVertexattribIPointer requires GLSL 1.30 or later
-				if (gGLManager.mGLSLVersionMajor > 1 || gGLManager.mGLSLVersionMinor >= 30)
-				{
-					glVertexAttribIPointer(i, attrib_size[i], attrib_type[i], sTypeSize[i], (void*) mOffsets[i]); 
-				}
-#endif
-			}
-			else
-			{
-				glVertexAttribPointerARB(i, attrib_size[i], attrib_type[i], attrib_normalized[i], sTypeSize[i], (void*) mOffsets[i]); 
-			}
+			glVertexAttribPointerARB(i, attrib_size[i], attrib_type[i], attrib_normalized[i], sTypeSize[i], (void*) mOffsets[i]); 
 		}
 		else
 		{
@@ -2257,14 +2220,11 @@ void LLVertexBuffer::setupVertexBuffer(U32 data_mask)
 			void* ptr = (void*)(base + mOffsets[TYPE_CLOTHWEIGHT]);
 			glVertexAttribPointerARB(loc, 4, GL_FLOAT, GL_TRUE,  LLVertexBuffer::sTypeSize[TYPE_CLOTHWEIGHT], ptr);
 		}
-		if (data_mask & MAP_TEXTURE_INDEX && 
-				(gGLManager.mGLSLVersionMajor >= 2 || gGLManager.mGLSLVersionMinor >= 30)) //indexed texture rendering requires GLSL 1.30 or later
+		if (data_mask & MAP_TEXTURE_INDEX)
 		{
-#if !LL_DARWIN
 			S32 loc = TYPE_TEXTURE_INDEX;
 			void *ptr = (void*) (base + mOffsets[TYPE_VERTEX] + 12);
-			glVertexAttribIPointer(loc, 4, GL_UNSIGNED_BYTE, LLVertexBuffer::sTypeSize[TYPE_VERTEX], ptr);
-#endif
+			glVertexAttribPointerARB(loc, 1, GL_FLOAT, GL_FALSE, LLVertexBuffer::sTypeSize[TYPE_VERTEX], ptr);
 		}
 		if (data_mask & MAP_VERTEX)
 		{

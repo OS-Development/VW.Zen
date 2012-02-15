@@ -26,9 +26,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor;
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2DRect depthMap;
@@ -186,5 +184,5 @@ void main()
 	vec3 norm = texture2DRect(normalMap, pos_screen).xyz;
 	norm = vec3((norm.xy-0.5)*2.0,norm.z); // unpack norm
 	
-	frag_color.xyz = giAmbient(pos, norm);
+	gl_FragColor.xyz = giAmbient(pos, norm);
 }

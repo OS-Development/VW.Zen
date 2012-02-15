@@ -1,5 +1,5 @@
 /** 
- * @file starsF.glsl
+ * @file postgiV.glsl
  *
  * $LicenseInfo:firstyear=2007&license=viewerlgpl$
  * Second Life Viewer Source Code
@@ -23,20 +23,18 @@
  * $/LicenseInfo$
  */
 
-#ifdef DEFINE_GL_FRAGCOLOR
-out vec4 gl_FragData[3];
-#endif
+uniform mat4 modelview_projection_matrix;
+ 
+ATTRIBUTE vec3 position;
 
-VARYING vec4 vertex_color;
-VARYING vec2 vary_texcoord0;
 
-uniform sampler2D diffuseMap;
+VARYING vec2 vary_fragcoord;
+uniform vec2 screen_res;
 
-void main() 
+void main()
 {
-	vec4 col = vertex_color * texture2D(diffuseMap, vary_texcoord0.xy);
-	
-	gl_FragData[0] = col;
-	gl_FragData[1] = vec4(0,0,0,0);
-	gl_FragData[2] = vec4(0,0,1,0);	
+	//transform vertex
+	vec4 pos = modelview_projection_matrix * vec4(position.xyz, 1.0);
+	gl_Position = pos; 	
+	vary_fragcoord = (pos.xy*0.5+0.5)*screen_res;
 }

@@ -27,9 +27,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2DRect diffuseRect;
@@ -186,6 +184,6 @@ void main()
 		}
 	}
 	
-	frag_color.rgb = col;	
-	frag_color.a = 0.0;
+	gl_FragColor.rgb = col;	
+	gl_FragColor.a = 0.0;
 }

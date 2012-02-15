@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform float minimum_alpha;
@@ -52,6 +50,6 @@ void default_lighting()
 
 	color.rgb = scaleSoftClip(color.rgb);
 
-	frag_color = color;
+	gl_FragColor = color;
 }
 

@@ -24,10 +24,8 @@
  */
 
  #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
-#endif
+ out vec4 gl_FragColor;
+ #endif
  
 uniform sampler2DRect depthMap;
 uniform sampler2DRect normalMap;
@@ -98,5 +96,5 @@ void main()
 	
 	col = col*col*blur_quad.x + col*blur_quad.y + blur_quad.z;
 	
-	frag_color.rgb = col;
+	gl_FragColor.rgb = col;
 }

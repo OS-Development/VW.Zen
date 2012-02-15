@@ -1771,8 +1771,6 @@ bool LLAppViewer::cleanup()
 
 	LLAvatarIconIDCache::getInstance()->save();
 	
-	gAgentAvatarp = NULL;
-
 	LLViewerMedia::saveCookieFile();
 
 	// Stop the plugin read thread if it's running.

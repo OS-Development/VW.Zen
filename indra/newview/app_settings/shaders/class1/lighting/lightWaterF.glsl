@@ -24,10 +24,8 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
-#endif
+out vec4 gl_FragColor;
+#endif 
 
 VARYING vec4 vertex_color;
 VARYING vec2 vary_texcoord0;
@@ -41,6 +39,6 @@ void default_lighting_water()
 
 	color.rgb = atmosLighting(color.rgb);
 
-	frag_color = applyWaterFog(color);
+	gl_FragColor = applyWaterFog(color);
 }
 

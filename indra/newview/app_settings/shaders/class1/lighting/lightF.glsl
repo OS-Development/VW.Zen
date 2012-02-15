@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 VARYING vec4 vertex_color;
@@ -43,6 +41,6 @@ void default_lighting()
 
 	color.rgb = scaleSoftClip(color.rgb);
 
-	frag_color = color;
+	gl_FragColor = color;
 }
 

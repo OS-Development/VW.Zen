@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_data[3];
-#else
-#define frag_data gl_FragData;
+out vec4 gl_FragData[3];
 #endif
 
 uniform sampler2D diffuseMap;
@@ -43,9 +41,9 @@ void main()
 		discard;
 	}
 	
-	frag_data[0] = vec4(diff.rgb, 0.0);
-	frag_data[1] = vec4(0,0,0,0);
+	gl_FragData[0] = vec4(diff.rgb, 0.0);
+	gl_FragData[1] = vec4(0,0,0,0);
 	vec3 nvn = normalize(vary_normal);
-	frag_data[2] = vec4(nvn.xy * 0.5 + 0.5, nvn.z, 0.0);
+	gl_FragData[2] = vec4(nvn.xy * 0.5 + 0.5, nvn.z, 0.0);
 }
 

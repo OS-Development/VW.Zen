@@ -26,9 +26,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 //class 2, shadows, no SSAO
@@ -145,7 +143,7 @@ void main()
 	
 	/*if (pos.z == 0.0) // do nothing for sky *FIX: REMOVE THIS IF/WHEN THE POSITION MAP IS BEING USED AS A STENCIL
 	{
-		frag_color = vec4(0.0); // doesn't matter
+		gl_FragColor = vec4(0.0); // doesn't matter
 		return;
 	}*/
 	
@@ -214,19 +212,19 @@ void main()
 		shadow = 1.0;
 	}
 	
-	frag_color[0] = shadow;
-	frag_color[1] = 1.0;
+	gl_FragColor[0] = shadow;
+	gl_FragColor[1] = 1.0;
 	
 	spos = vec4(shadow_pos+norm*spot_shadow_offset, 1.0);
 	
 	//spotlight shadow 1
 	vec4 lpos = shadow_matrix[4]*spos;
-	frag_color[2] = pcfShadow(shadowMap4, lpos, 0.8); 
+	gl_FragColor[2] = pcfShadow(shadowMap4, lpos, 0.8, pos_screen);
 	
 	//spotlight shadow 2
 	lpos = shadow_matrix[5]*spos;
-	frag_color[3] = pcfShadow(shadowMap5, lpos, 0.8); 
+	gl_FragColor[3] = pcfShadow(shadowMap5, lpos, 0.8, pos_screen); 
 
-	//frag_color.rgb = pos.xyz;
-	//frag_color.b = shadow;
+	//gl_FragColor.rgb = pos.xyz;
+	//gl_FragColor.b = shadow;
 }

@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_data[3];
-#else
-#define frag_data gl_FragData;
+out vec4 gl_FragData[3];
 #endif
 
 uniform float minimum_alpha;
@@ -47,7 +45,7 @@ void main()
 		discard;
 	}
 
-	frag_data[0] = vec4(col.rgb, col.a * 0.005);
-	frag_data[1] = texture2D(specularMap, vary_texcoord0.xy);
-	frag_data[2] = vec4(texture2D(normalMap, vary_texcoord0.xy).xyz, 0.0);
+	gl_FragData[0] = vec4(col.rgb, col.a * 0.005);
+	gl_FragData[1] = texture2D(specularMap, vary_texcoord0.xy);
+	gl_FragData[2] = vec4(texture2D(normalMap, vary_texcoord0.xy).xyz, 0.0);
 }

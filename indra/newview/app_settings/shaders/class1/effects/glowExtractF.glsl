@@ -26,9 +26,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2DRect diffuseMap;
@@ -48,7 +46,7 @@ void main()
 	float lum = smoothstep(minLuminance, minLuminance+1.0, dot(col.rgb, lumWeights ) );
 	float warmth = smoothstep(minLuminance, minLuminance+1.0, max(col.r * warmthWeights.r, max(col.g * warmthWeights.g, col.b * warmthWeights.b)) ); 
 	
-	frag_color.rgb = col.rgb; 
-	frag_color.a = max(col.a, mix(lum, warmth, warmthAmount) * maxExtractAlpha);
+	gl_FragColor.rgb = col.rgb; 
+	gl_FragColor.a = max(col.a, mix(lum, warmth, warmthAmount) * maxExtractAlpha);
 	
 }

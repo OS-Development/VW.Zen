@@ -24,9 +24,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 /////////////////////////////////////////////////////////////////////////
@@ -98,7 +96,7 @@ void main()
 	color *= 2.;
 
 	/// Gamma correct for WL (soft clip effect).
-	frag_color.rgb = scaleSoftClip(color.rgb);
-	frag_color.a = alpha1;
+	gl_FragColor.rgb = scaleSoftClip(color.rgb);
+	gl_FragColor.a = alpha1;
 }
 

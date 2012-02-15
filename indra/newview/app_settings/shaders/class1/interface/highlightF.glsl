@@ -24,9 +24,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform vec4 color;
@@ -36,5 +34,5 @@ VARYING vec2 vary_texcoord0;
 
 void main() 
 {
-	frag_color = color*texture2D(diffuseMap, vary_texcoord0.xy);
+	gl_FragColor = color*texture2D(diffuseMap, vary_texcoord0.xy);
 }

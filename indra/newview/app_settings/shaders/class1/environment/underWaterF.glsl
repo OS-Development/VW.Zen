@@ -24,9 +24,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2D diffuseMap;
@@ -108,5 +106,5 @@ void main()
 		
 	vec4 fb = texture2D(screenTex, distort);
 	
-	frag_color = applyWaterFog(fb,view.xyz);
+	gl_FragColor = applyWaterFog(fb,view.xyz);
 }

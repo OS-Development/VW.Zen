@@ -23,9 +23,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 VARYING vec4 vertex_color;
@@ -50,6 +48,6 @@ void fullbright_shiny_lighting_water()
 	color.rgb = fullbrightScaleSoftClip(color.rgb);
 	color.a = max(color.a, vertex_color.a);
 
-	frag_color = applyWaterFog(color);
+	gl_FragColor = applyWaterFog(color);
 }
 

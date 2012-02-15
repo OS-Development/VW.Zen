@@ -24,9 +24,7 @@
  */
  
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2D diffuseMap;
@@ -56,5 +54,5 @@ void main()
 	col += kern[6] * texture2D(diffuseMap, vary_texcoord2.zw);	
 	col += kern[7] * texture2D(diffuseMap, vary_texcoord3.zw);	
 	
-	frag_color = vec4(col.rgb * glowStrength, col.a);
+	gl_FragColor = vec4(col.rgb * glowStrength, col.a);
 }

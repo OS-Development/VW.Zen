@@ -383,7 +383,7 @@ private:
 
 };
 
-extern LLPointer<LLVOAvatarSelf> gAgentAvatarp;
+extern LLVOAvatarSelf *gAgentAvatarp;
 
 BOOL isAgentAvatarValid();
 

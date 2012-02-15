@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 #extension GL_ARB_texture_rectangle : enable
@@ -39,6 +37,6 @@ VARYING vec2 vary_texcoord1;
 
 void main() 
 {
-	frag_color = texture2D(glowMap, vary_texcoord0.xy) +
+	gl_FragColor = texture2D(glowMap, vary_texcoord0.xy) +
 					texture2DRect(screenMap, vary_texcoord1.xy);
 }

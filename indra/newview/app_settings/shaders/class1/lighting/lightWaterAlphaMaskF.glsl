@@ -24,9 +24,7 @@
  */
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform float minimum_alpha;
@@ -48,6 +46,6 @@ void default_lighting_water()
 
 	color.rgb = atmosLighting(color.rgb);
 
-	frag_color = applyWaterFog(color);
+	gl_FragColor = applyWaterFog(color);
 }
 

@@ -26,9 +26,7 @@
 #extension GL_ARB_texture_rectangle : enable
 
 #ifdef DEFINE_GL_FRAGCOLOR
-out vec4 frag_color;
-#else
-#define frag_color gl_FragColor
+out vec4 gl_FragColor;
 #endif
 
 uniform sampler2DRect diffuseRect;
@@ -85,6 +83,6 @@ void main()
 	sc = max(sc, -max_cof);
 	
 	vec4 bloom = texture2D(bloomMap, vary_fragcoord.xy/screen_res);
-	frag_color.rgb = diff.rgb + bloom.rgb;
-	frag_color.a = sc/max_cof*0.5+0.5;
+	gl_FragColor.rgb = diff.rgb + bloom.rgb;
+	gl_FragColor.a = sc/max_cof*0.5+0.5;
 }
