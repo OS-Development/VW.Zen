@@ -403,7 +403,7 @@ bool idle_startup()
 		gSavedSettings.setString("LastGPUString", thisGPU);
 
 		// load dynamic GPU/feature tables from website (S3)
-		LLFeatureManager::getInstance()->fetchHTTPTables();
+		// LLFeatureManager::getInstance()->fetchHTTPTables();
 		
 		std::string xml_file = LLUI::locateSkin("xui_version.xml");
 		LLXMLNodePtr root;
