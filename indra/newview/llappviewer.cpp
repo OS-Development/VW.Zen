@@ -775,7 +775,7 @@ bool LLAppViewer::init()
     writeSystemInfo();
 
 	// Initialize updater service (now that we have an io pump)
-	initUpdater();
+	// initUpdater();
 	if(isQuitting())
 	{
 		// Early out here because updater set the quitting flag.

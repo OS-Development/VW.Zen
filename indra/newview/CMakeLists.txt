@@ -632,6 +632,7 @@ set(viewer_SOURCE_FILES
 	pieslice.cpp
 	pipeline.cpp
 	qtoolalign.cpp
+	zendata.cpp
     )
 
 set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
@@ -1192,6 +1193,7 @@ set(viewer_HEADER_FILES
 	qtoolalign.h
     VertexCache.h
     VorbisFramework.h
+	zendata.h
     )
 
 source_group("CMake Rules" FILES ViewerInstall.cmake)

@@ -83,13 +83,16 @@ public:
 	// inherited from LLViewerMediaObserver
 	/*virtual*/ void handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event);
 	static void updateServer();  // update the combo box, change the login page to the new server, clear the combo
-
+	static void setVersion();
+	
+	
 private:
 	friend class LLPanelLoginListener;
 	void reshapeBrowser();
 	void addFavoritesToStartLocation();
 	void addUsersWithFavoritesToUsername();
 	static void onClickConnect(void*);
+	static void onClickDownload(void*);
 	static void onClickNewAccount(void*);
 	static void onClickVersion(void*);
 	static void onClickForgotPassword(void*);
@@ -109,7 +112,6 @@ private:
 	
 private:
 	LLPointer<LLUIImage> mLogoImage;
-	LLView* mLoginWidgets;
 	boost::scoped_ptr<LLPanelLoginListener> mListener;
 
 	void			(*mCallback)(S32 option, void *userdata);

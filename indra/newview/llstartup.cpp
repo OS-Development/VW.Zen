@@ -196,6 +196,8 @@
 #include "lldxhardware.h"
 #endif
 
+#include "zendata.h"
+
 //
 // exported globals
 //
@@ -369,6 +371,8 @@ bool idle_startup()
 		//
 		std::string lastGPU = gSavedSettings.getString("LastGPUString");
 		std::string thisGPU = LLFeatureManager::getInstance()->getGPUString();
+		
+		ZenData::getInstance()->startDownload();
 		
 		if (LLFeatureManager::getInstance()->isSafe())
 		{
@@ -1149,6 +1153,7 @@ bool idle_startup()
 				transition_back_to_login_panel(emsg.str());
 				show_connect_box = true;
 			}
+			LLPanelLogin::setVersion();
 		}
 		else if(LLLoginInstance::getInstance()->authSuccess())
 		{
@@ -1170,6 +1175,7 @@ bool idle_startup()
 				LLNotificationsUtil::add("ErrorMessage", args, LLSD(), login_alert_done);
 				transition_back_to_login_panel(emsg.str());
 				show_connect_box = true;
+				LLPanelLogin::setVersion();
 				return FALSE;
 			}
 		}

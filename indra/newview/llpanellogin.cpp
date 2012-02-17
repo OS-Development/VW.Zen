@@ -36,6 +36,7 @@
 #include "v4color.h"
 
 #include "llappviewer.h"
+#include "llbufferstream.h"   //
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcommandhandler.h"		// for secondlife:///app/login/
@@ -53,6 +54,7 @@
 #include "lluiconstants.h"
 #include "llslurl.h"
 #include "llversioninfo.h"
+#include "llversionviewer.h"   //
 #include "llviewerhelp.h"
 #include "llviewertexturelist.h"
 #include "llviewermenu.h"			// for handle_preferences()
@@ -68,6 +70,8 @@
 #include "lltrans.h"
 #include "llglheaders.h"
 #include "llpanelloginlistener.h"
+#include "llsdserialize.h"               //
+#include "llagent.h"                     //
 
 #if LL_WINDOWS
 #pragma warning(disable: 4355)      // 'this' used in initializer list
@@ -101,10 +105,12 @@ public:
 };
 
  LLLoginRefreshHandler gLoginRefreshHandler;
+ 
 
 //---------------------------------------------------------------------------
 // Public methods
 //---------------------------------------------------------------------------
+
 LLPanelLogin::LLPanelLogin(const LLRect &rect,
 						 BOOL show_server,
 						 void (*callback)(S32 option, void* user_data),
@@ -157,9 +163,13 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	LLComboBox* saved_login_choice_combo = sInstance->getChild<LLComboBox>("username_combo");
 	saved_login_choice_combo->setCommitCallback(onSelectSavedLogin, NULL);
 	updateServerCombo();
-
+	
+	static LLComboBox* combo_install = sInstance->getChild<LLComboBox>("installversionid_combo");
+	static LLComboBox* combo_avail = sInstance->getChild<LLComboBox>("availversionid_combo");
+	
 	childSetAction("delete_saved_login_btn", onClickDelete, this);
 	childSetAction("connect_btn", onClickConnect, this);
+	childSetAction("download_btn", onClickDownload, this);
 
 	getChild<LLPanel>("login")->setDefaultBtn("connect_btn");
 
@@ -180,16 +190,16 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	// get the web browser control
 	LLMediaCtrl* web_browser = getChild<LLMediaCtrl>("login_html");
 	web_browser->addObserver(this);
-
+	
 	reshapeBrowser();
 	
 	updateSavedLoginsCombo();
 	updateLocationCombo(false);
-
+	
+	//getChild<LLComboBox>("installversionid_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::setVersion, this));
+	//getChild<LLComboBox>("availversionid_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::setVersion, this));
 	getChild<LLComboBox>("username_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::addFavoritesToStartLocation, this));
 }
-	
-
 
 void LLPanelLogin::addUsersWithFavoritesToUsername()
 {
@@ -473,6 +483,7 @@ void LLPanelLogin::setFields(LLPointer<LLCredential> credential)
 
 	//updateServerCombo();	
 	// grid changed so show new splash screen (possibly)
+	
 	updateServer();
 	updateLoginPanelLinks();
 	sInstance->addFavoritesToStartLocation();
@@ -918,6 +929,12 @@ void LLPanelLogin::onClickConnect(void *)
 }
 
 //static
+void LLPanelLogin::onClickDownload(void*)
+{
+	LLWeb::loadURLExternal(sInstance->getString("download_new_version"));
+}
+
+//static
 void LLPanelLogin::onClickNewAccount(void*)
 {
 	LLWeb::loadURLExternal(sInstance->getString("create_account_url"));
@@ -1213,3 +1230,20 @@ std::string LLPanelLogin::credential_name()
 	
 	return username + "@" +  LLGridManager::getInstance()->getGrid();
 }
+
+//static
+void LLPanelLogin::setVersion()
+{
+	LLComboBox* combo_install = sInstance->getChild<LLComboBox>("installversionid_combo");
+	LLComboBox* combo_avail = sInstance->getChild<LLComboBox>("availversionid_combo");
+	
+	combo_install->remove(0);
+	combo_avail->remove(0);
+	
+	combo_install->add(gSavedSettings.getString("InstalledVersion"));
+	combo_avail->add(gSavedSettings.getString("AvailableVersion"));
+	
+	combo_install->setCurrentByIndex(0);
+	combo_avail->setCurrentByIndex(0);
+}
+
