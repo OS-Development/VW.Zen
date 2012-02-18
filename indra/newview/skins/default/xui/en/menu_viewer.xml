@@ -1227,16 +1227,6 @@
 		<menu_item_separator/>
 		
 		<menu_item_check
-		label="Rigged Mesh Deformer"
-		name="MeshDeformer">
-		  <menu_item_check.on_click
-		    function="ToggleControl"
-			parameter="MeshDeformer" />
-	      <menu_item_check.on_check
-			    control="MeshDeformer"/>
-		</menu_item_check>
-		
-		<menu_item_check
 		label="Deferred Invisiprims"
 		name="DeferredInvisiprims">
 		  <menu_item_check.on_click
@@ -1245,8 +1235,6 @@
 	      <menu_item_check.on_check
 			    control="DeferredInvisiprims"/>
 		</menu_item_check>
-		
-		<menu_item_separator/>
 		
 		<menu_item_call
 		 label="Area Search"
