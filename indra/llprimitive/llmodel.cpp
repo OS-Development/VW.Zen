@@ -2127,6 +2127,15 @@ void LLMeshSkinInfo::fromLLSD(LLSD& skin)
 	{
 		mPelvisOffset = skin["pelvis_offset"].asReal();
 	}
+	
+	if (skin.has("deform"))
+	{
+		mDeform = skin["deform"].asBoolean();
+	}
+	else 
+	{
+		mDeform = false;
+	}
 }
 
 LLSD LLMeshSkinInfo::asLLSD(bool include_joints) const
@@ -2169,6 +2178,8 @@ LLSD LLMeshSkinInfo::asLLSD(bool include_joints) const
 
 		ret["pelvis_offset"] = mPelvisOffset;
 	}
+	
+	ret["deform"] = mDeform;
 
 	return ret;
 }

@@ -462,6 +462,7 @@ BOOL LLFloaterModelPreview::postBuild()
 
 	childDisable("upload_skin");
 	childDisable("upload_joints");
+	childDisable("deform");
 
 	initDecompControls();
 
@@ -3215,6 +3216,7 @@ U32 LLModelPreview::calcResourceCost()
 
 	F32 debug_scale = mFMP ? mFMP->childGetValue("import_scale").asReal() : 1.f;
 	mPelvisZOffset = mFMP ? mFMP->childGetValue("pelvis_offset").asReal() : 3.0f;
+	bool deform = mFMP ? mFMP->childGetValue("deform").asBoolean() : false;
 	
 	if ( mFMP && mFMP->childGetValue("upload_joints").asBoolean() )
 	{
@@ -3236,12 +3238,13 @@ U32 LLModelPreview::calcResourceCost()
 			instance.mLOD[LLModel::LOD_PHYSICS]->mPhysics :
 			instance.mModel->mPhysics;
 			
-			//update instance skin info for each lods pelvisZoffset 
+			//update instance skin info for each lods pelvisZoffset and deform 
 			for ( int j=0; j<LLModel::NUM_LODS; ++j )
 			{	
 				if ( instance.mLOD[j] )
 				{
 					instance.mLOD[j]->mSkinInfo.mPelvisOffset = mPelvisZOffset;
+					instance.mLOD[j]->mSkinInfo.mDeform = deform;
 				}
 			}
 
@@ -4981,6 +4984,7 @@ BOOL LLModelPreview::render()
 	bool has_skin_weights = false;
 	bool upload_skin = mFMP->childGetValue("upload_skin").asBoolean();	
 	bool upload_joints = mFMP->childGetValue("upload_joints").asBoolean();
+	bool deform = mFMP->childGetValue("deform").asBoolean();
 
 	bool resetJoints = false;
 	if ( upload_joints != mLastJointUpdate )
@@ -5015,11 +5019,13 @@ BOOL LLModelPreview::render()
 			fmp->enableViewOption("show_skin_weight");
 			fmp->setViewOptionEnabled("show_joint_positions", skin_weight);	
 			mFMP->childEnable("upload_skin");
+			mFMP->childEnable("deform");
 		}
 	}
 	else
 	{
 		mFMP->childDisable("upload_skin");
+		mFMP->childDisable("deform");
 		if (fmp)
 		{
 			mViewOption["show_skin_weight"] = false;
@@ -5039,13 +5045,23 @@ BOOL LLModelPreview::render()
 	{ //can't upload joints if not uploading skin weights
 		mFMP->childSetValue("upload_joints", false);
 		upload_joints = false;		
-	}	
+	}
+
+	if (!upload_skin && deform)
+	{ 
+		// can't deform if model has no skin weights
+		mFMP->childSetValue("deform", false);
+		deform = false;
+	}
 		
 	//Only enable joint offsets if it passed the earlier critiquing
 	if ( isRigValidForJointPositionUpload() )  
 	{
 		mFMP->childSetEnabled("upload_joints", upload_skin);
 	}
+	
+	// Only enable deform if skins are enabled
+	mFMP->childSetEnabled("deform", upload_skin);
 
 	F32 explode = mFMP->childGetValue("physics_explode").asReal();
 

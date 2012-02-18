@@ -1162,6 +1162,15 @@
              label_text.text_color="White"
              name="upload_joints"
              top_pad="15"/>
+			 
+		   <check_box
+             follows="top|left"
+             height="15"
+             label="Deform to avatar shape"
+             label_text.text_color="White"
+             name="deform"
+             top_pad="15"/>
+			 
            <text
              follows="top|left"
              height="15"

@@ -165,6 +165,7 @@ void LLPolyMeshSharedData::freeMeshData()
 // compate_int is used by the qsort function to sort the index array
 int compare_int(const void *a, const void *b);
 
+/* dead code
 //-----------------------------------------------------------------------------
 // genIndices()
 //-----------------------------------------------------------------------------
@@ -191,6 +192,7 @@ void LLPolyMeshSharedData::genIndices(S32 index_offset)
 
         mLastIndexOffset = index_offset;
 }
+*/
 
 //--------------------------------------------------------------------
 // LLPolyMeshSharedData::getNumKB()

@@ -35,6 +35,7 @@ class LLFace;
 class LLMeshSkinInfo;
 class LLVolume;
 class LLVolumeFace;
+class LLVOVolume;
 
 
 class LLDrawPoolAvatar : public LLFacePool
@@ -134,7 +135,8 @@ public:
 									  LLFace* facep, 
 									  const LLMeshSkinInfo* skin, 
 									  LLVolume* volume,
-									  const LLVolumeFace& vol_face);
+									  const LLVolumeFace& vol_face,
+									  LLVOVolume* vobj);
 	void updateRiggedVertexBuffers(LLVOAvatar* avatar);
 
 	void renderRigged(LLVOAvatar* avatar, U32 type, bool glow = false);
