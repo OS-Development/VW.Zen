@@ -3927,10 +3927,11 @@ LLDeformedVolume::deform_table_t& LLDeformedVolume::getDeformTable(LLVolume* sou
 		bind_shape_matrix_a.affineTransform(source_position, source_position_transformed);
 		source_position_transformed.mul(scale);
 		
-		F32 closest_distance = F32_MAX;
-		S32 closest_vertex = S32_MAX;
-		S32 closest_mesh = S32_MAX;
-
+		F32 closest_distance = 0.f;
+		S32 closest_vertex = 0;
+		S32 closest_mesh = 0;
+		
+		BOOL first_time = TRUE;
 
 		for (S32 k = 0; k < sizeof(MORPH_MESHES)/sizeof(S32); k++)
 		{
@@ -3950,11 +3951,13 @@ LLDeformedVolume::deform_table_t& LLDeformedVolume::getDeformTable(LLVolume* sou
 				
 				F32 distance = delta.getLength3().getF32();
 				
-				if (distance < closest_distance) // note: this is always true the first time
+				if (first_time ||  // first time through loop is always closest
+					(distance < closest_distance))
 				{
 					closest_distance = distance;
 					closest_vertex = j;
 					closest_mesh = mesh_id;
+					first_time = FALSE;
 				}
 			}
 		}
@@ -3962,6 +3965,7 @@ LLDeformedVolume::deform_table_t& LLDeformedVolume::getDeformTable(LLVolume* sou
 		deform_table[i].mVertex = closest_vertex;
 		deform_table[i].mMesh = (U8)closest_mesh;	
 	}
+	
 	
 	return deform_table;
 }
