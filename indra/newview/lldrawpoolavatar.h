@@ -41,8 +41,6 @@ class LLDrawPoolAvatar : public LLFacePool
 {
 public:
 	
-	static BOOL sMeshDeformer;
-	
 	enum
 	{
 		SHADER_LEVEL_BUMP = 2,

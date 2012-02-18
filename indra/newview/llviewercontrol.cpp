@@ -99,14 +99,6 @@ static bool handleDeferredInvisiprimsChanged(const LLSD& newvalue)
 	return true;
 }
 
-static bool handleMeshDeformerChanged(const LLSD& newvalue)
-{
-	bool status = newvalue.asBoolean();
-	LLDrawPoolAvatar::sMeshDeformer = status;
-	return true;
-}
-
-
 static bool handleRenderAvatarMouselookChanged(const LLSD& newvalue)
 {
 	LLVOAvatar::sVisibleInFirstPerson = newvalue.asBoolean();
@@ -570,7 +562,6 @@ void toggle_updater_service_active(const LLSD& new_value)
 
 void settings_setup_listeners()
 {
-	gSavedSettings.getControl("MeshDeformer")->getSignal()->connect(boost::bind(&handleMeshDeformerChanged, _2));
 	gSavedSettings.getControl("DeferredInvisiprims")->getSignal()->connect(boost::bind(&handleDeferredInvisiprimsChanged, _2));
 	gSavedSettings.getControl("FirstPersonAvatarVisible")->getSignal()->connect(boost::bind(&handleRenderAvatarMouselookChanged, _2));
 	gSavedSettings.getControl("RenderFarClip")->getSignal()->connect(boost::bind(&handleRenderFarClipChanged, _2));

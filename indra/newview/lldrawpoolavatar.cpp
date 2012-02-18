@@ -60,8 +60,6 @@ BOOL	LLDrawPoolAvatar::sSkipOpaque = FALSE;
 BOOL	LLDrawPoolAvatar::sSkipTransparent = FALSE;
 S32 LLDrawPoolAvatar::sDiffuseChannel = 0;
 
-BOOL LLDrawPoolAvatar::sMeshDeformer = TRUE;
-
 static bool is_deferred_render = false;
 
 extern BOOL gUseGLPick;

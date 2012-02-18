@@ -8090,11 +8090,11 @@ class ToggleFetchInv : public view_listener_t
 	}
 };
 
-class ToggleMeshDeformer : public view_listener_t
+class ToggleDeferredInvisiprims : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		gSavedSettings.setBOOL("MeshDeformer", !gSavedSettings.getBOOL("MeshDeformer"));
+		gSavedSettings.setBOOL("DeferredInvisiprims", !gSavedSettings.getBOOL("DeferredInvisiprims"));
 		return true;
 	}
 	
