@@ -1322,15 +1322,14 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 
 		LLMatrix3 mat_normal(mat3);		
 		
-		//let getGeometryVolume know if alpha should override shiny
-        U32 type = gPipeline.getPoolTypeFromTE(face->getTextureEntry(), face->getTexture());
 		
 		if (LLDrawPoolAvatar::sMeshDeformer)
 		{
 			LLDeformedVolume* deformed_volume = vobj->getDeformedVolume();
 			deformed_volume->deform(volume, avatar, skin, face->getTEOffset());
 			
-			if (type == LLDrawPool::POOL_ALPHA)
+			//let getGeometryVolume know if alpha should override shiny
+			if (face->getFaceColor().mV[3] < 1.f)
 			{
 				face->setPoolType(LLDrawPool::POOL_ALPHA);
 			}
@@ -1343,7 +1342,10 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		}
 		else
 		{
-			if (type == LLDrawPool::POOL_ALPHA)
+			//let getGeometryVolume know if alpha should override shiny
+			if (face->getFaceColor().mV[3] < 1.f)
+
+		if (type == LLDrawPool::POOL_ALPHA)
 			{
 				face->setPoolType(LLDrawPool::POOL_ALPHA);
 			}
