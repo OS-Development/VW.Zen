@@ -8,6 +8,7 @@ creation on the Second Life Grid.
 
 Please visit the Wiki section for:
 
+- Release Notes
 - Installation
 - Features
 - Privacy Policy
