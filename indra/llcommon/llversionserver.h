@@ -30,7 +30,7 @@
 const S32 LL_VERSION_MAJOR = 3;
 const S32 LL_VERSION_MINOR = 3;
 const S32 LL_VERSION_PATCH = 0;
-const S32 LL_VERSION_BUILD = 4;
+const S32 LL_VERSION_BUILD = 5;
 
 const char * const LL_CHANNEL = "Zen";
 
