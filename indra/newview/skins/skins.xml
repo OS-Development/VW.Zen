@@ -15,6 +15,12 @@
                 </map>
 				<map>
                 <key>name</key>
+                    <string>Green</string>
+                <key>folder</key>
+                    <string>green</string>
+                </map>
+				<map>
+                <key>name</key>
                     <string>Pink</string>
                 <key>folder</key>
                     <string>pink</string>
