@@ -36,7 +36,6 @@
 #include "v4color.h"
 
 #include "llappviewer.h"
-#include "llbufferstream.h"   //
 #include "llbutton.h"
 #include "llcheckboxctrl.h"
 #include "llcommandhandler.h"		// for secondlife:///app/login/
@@ -54,7 +53,6 @@
 #include "lluiconstants.h"
 #include "llslurl.h"
 #include "llversioninfo.h"
-#include "llversionviewer.h"   //
 #include "llviewerhelp.h"
 #include "llviewertexturelist.h"
 #include "llviewermenu.h"			// for handle_preferences()
@@ -70,8 +68,6 @@
 #include "lltrans.h"
 #include "llglheaders.h"
 #include "llpanelloginlistener.h"
-#include "llsdserialize.h"               //
-#include "llagent.h"                     //
 
 #if LL_WINDOWS
 #pragma warning(disable: 4355)      // 'this' used in initializer list
@@ -196,8 +192,6 @@ LLPanelLogin::LLPanelLogin(const LLRect &rect,
 	updateSavedLoginsCombo();
 	updateLocationCombo(false);
 	
-	//getChild<LLComboBox>("installversionid_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::setVersion, this));
-	//getChild<LLComboBox>("availversionid_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::setVersion, this));
 	getChild<LLComboBox>("username_combo")->setTextChangedCallback(boost::bind(&LLPanelLogin::addFavoritesToStartLocation, this));
 }
 

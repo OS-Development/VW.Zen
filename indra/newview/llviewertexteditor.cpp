@@ -29,6 +29,7 @@
 #include "llviewertexteditor.h"
 
 #include "llagent.h"
+#include "llagentcamera.h"
 #include "llaudioengine.h"
 #include "llavataractions.h"
 #include "llfloaterreg.h"
@@ -60,6 +61,7 @@
 #include "llviewerinventory.h"
 #include "llviewertexturelist.h"
 #include "llviewerwindow.h"
+#include "llvoavatarself.h"
 
 static LLDefaultChildRegistry::Register<LLViewerTextEditor> r("text_editor");
 
@@ -88,29 +90,39 @@ public:
 	{
 		LLVector3d global_pos;
 		landmark->getGlobalPos(global_pos);
-		LLViewerInventoryItem* agent_landmark =
-				LLLandmarkActions::findLandmarkForGlobalPos(global_pos);
+		LLViewerInventoryItem* agent_landmark = LLLandmarkActions::findLandmarkForGlobalPos(global_pos);
 
-		if (agent_landmark)
+		if (gSavedSettings.getBOOL("NCLMTPDirect"))
 		{
-			showInfo(agent_landmark->getUUID());
+			if (!global_pos.isExactlyZero())
+			{
+				global_pos.mdV[VZ] += gAgentAvatarp->getPelvisToFoot();
+				gAgent.teleportViaLocationLookAt(global_pos);
+			}
 		}
 		else
 		{
-			if (item_ptr.isNull())
+			if (agent_landmark)
 			{
-				// check to prevent a crash. See EXT-8459.
-				llwarns << "Passed handle contains a dead inventory item. Most likely notecard has been closed and embedded item was destroyed." << llendl;
+				showInfo(agent_landmark->getUUID());
 			}
 			else
 			{
-				LLInventoryItem* item = item_ptr.get();
-				LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
-				copy_inventory_from_notecard(get_folder_by_itemtype(item),
+				if (item_ptr.isNull())
+				{
+					// check to prevent a crash. See EXT-8459.
+					llwarns << "Passed handle contains a dead inventory item. Most likely notecard has been closed and embedded item was destroyed." << llendl;
+				}
+				else
+				{
+					LLInventoryItem* item = item_ptr.get();
+					LLPointer<LLEmbeddedLandmarkCopied> cb = new LLEmbeddedLandmarkCopied();
+					copy_inventory_from_notecard(get_folder_by_itemtype(item),
 											 object_id,
 											 notecard_inventory_id,
 											 item,
 											 gInventoryCallbacks.registerCB(cb));
+				}
 			}
 		}
 	}
@@ -787,7 +799,15 @@ BOOL LLViewerTextEditor::handleMouseUp(S32 x, S32 y, MASK mask)
 			{
 				if(mDragItemSaved)
 				{
-					openEmbeddedItem(mDragItem, mDragItemChar);
+					if (gSavedSettings.getBOOL("NCLMTPDirect"))
+					{
+						if(mDragItem->getType() != LLAssetType::AT_LANDMARK)
+							openEmbeddedItem(mDragItem, mDragItemChar);
+					}
+					else
+					{
+						openEmbeddedItem(mDragItem, mDragItemChar);
+					}
 				}
 				else
 				{
@@ -824,8 +844,14 @@ BOOL LLViewerTextEditor::handleDoubleClick(S32 x, S32 y, MASK mask)
 					setFocus( FALSE );
 					return TRUE;
 				}
+				if (gSavedSettings.getBOOL("NCLMTPDirect"))
+				{
+					if(mDragItem->getType() == LLAssetType::AT_LANDMARK)
+						openEmbeddedItem(mDragItem, mDragItemChar);
+				}
 			}
 		}
+		
 		handled = LLTextEditor::handleDoubleClick(x, y, mask);
 	}
 	return handled;
@@ -1170,7 +1196,7 @@ void LLViewerTextEditor::openEmbeddedLandmark( LLPointer<LLInventoryItem> item_p
 	if (landmark)
 	{
 		LLEmbeddedLandmarkCopied::processForeignLandmark(landmark, mObjectID,
-				mNotecardInventoryID, item_ptr);
+					mNotecardInventoryID, item_ptr);
 	}
 }
 
