@@ -60,7 +60,6 @@ BOOL	LLDrawPoolAvatar::sSkipOpaque = FALSE;
 BOOL	LLDrawPoolAvatar::sSkipTransparent = FALSE;
 S32 LLDrawPoolAvatar::sDiffuseChannel = 0;
 
-
 static bool is_deferred_render = false;
 
 extern BOOL gUseGLPick;
@@ -1263,7 +1262,9 @@ void LLDrawPoolAvatar::renderAvatars(LLVOAvatar* single_avatar, S32 pass)
 	}
 }
 
-void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* face, const LLMeshSkinInfo* skin, LLVolume* volume, const LLVolumeFace& vol_face)
+void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* face, 
+													const LLMeshSkinInfo* skin, LLVolume* volume, 
+													const LLVolumeFace& vol_face, LLVOVolume* vobj)
 {
 	LLVector4a* weight = vol_face.mWeights;
 	if (!weight)
@@ -1316,11 +1317,11 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		  m.m[4], m.m[5], m.m[6],
 		  m.m[8], m.m[9], m.m[10] };
 
-		LLMatrix3 mat_normal(mat3);				
-
+		LLMatrix3 mat_normal(mat3);	
+	
 		//let getGeometryVolume know if alpha should override shiny
-		U32 type = gPipeline.getPoolTypeFromTE(face->getTextureEntry(), face->getTexture());
-
+        U32 type = gPipeline.getPoolTypeFromTE(face->getTextureEntry(), face->getTexture());
+		
 		if (type == LLDrawPool::POOL_ALPHA)
 		{
 			face->setPoolType(LLDrawPool::POOL_ALPHA);
@@ -1329,9 +1330,22 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 		{
 			face->setPoolType(LLDrawPool::POOL_AVATAR);
 		}
+		
+		LLVolume* which_volume = NULL;
+		
+		if (skin->mDeform != false)
+		{
+			LLDeformedVolume* deformed_volume = vobj->getDeformedVolume();
+			deformed_volume->deform(volume, avatar, skin, face->getTEOffset());
 
-		face->getGeometryVolume(*volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
-
+			which_volume = deformed_volume;
+		}
+		else 
+		{
+			which_volume = volume;
+		}
+		
+		face->getGeometryVolume(*which_volume, face->getTEOffset(), mat_vert, mat_normal, offset, true);
 		buffer->flush();
 	}
 
@@ -1410,6 +1424,10 @@ void LLDrawPoolAvatar::updateRiggedFaceVertexBuffer(LLVOAvatar* avatar, LLFace* 
 
 			if (norm)
 			{
+				// normals are not transformed by the same math as points.
+				// you need the inverse transpose.
+				// these matrices are non-uniformly scaled (by a lot) so this
+				// math is wrong.  (i think.)  -qarl
 				LLVector4a& n = vol_face.mNormals[j];
 				bind_shape_matrix.rotate(n, t);
 				final_mat.rotate(t, dst);
@@ -1469,12 +1487,12 @@ void LLDrawPoolAvatar::renderRigged(LLVOAvatar* avatar, U32 type, bool glow)
 			continue;
 		}
 
-		//stop_glerror();
+		stop_glerror();
 
-		//const LLVolumeFace& vol_face = volume->getVolumeFace(te);
-		//updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face);
+		const LLVolumeFace& vol_face = volume->getVolumeFace(te);
+		updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face, vobj);
 		
-		//stop_glerror();
+		stop_glerror();
 
 		U32 data_mask = LLFace::getRiggedDataMask(type);
 
@@ -1599,7 +1617,7 @@ void LLDrawPoolAvatar::updateRiggedVertexBuffers(LLVOAvatar* avatar)
 			stop_glerror();
 
 			const LLVolumeFace& vol_face = volume->getVolumeFace(te);
-			updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face);
+			updateRiggedFaceVertexBuffer(avatar, face, skin, volume, vol_face, vobj);
 		}
 	}
 }

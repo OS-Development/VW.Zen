@@ -133,7 +133,7 @@ private:
 	BOOL loadMesh( const std::string& fileName );
 
 public:
-	void genIndices(S32 offset);
+// void genIndices(S32 offset); - dead code
 
 	const LLVector2 &getUVs(U32 index);
 
@@ -232,6 +232,12 @@ public:
 	// Get normals
 	const LLVector3	*getBinormals() const{ 
 		return mBinormals; 
+	}
+	
+	// Get base mesh coords
+	const LLVector3 *getBaseCoords() const{
+		llassert(mSharedData);
+		return mSharedData->mBaseCoords;
 	}
 
 	// Get base mesh normals

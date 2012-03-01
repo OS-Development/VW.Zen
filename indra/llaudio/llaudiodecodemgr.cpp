@@ -562,7 +562,7 @@ void LLAudioDecodeMgr::Impl::processQueue(const F32 num_secs)
 			// Decode in a loop until we're done or have run out of time.
 			while(!(res = mCurrentDecodep->decodeSection()) && (decode_timer.getElapsedTimeF32() < num_secs))
 			{
-				// decodeSection does all of the work above
+					// decodeSection does all of the work above
 			}
 
 			if (mCurrentDecodep->isDone() && !mCurrentDecodep->isValid())

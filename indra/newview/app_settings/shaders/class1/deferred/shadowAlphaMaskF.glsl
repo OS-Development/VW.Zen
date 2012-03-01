@@ -27,11 +27,18 @@
 out vec4 gl_FragColor;
 #endif
 
+uniform mat4 modelview_projection_matrix;
+
 uniform float minimum_alpha;
 
 uniform sampler2D diffuseMap;
 
-VARYING vec4 post_pos;
+//flat VARYING int foo;
+VARYING float pos_zd2;
+VARYING float pos_w;
+VARYING float target_pos_x;
+//VARYING vec4 pre_pos;
+//VARYING vec4 post_pos;
 VARYING vec4 vertex_color;
 VARYING vec2 vary_texcoord0;
 
@@ -39,12 +46,39 @@ void main()
 {
 	float alpha = diffuseLookup(vary_texcoord0.xy).a * vertex_color.a;
 
-	if (alpha < minimum_alpha)
+	if (alpha < 0.05)
 	{
 		discard;
 	}
 
+	if (alpha < 0.88)
+	{
+		//vec4 pos = modelview_projection_matrix * pre_pos;
+
+		//if (0.5 > mod(vary_texcoord0.x*99999,1.0))
+		//vec4 pos = post_pos;
+		//		if (0.5 <= fract((253.5*(0.5+pos.x) + 0*127.5*(0.5+pos.y)))/pos.w)
+		//	pos.xy *= 2.0 * 255.0 / pos.w;
+
+		//pos.x = floor(posxw.x);
+		//pos.x = floor(posxw.x / posxw.t);
+		//pos.x = foo;
+
+		//pos.x *= 1 * 253.5;
+		//pos.y *= 1 * 166.0;
+		//		pos.x *= 511;
+		//		pos.y *= 1*330.0;
+		//	pos.x = floor(pos.x);
+		//	pos.y = int(pos.y);
+		//		if (0.25>= fract(0.5 * (pos.x+pos.y)))
+	  if (fract(0.5*floor(target_pos_x / pos_w )) < 0.25)
+		  //if (0.5 >= fract((0*253.5*(0.5+pos.x) + 1*166*(0.0+pos.y)))/pos.w)
+		{
+			discard;
+		}
+	}
+
 	gl_FragColor = vec4(1,1,1,1);
 	
-	gl_FragDepth = max(post_pos.z/post_pos.w*0.5+0.5, 0.0);
+	gl_FragDepth = max(pos_zd2/pos_w+0.5, 0.0);
 }

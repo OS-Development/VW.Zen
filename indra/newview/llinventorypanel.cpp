@@ -639,7 +639,7 @@ LLFolderViewFolder * LLInventoryPanel::createFolderViewFolder(LLInvFVBridge * br
 	
 	params.root = mFolderRoot;
 	params.listener = bridge;
-	params.tool_tip = params.name;
+	// params.tool_tip = params.name;
 
 	return LLUICtrlFactory::create<LLFolderViewFolder>(params);
 }
@@ -661,7 +661,7 @@ LLFolderViewItem * LLInventoryPanel::createFolderViewItem(LLInvFVBridge * bridge
 	params.root = mFolderRoot;
 	params.listener = bridge;
 	params.rect = LLRect (0, 0, 0, 0);
-	params.tool_tip = params.name;
+	// params.tool_tip = params.name;
 	
 	return LLUICtrlFactory::create<LLFolderViewItem>(params);
 }

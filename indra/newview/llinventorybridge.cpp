@@ -847,6 +847,19 @@ BOOL LLInvFVBridge::isAgentInventory() const
 	return model->isObjectDescendentOf(mUUID, gInventory.getRootFolderID());
 }
 
+BOOL LLInvFVBridge::isLibraryInventory() const
+{
+	const LLInventoryModel* model = getInventoryModel();
+	if (!model) return FALSE;
+	if (gInventory.getLibraryRootFolderID() == mUUID) return TRUE;
+	return model->isObjectDescendentOf(mUUID, gInventory.getLibraryRootFolderID());
+}
+
+BOOL LLInvFVBridge::isLostInventory() const
+{
+	return (!isAgentInventory()) && (!isLibraryInventory());
+}
+
 BOOL LLInvFVBridge::isCOFFolder() const
 {
 	return LLAppearanceMgr::instance().getIsInCOF(mUUID);
@@ -2631,6 +2644,19 @@ void LLFolderBridge::performAction(LLInventoryModel* model, std::string action)
 		restoreItem();
 		return;
 	}
+	else if ("move_to_lost_and_found" == action)
+	{
+		LLInventoryModel* pModel = getInventoryModel();
+		LLViewerInventoryCategory* pCat = getCategory();
+		if ( (!pModel) || (&gInventory != pModel) || (!pCat) )
+			return;
+		
+		change_category_parent(pModel, pCat, gInventory.findCategoryUUIDForType(LLFolderType::FT_LOST_AND_FOUND), TRUE);
+
+		gInventory.addChangedMask(LLInventoryObserver::REBUILD, mUUID);
+		gInventory.notifyObservers();
+	}
+
 #ifndef LL_RELEASE_FOR_DOWNLOAD
 	else if ("delete_system_folder" == action)
 	{
@@ -3048,6 +3074,13 @@ void LLFolderBridge::buildContextMenuBaseOptions(U32 flags)
 		{
 			mWearables=TRUE;
 		}
+	}
+	
+	else if (isLostInventory())
+	{
+		mItems.push_back(std::string("Move to Lost And Found"));
+		if (0 == (flags & FIRST_SELECTED_ITEM))
+				mDisabledItems.push_back(std::string("Move to Lost And Found"));
 	}
 
 	// Preemptively disable system folder removal if more than one item selected.

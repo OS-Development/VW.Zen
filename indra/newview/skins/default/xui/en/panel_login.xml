@@ -7,7 +7,7 @@ left="0"
 name="panel_login"
 focus_root="true" 
 top="600"
- width="996">
+ width="1024">
 <panel.string
      name="create_account_url">
        http://join.secondlife.com/
@@ -18,6 +18,10 @@ top="600"
 <panel.string
      name="forgot_password_url">
        http://secondlife.com/account/request.php
+</panel.string>
+<panel.string
+     name="download_new_version">
+       https://bitbucket.org/Zena_Juran/zen-viewer/downloads
 </panel.string>
 <!-- *NOTE: Custom resize logic for login_html in llpanellogin.cpp -->
 <web_browser
@@ -39,23 +43,101 @@ name="login_widgets"
 layout="topleft"
 orientation="horizontal"
 top="519"
-width="996"
-height="80">
+width="1024"
+height="100">
 <layout_panel
 auto_resize="false"
 follows="left|bottom"
 name="login"
 layout="topleft"
-width="705"
-min_width="705"
-height="80">
+width="1024"
+min_width="1024"
+user_resize="false"
+height="100">
+<text
+follows="left|bottom"
+font="SansSerifBig"
+height="16"
+name="zenviewer_text"
+top="6"
+left="20"
+width="150">
+Zen Viewer
+</text>
+<text
+follows="left|bottom"
+font="SansSerifSmall"
+height="16"
+name="currversion_text"
+top_pad="10"
+left="20"
+width="150">
+Installed Version:
+</text>
+<combo_box
+allow_text_entry="true"
+follows="left|bottom"
+height="20"
+left_delta="0"
+max_chars="128"
+combo_editor.prevalidate_callback="ascii"
+tool_tip=""
+left_pad="-50"
+top_delta="-5"
+name="installversionid_combo"
+width="100">
+  <combo_box.combo_button
+   visible ="false"/>
+  <combo_box.drop_down_button
+   visible ="false"/>
+</combo_box>
+<text
+follows="left|bottom"
+font="SansSerifSmall"
+height="16"
+name="installversion_text"
+top_pad="5"
+left="20"
+width="150">
+Available Version:
+</text>
+<combo_box
+allow_text_entry="true"
+follows="left|bottom"
+height="20"
+left_delta="0"
+max_chars="128"
+combo_editor.prevalidate_callback="ascii"
+tool_tip=""
+left_pad="-50"
+top_delta="-5"
+name="availversionid_combo"
+width="100">
+  <combo_box.combo_button
+   visible ="false"/>
+  <combo_box.drop_down_button
+   visible ="false"/>
+</combo_box>
+<button
+  follows="left|bottom"
+  height="40"
+  image_unselected="PushButton_On"
+  image_selected="PushButton_On_Selected"
+  label="Downloads"
+  label_color="White"
+  layout="topleft"
+  left_pad="-10"
+  name="download_btn"
+  tool_tip="Zen Viewer download site."
+  top="27"
+  width="75" />
 <text
 follows="left|bottom"
 font="SansSerifSmall"
 height="16"
 name="username_text"
-top="20"
-left="20"
+top="10"
+left_pad="70"
 width="150">
 Username:
 </text>
@@ -71,17 +153,29 @@ top_pad="0"
 name="username_combo"
 width="178">
   <combo_box.combo_button
-   visible ="false"/>
+   visible ="true"/>
   <combo_box.drop_down_button
-   visible ="false"/>
+   visible ="true"/>
 </combo_box>
+<button
+follows="left|bottom"
+height="16"
+image_selected="PushButton_On_Selected"
+label="Delete this entry"
+label_color="White"
+layout="topleft"
+top_pad="0"
+left="355"
+name="delete_saved_login_btn"
+width="150"
+tab_stop="false" />
 <text
 follows="left|bottom"
 font="SansSerifSmall"
 height="15"
-left_pad="-19"
+left_pad="35"
 name="password_text"
-top="20"
+top="10"
     width="150">
        Password:
 </text>
@@ -100,9 +194,9 @@ follows="left|bottom"
 font="SansSerifSmall"
 height="16"
 label="Remember password"
-  top_pad="3"
-  name="remember_check"
- width="135" />
+top_pad="3"
+name="remember_check"
+width="135" />
 <button
   follows="left|bottom"
   height="23"
@@ -111,9 +205,9 @@ label="Remember password"
   label="Log In"
   label_color="White"
   layout="topleft"
-  left_pad="10"
+  left_pad="75"
   name="connect_btn"
-  top="35"
+  top="25"
   width="90" />
   <text
   follows="left|bottom"
@@ -121,7 +215,7 @@ label="Remember password"
   height="15"
   left_pad="8"
   name="start_location_text"
-  top="20"
+  top="10"
   width="130">
        Start at:
  </text>
@@ -164,7 +258,8 @@ follows="right|bottom"
 name="links"
 width="205"
 min_width="205"
-height="80">
+user_resize="false"
+height="100">
    <text
 follows="right|bottom"
 font="SansSerifSmall"
@@ -199,7 +294,9 @@ name="login_help"
 top_pad="2"
 right="-10"
     width="200">
-       Need help logging in?   </text>
+       Need help logging in?
+</text>
+
 <!--  <text
     follows="right|bottom"
     font="SansSerifSmall"

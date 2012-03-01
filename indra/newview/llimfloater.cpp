@@ -314,6 +314,7 @@ void LLIMFloater::updateSessionName(const std::string& ui_title,
 									const std::string& ui_label)
 {
 	mInputEditor->setLabel(LLTrans::getString("IM_to_label") + " " + ui_label);
+	setShortTitle(ui_title);
 	setTitle(ui_title);	
 }
 
@@ -447,7 +448,7 @@ LLIMFloater* LLIMFloater::show(const LLUUID& session_id)
 			}
 
 			floater->setDockControl(new LLDockControl(chiclet, floater, floater->getDockTongue(),
-					LLDockControl::BOTTOM));
+					(LLChicletBar::ALIGN_TOP == LLChicletBar::getInstance()->getAlignment()) ? LLDockControl::BOTTOM : LLDockControl::TOP));
 		}
 
 		// window is positioned, now we can show it.

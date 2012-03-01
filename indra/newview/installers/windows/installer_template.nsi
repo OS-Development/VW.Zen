@@ -58,6 +58,8 @@ RequestExecutionLevel admin	; on Vista we must be admin because we write to Prog
 !include "%%SOURCE%%\installers\windows\lang_tr.nsi"
 !include "%%SOURCE%%\installers\windows\lang_zh.nsi"
 
+;;!include "%%SOURCE%%\installers\windowsMUI.nsh"
+
 # *TODO: Move these into the language files themselves
 LangString LanguageCode ${LANG_DANISH}   "da"
 LangString LanguageCode ${LANG_GERMAN}   "de"
@@ -85,7 +87,10 @@ LangString LanguageCode ${LANG_TRADCHINESE}  "zh"
 
 Name ${INSTNAME}
 
-SubCaption 0 $(LicenseSubTitleSetup)	; override "license agreement" text
+LicenseText "Vivox Voice System License Agreement"
+LicenseData "VivoxAUP.txt"
+
+;SubCaption 0 $(LicenseSubTitleSetup)	; override "license agreement" text
 
 BrandingText " "						; bottom of window text
 Icon          %%SOURCE%%\installers\windows\install_icon.ico
@@ -101,6 +106,8 @@ AutoCloseWindow true					; after all files install, close window
 InstallDir "$PROGRAMFILES\${INSTNAME}"
 InstallDirRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\${INSTNAME}" ""
 DirText $(DirectoryChooseTitle) $(DirectoryChooseSetup)
+
+Page license
 Page directory dirPre
 Page instfiles
 
@@ -250,23 +257,23 @@ FunctionEnd
 ; Close the program, if running. Modifies no variables.
 ; Allows user to bail out of install process.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Function CloseSecondLife
+Function CloseZen
   Push $0
-  FindWindow $0 "Second Life" ""
+  FindWindow $0 "Zen Viewer" ""
   IntCmp $0 0 DONE
   
   StrCmp $SKIP_DIALOGS "true" CLOSE
-    MessageBox MB_OKCANCEL $(CloseSecondLifeInstMB) IDOK CLOSE IDCANCEL CANCEL_INSTALL
+    MessageBox MB_OKCANCEL $(CloseZenInstMB) IDOK CLOSE IDCANCEL CANCEL_INSTALL
 
   CANCEL_INSTALL:
     Quit
 
   CLOSE:
-    DetailPrint $(CloseSecondLifeInstDP)
+    DetailPrint $(CloseZenInstDP)
     SendMessage $0 16 0 0
 
   LOOP:
-	  FindWindow $0 "Second Life" ""
+	  FindWindow $0 "Zen Viewer" ""
 	  IntCmp $0 0 DONE
 	  Sleep 500
 	  Goto LOOP
@@ -282,33 +289,33 @@ FunctionEnd
 ; *TODO: Return current SL version info and have installer check
 ; if it is up to date.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Function CheckNetworkConnection
-    Push $0
-    Push $1
-    Push $2	# Option value for GetOptions
-    DetailPrint $(CheckNetworkConnectionDP)
+;Function CheckNetworkConnection
+;    Push $0
+;    Push $1
+;    Push $2	# Option value for GetOptions
+;    DetailPrint $(CheckNetworkConnectionDP)
     ; Look for a tag value from the stub installer, used for statistics
     ; to correlate installs.  Default to "" if not found on command line.
-    StrCpy $2 ""
-    ${GetOptions} $COMMANDLINE "/STUBTAG=" $2
-    GetTempFileName $0
-    !define HTTP_TIMEOUT 5000 ; milliseconds
-    ; Don't show secondary progress bar, this will be quick.
-    NSISdl::download_quiet \
-        /TIMEOUT=${HTTP_TIMEOUT} \
-        "http://install.secondlife.com/check/?stubtag=$2&version=${VERSION_LONG}" \
-        $0
-    Pop $1 ; Return value, either "success", "cancel" or an error message
-    ; MessageBox MB_OK "Download result: $1"
-    ; Result ignored for now
-	; StrCmp $1 "success" +2
-	;	DetailPrint "Connection failed: $1"
-    Delete $0 ; temporary file
-    Pop $2
-    Pop $1
-    Pop $0
-    Return
-FunctionEnd
+;    StrCpy $2 ""
+;    ${GetOptions} $COMMANDLINE "/STUBTAG=" $2
+;    GetTempFileName $0
+;    !define HTTP_TIMEOUT 5000 ; milliseconds
+;    ; Don't show secondary progress bar, this will be quick.
+;    NSISdl::download_quiet \
+;        /TIMEOUT=${HTTP_TIMEOUT} \
+;        "http://install.secondlife.com/check/?stubtag=$2&version=${VERSION_LONG}" \
+;        $0
+;    Pop $1 ; Return value, either "success", "cancel" or an error message
+;    ; MessageBox MB_OK "Download result: $1"
+;    ; Result ignored for now
+;	; StrCmp $1 "success" +2
+;	;	DetailPrint "Connection failed: $1"
+;    Delete $0 ; temporary file
+;    Pop $2
+;    Pop $1
+;    Pop $0
+;   Return
+;FunctionEnd
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -343,8 +350,8 @@ Push $0
 Push $1
 Push $2
 
-    RMDir /r "$TEMP\SecondLifeSettingsBackup"
-    CreateDirectory "$TEMP\SecondLifeSettingsBackup"
+    RMDir /r "$TEMP\ZenSettingsBackup"
+    CreateDirectory "$TEMP\ZenSettingsBackup"
     StrCpy $0 0 ; Index number used to iterate via EnumRegKey
 
   LOOP:
@@ -357,8 +364,8 @@ Push $2
     ; Required since ProfileImagePath is of type REG_EXPAND_SZ
     ExpandEnvStrings $2 $2
 
-    CreateDirectory "$TEMP\SecondLifeSettingsBackup\$0"
-    CopyFiles /SILENT "$2\Application Data\SecondLife\*" "$TEMP\SecondLifeSettingsBackup\$0"
+    CreateDirectory "$TEMP\ZenSettingsBackup\$0"
+    CopyFiles /SILENT "$2\Application Data\Zen Viewer\*" "$TEMP\ZenSettingsBackup\$0"
 
   CONTINUE:
     IntOp $0 $0 + 1
@@ -369,12 +376,12 @@ Pop $2
 Pop $1
 Pop $0
 
-; Copy files in Documents and Settings\All Users\SecondLife
+; Copy files in Documents and Settings\All Users\Zen
 Push $0
     ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" "Common AppData"
     StrCmp $0 "" +2
-    CreateDirectory "$TEMP\SecondLifeSettingsBackup\AllUsers\"
-    CopyFiles /SILENT "$2\Application Data\SecondLife\*" "$TEMP\SecondLifeSettingsBackup\AllUsers\"
+    CreateDirectory "$TEMP\ZenSettingsBackup\AllUsers\"
+    CopyFiles /SILENT "$2\Application Data\Zen Viewer\*" "$TEMP\ZenSettingsBackup\AllUsers\"
 Pop $0
 
 FunctionEnd
@@ -400,8 +407,8 @@ Push $2
     ; Required since ProfileImagePath is of type REG_EXPAND_SZ
     ExpandEnvStrings $2 $2
 
-    CreateDirectory "$2\Application Data\SecondLife\"
-    CopyFiles /SILENT "$TEMP\SecondLifeSettingsBackup\$0\*" "$2\Application Data\SecondLife\" 
+    CreateDirectory "$2\Application Data\Zen Viewer\"
+    CopyFiles /SILENT "$TEMP\ZenSettingsBackup\$0\*" "$2\Application Data\Zen Viewer\" 
 
   CONTINUE:
     IntOp $0 $0 + 1
@@ -412,12 +419,12 @@ Pop $2
 Pop $1
 Pop $0
 
-; Copy files in Documents and Settings\All Users\SecondLife
+; Copy files in Documents and Settings\All Users\Zen Viewer
 Push $0
     ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" "Common AppData"
     StrCmp $0 "" +2
-    CreateDirectory "$2\Application Data\SecondLife\"
-    CopyFiles /SILENT "$TEMP\SecondLifeSettingsBackup\AllUsers\*" "$2\Application Data\SecondLife\" 
+    CreateDirectory "$2\Application Data\Zen Viewer\"
+    CopyFiles /SILENT "$TEMP\ZenSettingsBackup\AllUsers\*" "$2\Application Data\Zen Viewer\" 
 Pop $0
 
 FunctionEnd
@@ -443,7 +450,7 @@ Push $2
     ; Required since ProfileImagePath is of type REG_EXPAND_SZ
     ExpandEnvStrings $2 $2
 
-    RMDir /r "$TEMP\SecondLifeSettingsBackup\$0\*"
+    RMDir /r "$TEMP\ZenSettingsBackup\$0\*"
 
   CONTINUE:
     IntOp $0 $0 + 1
@@ -454,11 +461,11 @@ Pop $2
 Pop $1
 Pop $0
 
-; Copy files in Documents and Settings\All Users\SecondLife
+; Copy files in Documents and Settings\All Users\Zen Viewer
 Push $0
     ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" "Common AppData"
     StrCmp $0 "" +2
-    RMDir /r "$TEMP\SecondLifeSettingsBackup\AllUsers\*"
+    RMDir /r "$TEMP\ZenSettingsBackup\AllUsers\*"
 Pop $0
 
 FunctionEnd
@@ -552,12 +559,12 @@ FunctionEnd
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Delete files in Documents and Settings\<user>\SecondLife
-; Delete files in Documents and Settings\All Users\SecondLife
+; Delete files in Documents and Settings\<user>\Zen Viewer
+; Delete files in Documents and Settings\All Users\Zen Viewer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Function un.DocumentsAndSettingsFolder
 
-; Delete files in Documents and Settings\<user>\SecondLife
+; Delete files in Documents and Settings\<user>\Zen Viewer
 Push $0
 Push $1
 Push $2
@@ -577,14 +584,14 @@ Push $2
     ExpandEnvStrings $2 $2
 
         ; Remove all cache and settings files but leave any other .txt files to preserve the chat logs
-;    RMDir /r "$2\Application Data\SecondLife\logs"
-    RMDir /r "$2\Application Data\SecondLife\browser_profile"
-    RMDir /r "$2\Application Data\SecondLife\user_settings"
-    Delete  "$2\Application Data\SecondLife\*.xml"
-    Delete  "$2\Application Data\SecondLife\*.bmp"
-    Delete  "$2\Application Data\SecondLife\search_history.txt"
-    Delete  "$2\Application Data\SecondLife\plugin_cookies.txt"
-    Delete  "$2\Application Data\SecondLife\typed_locations.txt"
+;    RMDir /r "$2\Application Data\Zen Viewer\logs"
+    RMDir /r "$2\Application Data\Zen Viewer\browser_profile"
+    RMDir /r "$2\Application Data\Zen Viewer\user_settings"
+    Delete  "$2\Application Data\Zen Viewer\*.xml"
+    Delete  "$2\Application Data\Zen Viewer\*.bmp"
+    Delete  "$2\Application Data\Zen Viewer\search_history.txt"
+    Delete  "$2\Application Data\Zen Viewer\plugin_cookies.txt"
+    Delete  "$2\Application Data\Zen Viewer\typed_locations.txt"
 
   CONTINUE:
     IntOp $0 $0 + 1
@@ -595,17 +602,17 @@ Pop $2
 Pop $1
 Pop $0
 
-; Delete files in Documents and Settings\All Users\SecondLife
+; Delete files in Documents and Settings\All Users\Zen Viewer
 Push $0
   ReadRegStr $0 HKEY_LOCAL_MACHINE "SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders" "Common AppData"
   StrCmp $0 "" +2
-  RMDir /r "$0\SecondLife"
+  RMDir /r "$0\Zen Viewer"
 Pop $0
 
-; Delete files in C:\Windows\Application Data\SecondLife
+; Delete files in C:\Windows\Application Data\Zen Viewer
 ; If the user is running on a pre-NT system, Application Data lives here instead of
 ; in Documents and Settings.
-RMDir /r "$WINDIR\Application Data\SecondLife"
+RMDir /r "$WINDIR\Application Data\Zen Viewer"
 
 FunctionEnd
 
@@ -613,21 +620,21 @@ FunctionEnd
 ; Close the program, if running. Modifies no variables.
 ; Allows user to bail out of uninstall process.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Function un.CloseSecondLife
+Function un.CloseZen
   Push $0
-  FindWindow $0 "Second Life" ""
+  FindWindow $0 "Zen Viewer" ""
   IntCmp $0 0 DONE
-  MessageBox MB_OKCANCEL $(CloseSecondLifeUnInstMB) IDOK CLOSE IDCANCEL CANCEL_UNINSTALL
+  MessageBox MB_OKCANCEL $(CloseZenUnInstMB) IDOK CLOSE IDCANCEL CANCEL_UNINSTALL
 
   CANCEL_UNINSTALL:
     Quit
 
   CLOSE:
-    DetailPrint $(CloseSecondLifeUnInstDP)
+    DetailPrint $(CloseZenUnInstDP)
     SendMessage $0 16 0 0
 
   LOOP:
-	  FindWindow $0 "Second Life" ""
+	  FindWindow $0 "Zen Viewer" ""
 	  IntCmp $0 0 DONE
 	  Sleep 500
 	  Goto LOOP
@@ -645,10 +652,10 @@ FunctionEnd
 ;
 Function un.RemovePassword
 
-DetailPrint "Removing Second Life password"
+DetailPrint "Removing Zen Viewer password"
 
 SetShellVarContext current
-Delete "$APPDATA\SecondLife\user_settings\password.dat"
+Delete "$APPDATA\Zen Viewer\user_settings\password.dat"
 SetShellVarContext all
 
 FunctionEnd
@@ -730,7 +737,7 @@ Call un.CheckIfAdministrator		; Make sure the user can install/uninstall
 SetShellVarContext all			
 
 ; Make sure we're not running
-Call un.CloseSecondLife
+Call un.CloseZen
 
 ; Clean up registry keys and subkeys (these should all be !defines somewhere)
 DeleteRegKey HKEY_LOCAL_MACHINE "SOFTWARE\Linden Research, Inc.\$INSTPROG"
@@ -928,8 +935,8 @@ Call CheckWindowsVersion		; warn if on Windows 98/ME
 Call CheckCPUFlags			; Make sure we have SSE2 support
 Call CheckIfAdministrator		; Make sure the user can install/uninstall
 Call CheckIfAlreadyCurrent		; Make sure that we haven't already installed this version
-Call CloseSecondLife			; Make sure we're not running
-Call CheckNetworkConnection		; ping secondlife.com
+Call CloseZen			; Make sure we're not running
+;Call CheckNetworkConnection		; ping secondlife.com
 Call CheckWillUninstallV2               ; See if a V2 install exists and will be removed.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

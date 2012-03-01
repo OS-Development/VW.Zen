@@ -196,6 +196,8 @@
 #include "lldxhardware.h"
 #endif
 
+#include "zendata.h"
+
 //
 // exported globals
 //
@@ -370,6 +372,8 @@ bool idle_startup()
 		std::string lastGPU = gSavedSettings.getString("LastGPUString");
 		std::string thisGPU = LLFeatureManager::getInstance()->getGPUString();
 		
+		ZenData::getInstance()->startDownload();
+		
 		if (LLFeatureManager::getInstance()->isSafe())
 		{
 			LLNotificationsUtil::add("DisplaySetToSafe");
@@ -403,7 +407,7 @@ bool idle_startup()
 		gSavedSettings.setString("LastGPUString", thisGPU);
 
 		// load dynamic GPU/feature tables from website (S3)
-		LLFeatureManager::getInstance()->fetchHTTPTables();
+		// LLFeatureManager::getInstance()->fetchHTTPTables();
 		
 		std::string xml_file = LLUI::locateSkin("xui_version.xml");
 		LLXMLNodePtr root;
@@ -752,7 +756,7 @@ bool idle_startup()
 			if (gUserCredential.isNull())                                                                          
 			{                                                  
 				display_startup();
-				gUserCredential = gLoginHandler.initializeLoginInfo();                 
+				gUserCredential = gSecAPIHandler->loadCredential(gSavedSettings.getString("UserLoginInfo"));                
 				display_startup();
 			}     
 			if (gHeadlessClient)
@@ -769,7 +773,7 @@ bool idle_startup()
 			// connect dialog is already shown, so fill in the names
 			if (gUserCredential.notNull())                                                                         
 			{                                                                                                      
-				LLPanelLogin::setFields( gUserCredential, gRememberPassword);                                  
+				LLPanelLogin::setFields( gUserCredential);                                  
 			}     
 			display_startup();
 			LLPanelLogin::giveFocus();
@@ -867,13 +871,12 @@ bool idle_startup()
 		std::string userid = "unknown";                                                                                
 		if(gUserCredential.notNull())                                                                                  
 		{  
-			userid = gUserCredential->userID();                                                                    
-			gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword);  
+			userid = gUserCredential->userID(); 
 		}
 		gSavedSettings.setBOOL("RememberPassword", gRememberPassword);                                                 
 		LL_INFOS("AppInit") << "Attempting login as: " << userid << LL_ENDL;                                           
-		gDebugInfo["LoginName"] = userid;                                                                              
-         
+		gDebugInfo["LoginName"] = userid; 
+		
 		// create necessary directories
 		// *FIX: these mkdir's should error check
 		gDirUtilp->setLindenUserDir(userid);
@@ -1150,6 +1153,7 @@ bool idle_startup()
 				transition_back_to_login_panel(emsg.str());
 				show_connect_box = true;
 			}
+			LLPanelLogin::setVersion();
 		}
 		else if(LLLoginInstance::getInstance()->authSuccess())
 		{
@@ -1159,7 +1163,8 @@ bool idle_startup()
 				LLVoiceClient::getInstance()->userAuthorized(gUserCredential->userID(), gAgentID);
 				// create the default proximal channel
 				LLVoiceChannel::initClass();
-				LLGridManager::getInstance()->setFavorite(); 
+				gSecAPIHandler->saveCredential(gUserCredential, gRememberPassword); 
+				// LLGridManager::getInstance()->setFavorite(); 
 				LLStartUp::setStartupState( STATE_WORLD_INIT);
 			}
 			else
@@ -1170,6 +1175,7 @@ bool idle_startup()
 				LLNotificationsUtil::add("ErrorMessage", args, LLSD(), login_alert_done);
 				transition_back_to_login_panel(emsg.str());
 				show_connect_box = true;
+				LLPanelLogin::setVersion();
 				return FALSE;
 			}
 		}
@@ -1906,6 +1912,13 @@ bool idle_startup()
 
 		gRenderStartTime.reset();
 		gForegroundTime.reset();
+		
+		if (gSavedSettings.getBOOL("FetchInventoryOnLogin"))
+		{
+			// Fetch inventory in the background
+			LLInventoryModelBackgroundFetch::instance().start();
+		}
+
 
 		// HACK: Inform simulator of window size.
 		// Do this here so it's less likely to race with RegisterNewAgent.
@@ -2350,7 +2363,7 @@ void register_viewer_callbacks(LLMessageSystem* msg)
 	msg->setHandlerFuncFast(_PREHASH_ImprovedInstantMessage,	process_improved_im);
 	msg->setHandlerFuncFast(_PREHASH_ScriptQuestion,			process_script_question);
 	msg->setHandlerFuncFast(_PREHASH_ObjectProperties,			LLSelectMgr::processObjectProperties, NULL);
-	msg->setHandlerFuncFast(_PREHASH_ObjectPropertiesFamily,	LLSelectMgr::processObjectPropertiesFamily, NULL);
+	msg->setHandlerFuncFast(_PREHASH_ObjectPropertiesFamily,	process_object_properties_family, NULL);
 	msg->setHandlerFunc("ForceObjectSelect", LLSelectMgr::processForceObjectSelect);
 
 	msg->setHandlerFuncFast(_PREHASH_MoneyBalanceReply,		process_money_balance_reply,	NULL);

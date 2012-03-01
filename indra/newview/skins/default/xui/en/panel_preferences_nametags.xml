@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<panel
+ border="true"
+ follows="left|top|right|bottom"
+ height="408"
+ label="Name Tags"
+ layout="topleft"
+ left="102"
+ name="colors_panel"
+ top="1"
+ width="517">
+  <text
+    type="string"
+    length="1"
+    follows="left|top"
+    height="15"
+    layout="topleft"
+    left="30"
+    name="name_tags_textbox"
+    top_pad="15"
+    width="400">
+       Name Tags:
+   </text>
+   <radio_group
+     control_name="AvatarNameTagMode"
+     height="20"
+     layout="topleft"
+     left="50"
+     top_pad="5" 
+     name="Name_Tag_Preference">
+        <radio_item
+         label="Off"
+         name="radio"
+         top_delta="20" 
+         layout="topleft"
+         height="16" 
+         left="0" 
+         value="0"
+         width="75" />
+        <radio_item
+         label="On"
+         left_pad="0"
+         layout="topleft"
+         top_delta="0" 
+         height="16" 
+         name="radio2"
+         value="1"
+         width="75" />
+        <radio_item
+         label="Show briefly"
+         left_pad="0"
+         name="radio3"
+         height="16"
+         layout="topleft"
+         top_delta="0"
+         value="2"
+         width="160" />
+    </radio_group>
+
+   <text
+    type="string"
+    length="1"
+    follows="left|top"
+    height="10"
+    layout="topleft"
+    left="30"
+    name="name_tags_show_text"
+    top_pad="10"
+    width="400">
+       Show:
+   </text>
+    <check_box
+	 enabled_control="AvatarNameTagMode"
+     control_name="RenderNameShowSelf"
+     height="16"
+     label="My Name"
+     follows="top|left"
+     layout="topleft"
+     left="50"
+     name="show_my_name_checkbox1"
+     top_pad="10"
+     width="200" />
+   <check_box
+     control_name="NameTagShowUsernames"
+     enabled_control="AvatarNameTagMode"
+     height="16"
+     label="Usernames"
+     follows="top|left"
+     layout="topleft"
+     left_delta="0"
+     name="show_slids"
+     top_pad="5"
+     tool_tip="Show username, like bobsmith123"
+     width="200"  />
+    <check_box
+	 control_name="UseDisplayNames"
+	 follows="top|left"
+	 height="16"
+	 label="Display Names"
+	 layout="topleft"
+	 left_delta="0"
+	 name="display_names_check"
+	 width="200"
+	 tool_tip="Check to use display names in chat, IM, name tags, etc."
+	 top_pad="5"/>
+    <check_box
+     control_name="NameTagShowGroupTitles"
+     enabled_control="AvatarNameTagMode"
+     height="16"
+     label="Group Titles"
+     follows="top|left"
+     layout="topleft"
+     left_delta="0"
+     width="200" 
+     name="show_all_title_checkbox1"
+	 tool_tip="Show group titles, like Officer or Member"
+	 top_pad="5"/>	    
+    <check_box
+     control_name="NameTagShowFriends"
+	 enabled_control="AvatarNameTagMode"
+     height="16"
+     label="Highlight Friends"
+     layout="topleft"
+     left="50"
+     top_pad="5"
+	 width="200"
+     name="show_friends"
+     tool_tip="Highlight the name tags of your friends"/>
+
+    <text
+      follows="left|top"
+      layout="topleft"
+      left="30"
+      height="12"
+      name="font_colors" 
+      top_pad="20" 
+      width="150"
+      >
+    Name in Viewer Colors:
+    </text>
+
+	<text
+      follows="left|top"
+      layout="topleft"
+	  text_color="Yellow"
+      left_pad="0"
+      height="12"
+      name="font_colors" 
+      top_delta="0" 
+      width="200"
+      >
+    (changes require restart)
+    </text> 
+  
+    <color_swatch
+     can_apply_immediately="true"
+     follows="left|top"
+     height="47"
+     layout="topleft"
+     left="50"
+     name="matching names"
+     top_pad="10"
+     width="44" >
+		<color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="NameTagMatch" />
+		<color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="NameTagMatch" />
+	</color_swatch>
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="10"
+     layout="topleft"
+     left_pad="5"
+     mouse_opaque="false"
+     name="matching names text"
+     top_delta="5"
+     width="295">
+        Matching Username and Display Name
+    </text>
+    <color_swatch
+     can_apply_immediately="true"
+     follows="left|top"
+     height="47"
+     layout="topleft"
+     left="50"
+     name="mismatching names"
+     top_pad="20"
+     width="44" >
+		<color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="NameTagMismatch" />
+		<color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="NameTagMismatch" />
+	</color_swatch>
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="10"
+     layout="topleft"
+     left_pad="5"
+     mouse_opaque="false"
+     name="differing names text"
+     top_delta="5"
+     width="295">
+        Differing Username and Display Name
+    </text>
+    <color_swatch
+     can_apply_immediately="true"
+     color="SL-EmphasisColor_35"
+     follows="left|top"
+     height="47"
+     layout="topleft"
+     left="50"
+     name="friends colorbox"
+     top_pad="20"
+     width="44" >
+		<color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="NameTagFriend" />
+		<color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="NameTagFriend" />
+	</color_swatch>
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="10"
+     layout="topleft"
+     left_pad="5"
+     mouse_opaque="false"
+     name="friends text"
+     top_delta="5"
+     width="295">
+        Friends (if highlighting selected)
+    </text>
+	<text
+   follows="left|top"
+   layout="topleft"
+   left="30"
+   height="12"
+   name="bubble_chat"
+   top_pad="30"
+   width="495"
+   >
+    Name Tag Background Color (also affects Bubble Chat):
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="0 0 0 1"
+   control_name="NameTagBackground"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_delta="20"
+   top_pad="10"
+   name="background"
+   tool_tip="Choose name tag color"
+   width="44">
+   <color_swatch.init_callback
+    function="Pref.getUIColor"
+    parameter="NameTagBackground" />
+   <color_swatch.commit_callback
+    function="Pref.applyUIColor"
+    parameter="NameTagBackground" />
+  </color_swatch>
+  <slider
+   control_name="ChatBubbleOpacity"
+   follows="left|top"
+   height="16"
+   increment="0.05"
+   initial_value="1"
+   label="Opacity:"
+   layout="topleft"
+   left_pad="10"
+   label_width="70"
+   name="bubble_chat_opacity"
+   tool_tip="Choose name tag opacity"
+   top_delta = "6"
+   width="378" />
+</panel>

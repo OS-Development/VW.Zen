@@ -543,7 +543,7 @@ std::string LLViewerMedia::getCurrentUserAgent()
 	// Don't use user-visible string to avoid 
 	// punctuation and strange characters.
 	std::string skin_name = gSavedSettings.getString("SkinCurrent");
-
+	std::string theme_name = gSavedSettings.getString("SkinCurrentTheme");
 	// Just in case we need to check browser differences in A/B test
 	// builds.
 	std::string channel = LLVersionInfo::getChannel();
@@ -557,7 +557,8 @@ std::string LLViewerMedia::getCurrentUserAgent()
 	std::ostringstream codec;
 	codec << "SecondLife/";
 	codec << LLVersionInfo::getVersion();
-	codec << " (" << channel << "; " << skin_name << " skin)";
+//	codec << " (" << channel << "; " << skin_name << " skin)";
+	codec << " (" << channel << "; " << skin_name << " skin" << "; " << theme_name << " theme)";
 	llinfos << codec.str() << llendl;
 	
 	return codec.str();

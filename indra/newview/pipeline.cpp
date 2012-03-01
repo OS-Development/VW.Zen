@@ -203,10 +203,6 @@ extern S32 gBoxFrame;
 extern BOOL gDisplaySwapBuffers;
 extern BOOL gDebugGL;
 
-// hack counter for rendering a fixed number of frames after toggling
-// fullscreen to work around DEV-5361
-static S32 sDelayedVBOEnable = 0;
-
 BOOL	gAvatarBacklight = FALSE;
 
 BOOL	gDebugPipeline = FALSE;
@@ -411,6 +407,7 @@ LLPipeline::LLPipeline() :
 	mOldRenderDebugMask(0),
 	mGroupQ1Locked(false),
 	mGroupQ2Locked(false),
+	mResetVertexBuffers(false),
 	mLastRebuildPool(NULL),
 	mAlphaPool(NULL),
 	mSkyPool(NULL),
@@ -692,8 +689,6 @@ void LLPipeline::destroyGL()
 
 	if (LLVertexBuffer::sEnableVBOs)
 	{
-		// render 30 frames after switching to work around DEV-5361
-		sDelayedVBOEnable = 30;
 		LLVertexBuffer::sEnableVBOs = FALSE;
 	}
 }
@@ -847,9 +842,10 @@ bool LLPipeline::allocateScreenBuffer(U32 resX, U32 resY, U32 samples)
 
 		if (shadow_detail > 0)
 		{ //allocate 4 sun shadow maps
+			U32 mSunShadowMapWidth = ((U32(resX*scale)+1)&~1); // must be even to avoid a stripe in the horizontal shadow blur
 			for (U32 i = 0; i < 4; i++)
 			{
-				if (!mShadow[i].allocate(U32(resX*scale),U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE)) return false;
+				if (!mShadow[i].allocate(mSunShadowMapWidth,U32(resY*scale), 0, TRUE, FALSE, LLTexUnit::TT_RECT_TEXTURE)) return false;
 			}
 		}
 		else
@@ -1081,10 +1077,11 @@ void LLPipeline::createGLBuffers()
 
 	if (LLPipeline::sWaterReflections)
 	{ //water reflection texture
-		U32 res = (U32) gSavedSettings.getS32("RenderWaterRefResolution");
+		U32 res = (U32) llmax(gSavedSettings.getS32("RenderWaterRefResolution"), 512);
 			
 		mWaterRef.allocate(res,res,GL_RGBA,TRUE,FALSE);
-		mWaterDis.allocate(res,res,GL_RGBA,TRUE,FALSE);
+		//always use FBO for mWaterDis so it can be used for avatar texture bakes
+		mWaterDis.allocate(res,res,GL_RGBA,TRUE,FALSE,LLTexUnit::TT_TEXTURE, true);
 	}
 
 	mHighlight.allocate(256,256,GL_RGBA, FALSE, FALSE);
@@ -2522,15 +2519,6 @@ void LLPipeline::updateGeom(F32 max_dtime)
 	LLFastTimer t(FTM_GEO_UPDATE);
 
 	assertInitialized();
-
-	if (sDelayedVBOEnable > 0)
-	{
-		if (--sDelayedVBOEnable <= 0)
-		{
-			resetVertexBuffers();
-			LLVertexBuffer::sEnableVBOs = TRUE;
-		}
-	}
 
 	// notify various object types to reset internal cost metrics, etc.
 	// for now, only LLVOVolume does this to throttle LOD changes
@@ -6185,7 +6173,7 @@ LLSpatialPartition* LLPipeline::getSpatialPartition(LLViewerObject* vobj)
 
 void LLPipeline::resetVertexBuffers(LLDrawable* drawable)
 {
-	if (!drawable || drawable->isDead())
+	if (!drawable)
 	{
 		return;
 	}
@@ -6198,7 +6186,19 @@ void LLPipeline::resetVertexBuffers(LLDrawable* drawable)
 }
 
 void LLPipeline::resetVertexBuffers()
-{	
+{
+	mResetVertexBuffers = true;
+}
+
+void LLPipeline::doResetVertexBuffers()
+{
+	if (!mResetVertexBuffers)
+	{
+		return;
+	}
+	
+	mResetVertexBuffers = false;
+
 	for (LLWorld::region_list_t::const_iterator iter = LLWorld::getInstance()->getRegionList().begin(); 
 			iter != LLWorld::getInstance()->getRegionList().end(); ++iter)
 	{
@@ -6224,10 +6224,8 @@ void LLPipeline::resetVertexBuffers()
 
 	if (LLVertexBuffer::sGLCount > 0)
 	{
-		llwarns << "VBO wipe failed." << llendl;
+		llwarns << "VBO wipe failed -- " << LLVertexBuffer::sGLCount << " buffers remaining." << llendl;
 	}
-
-	llassert(LLVertexBuffer::sGLCount == 0);
 
 	LLVertexBuffer::unbind();	
 	
@@ -6646,9 +6644,12 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 				mDeferredLight.flush();
 			}
 
+			U32 dof_width = mScreen.getWidth()*CameraDoFResScale;
+			U32 dof_height = mScreen.getHeight()*CameraDoFResScale;
+			
 			{ //perform DoF sampling at half-res (preserve alpha channel)
 				mScreen.bindTarget();
-				glViewport(0,0,(GLsizei) (mScreen.getWidth()*CameraDoFResScale), (GLsizei) (mScreen.getHeight()*CameraDoFResScale));
+				glViewport(0,0, dof_width, dof_height);
 				gGL.setColorMask(true, false);
 
 				shader = &gDeferredPostProgram;
@@ -6661,7 +6662,7 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 
 				shader->uniform1f(LLShaderMgr::DOF_MAX_COF, CameraMaxCoF);
 				shader->uniform1f(LLShaderMgr::DOF_RES_SCALE, CameraDoFResScale);
-
+				
 				gGL.begin(LLRender::TRIANGLE_STRIP);
 				gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);
 				gGL.vertex2f(-1,-1);
@@ -6706,6 +6707,8 @@ void LLPipeline::renderBloom(BOOL for_snapshot, F32 zoom_factor, int subfield)
 
 				shader->uniform1f(LLShaderMgr::DOF_MAX_COF, CameraMaxCoF);
 				shader->uniform1f(LLShaderMgr::DOF_RES_SCALE, CameraDoFResScale);
+				shader->uniform1f(LLShaderMgr::DOF_WIDTH, dof_width-1);
+				shader->uniform1f(LLShaderMgr::DOF_HEIGHT, dof_height-1);
 
 				gGL.begin(LLRender::TRIANGLE_STRIP);
 				gGL.texCoord2f(tc1.mV[0], tc1.mV[1]);

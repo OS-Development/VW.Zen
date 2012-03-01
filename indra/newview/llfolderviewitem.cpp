@@ -42,6 +42,7 @@
 // linden library includes
 #include "llfocusmgr.h"		// gFocusMgr
 #include "lltrans.h"
+#include "aoengine.h"
 
 ///----------------------------------------------------------------------------
 /// Class LLFolderViewItem
@@ -279,7 +280,7 @@ void LLFolderViewItem::refreshFromListener()
 			LLTrans::findString(mLabel, "InvFolder " + mLabel);
 		};
 
-		setToolTip(mLabel);
+		// setToolTip(mLabel);
 		setIcon(mListener->getIcon());
 		time_t creation_date = mListener->getCreationDate();
 		if ((creation_date > 0) && (mCreationDate != creation_date))
@@ -859,7 +860,7 @@ void LLFolderViewItem::draw()
 	static LLUIColor sLinkColor = LLUIColorTable::instance().getColor("InventoryItemLinkColor", DEFAULT_WHITE);
 	static LLUIColor sSearchStatusColor = LLUIColorTable::instance().getColor("InventorySearchStatusColor", DEFAULT_WHITE);
 	static LLUIColor sMouseOverColor = LLUIColorTable::instance().getColor("InventoryMouseOverColor", DEFAULT_WHITE);
-
+	static LLUIColor sProtectedColor = LLUIColorTable::instance().getColor("InventoryProtectedColor", DEFAULT_WHITE);
 	const Params& default_params = LLUICtrlFactory::getDefaultParams<LLFolderViewItem>();
 	const S32 TOP_PAD = default_params.item_top_pad;
 	const S32 FOCUS_LEFT = 1;
@@ -1054,6 +1055,15 @@ void LLFolderViewItem::draw()
 						 LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, 
 						 S32_MAX, S32_MAX, &right_x, FALSE);
 	}
+	
+	if(mListener->getUUID()==AOEngine::instance().getAOFolder() && gSavedPerAccountSettings.getBOOL("_NACL_ProtectAOFolders"))
+	{
+		std::string locked_string = " (" + LLTrans::getString("ProtectedFolder") + ") ";
+		font->renderUTF8(locked_string, 0, right_x, y, sProtectedColor,
+						LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, 
+						S32_MAX, S32_MAX, &right_x, FALSE);
+	}
+
 
 	//--------------------------------------------------------------------------------//
 	// Draw label suffix
@@ -1092,6 +1102,27 @@ void LLFolderViewItem::draw()
 	}
 }
 
+BOOL LLFolderViewItem::handleToolTip(S32 x, S32 y, MASK mask)
+{
+	if( childrenHandleToolTip( x, y, mask ) )
+		return TRUE;
+
+	int nStart = ARROW_SIZE + TEXT_PAD + ICON_WIDTH + ICON_PAD + mIndentation;
+	int nWidth = getLabelFontForStyle(mLabelStyle)->getWidth(mLabel) + nStart;
+
+  	if( getRoot()->getParentPanel()->getRect().getWidth() < nWidth ) // Label is truncated, display tooltip
+	{
+		setToolTip( mLabel );
+		return LLView::handleToolTip( x, y, mask );
+	}
+	else
+		setToolTip( LLStringExplicit("") );
+
+	if( this == getRoot() )
+		return TRUE;
+
+	return FALSE;
+}
 
 ///----------------------------------------------------------------------------
 /// Class LLFolderViewFolder

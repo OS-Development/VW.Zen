@@ -155,6 +155,7 @@ const U8    LL_PCODE_PATH_IGNORE    = 0x00;
 const U8	LL_PCODE_PATH_MIN		= 0x01;		// min/max needs to be >> 4 of real min/max
 const U8    LL_PCODE_PATH_LINE      = 0x10;
 const U8    LL_PCODE_PATH_CIRCLE    = 0x20;
+const U8    LL_PCODE_PATH_CIRCLE_33 = 0x21;
 const U8    LL_PCODE_PATH_CIRCLE2   = 0x30;
 const U8    LL_PCODE_PATH_TEST      = 0x40;
 const U8    LL_PCODE_PATH_FLEXIBLE  = 0x80;
@@ -1108,6 +1109,7 @@ BOOL LLTriangleRayIntersect(const LLVector4a& vert0, const LLVector4a& vert1, co
 BOOL LLTriangleRayIntersectTwoSided(const LLVector4a& vert0, const LLVector4a& vert1, const LLVector4a& vert2, const LLVector4a& orig, const LLVector4a& dir,
 							F32& intersection_a, F32& intersection_b, F32& intersection_t);
 	
-	
+F32 LLTriangleClosestPoint(const LLVector3& vert0, const LLVector3& vert1, const LLVector3& vert2, const LLVector3& target,
+						   F32& closest_a, F32& closest_b);
 
 #endif

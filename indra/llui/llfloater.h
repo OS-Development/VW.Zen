@@ -528,7 +528,14 @@ public:
 	// value is not defined.
 	S32 getZOrder(LLFloater* child);
 
-	void setFloaterSnapView(LLHandle<LLView> snap_view) {mSnapView = snap_view; }
+	protected:
+	void	onFloaterSnapReshape();
+public:
+	LLView*	getFloaterSnapView()	{ return mSnapView.get(); }
+	void	setFloaterSnapView(LLHandle<LLView> snap_view);
+
+	typedef boost::signals2::signal<void (LLView* view, const LLRect& rect)> snap_changed_signal_t;
+	static boost::signals2::connection setFloaterSnapChangedCallback(const snap_changed_signal_t::slot_type& cb);
 
 private:
 	void hiddenFloaterClosed(LLFloater* floater);
@@ -541,6 +548,8 @@ private:
 	S32				mMinimizePositionVOffset;
 	typedef std::vector<std::pair<LLHandle<LLFloater>, boost::signals2::connection> > hidden_floaters_t;
 	hidden_floaters_t mHiddenFloaters;
+	
+	static snap_changed_signal_t s_SnapChangedSignal;
 };
 
 //

@@ -82,6 +82,7 @@
 #include "llviewerwindow.h"
 #include "llvoavatarself.h"
 #include "llwearablelist.h"
+#include "aoengine.h"
 
 #include <boost/foreach.hpp>
 
@@ -116,6 +117,10 @@ void change_item_parent(LLInventoryModel* model,
 {
 	if (item->getParentUUID() != new_parent_id)
 	{
+		if(model->isObjectDescendentOf(item->getUUID(),AOEngine::instance().getAOFolder())
+			&& gSavedPerAccountSettings.getBOOL("ProtectAOFolders"))
+			return;
+
 		LLInventoryModel::update_list_t update;
 		LLInventoryModel::LLCategoryUpdate old_folder(item->getParentUUID(),-1);
 		update.push_back(old_folder);
@@ -146,6 +151,10 @@ void change_category_parent(LLInventoryModel* model,
 	{
 		return;
 	}
+	
+	if(model->isObjectDescendentOf(cat->getUUID(),AOEngine::instance().getAOFolder())
+		&& gSavedPerAccountSettings.getBOOL("ProtectAOFolders"))
+		return;
 
 	LLInventoryModel::update_list_t update;
 	LLInventoryModel::LLCategoryUpdate old_folder(cat->getParentUUID(), -1);
@@ -414,6 +423,10 @@ BOOL get_is_category_removable(const LLInventoryModel* model, const LLUUID& id)
 	{
 		return FALSE;
 	}
+	
+	if((id==AOEngine::instance().getAOFolder() || model->isObjectDescendentOf(id,AOEngine::instance().getAOFolder()))
+		&& gSavedPerAccountSettings.getBOOL("ProtectAOFolders"))
+		return FALSE;
 
 	if (!isAgentAvatarValid()) return FALSE;
 
@@ -449,6 +462,11 @@ BOOL get_is_category_renameable(const LLInventoryModel* model, const LLUUID& id)
 	{
 		return FALSE;
 	}
+	
+	if((id==AOEngine::instance().getAOFolder() || model->isObjectDescendentOf(id,AOEngine::instance().getAOFolder()))
+		&& gSavedPerAccountSettings.getBOOL("ProtectAOFolders"))
+	return FALSE;
+
 
 	LLViewerInventoryCategory* cat = model->getCategory(id);
 

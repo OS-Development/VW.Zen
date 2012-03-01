@@ -1,0 +1,483 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<panel
+ border="true"
+ follows="left|top|right|bottom"
+ height="408"
+ label="UI Skinning"
+ layout="topleft"
+ left="102"
+ name="skins_panel"
+ top="1"
+ width="517">
+	<text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="12"
+   layout="topleft"
+   left="30"
+   name="UI Size:"
+   top="15"
+   width="100">
+    UI size:
+  </text>
+  <slider
+   control_name="UIScaleFactor"
+   decimal_digits="2"
+   follows="left|top"
+   height="17"
+   increment="0.025"
+   initial_value="1"
+   layout="topleft"
+   left_pad="0"
+   max_val="1.4"
+   min_val="0.6"
+   name="ui_scale_slider"
+   top_pad="-14"
+   width="270" />
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="15"
+     layout="topleft"
+     left="110"
+     name="skin_textbox"
+     top_pad="20"
+     width="100">
+        Skin
+    </text>
+    <combo_box
+     follows="left|top"
+     height="23"
+     layout="topleft"
+     left_pad="-60"
+     max_chars="135"
+     name="skin_combobox"
+     width="200">
+    </combo_box>
+    <text
+     font="SansSerifSmall"
+     type="string"
+     text_color="Yellow"
+     length="1"
+     follows="left|top"
+     height="18"
+     layout="topleft"
+     left_pad="10"
+     name="skin_textbox1"
+     width="200">
+        (Requires Restart)
+    </text>
+
+    <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="15"
+     layout="topleft"
+     left="60"
+     top_pad="15"
+     name="theme_textbox"
+     width="100">
+        Color Scheme
+    </text>
+    <combo_box
+     follows="left|top"
+     height="23"
+     layout="topleft"
+     left_pad="-10"
+	 name="theme_combobox"
+     width="200">
+    </combo_box>
+    <text
+     font="SansSerifSmall"
+     type="string"
+     text_color="Yellow"
+     length="1"
+     follows="left|top"
+     height="18"
+     layout="topleft"
+     left_pad="10"
+     name="theme_textbox2"
+     width="200">
+        (Requires Restart)
+    </text>
+	
+	<text
+     follows="left|top"
+     layout="topleft"
+     left="230"
+     height="12"
+     name="floater_opacity"
+     top_pad="15"
+     width="200">
+		Opacity
+    </text>
+		
+  <slider
+   can_edit_text="false"
+   control_name="ToolbarButtonOPacity"
+   decimal_digits="2"
+   follows="left|top"
+   height="16"
+   increment="0.01"
+   initial_value="0.5"
+   layout="topleft"
+   label_width="100"
+   label="Toolbar Buttons:"
+   left="20"
+   max_val="1.00"
+   min_val="0.00"
+   name="active"
+   show_text="true"
+   top_pad="5"
+   width="390" />
+  <slider
+   can_edit_text="false"
+   control_name="ActiveFloaterTransparency"
+   decimal_digits="2"
+   follows="left|top"
+   height="16"
+   increment="0.01"
+   initial_value="0.8"
+   layout="topleft"
+   label_width="100"
+   label="Active Floaters:"
+   left="20"
+   max_val="1.00"
+   min_val="0.00"
+   name="active"
+   show_text="true"
+   top_pad="3"
+   width="390" />
+  <slider
+   can_edit_text="false"
+   control_name="InactiveFloaterTransparency"
+   decimal_digits="2"
+   follows="left|top"
+   height="16"
+   increment="0.01"
+   initial_value="0.5"
+   layout="topleft"
+   label_width="100"
+   label="Inactive Floaters:"
+   left="20"
+   max_val="1.00"
+   min_val="0.00"
+   name="inactive"
+   show_text="true"
+   top_pad="3"
+   width="390" />
+  <slider
+   can_edit_text="false"
+   control_name="ChatBubbleOpacity"
+   decimal_digits="2"
+   follows="left|top"
+   height="16"
+   increment="0.01"
+   initial_value="1"
+   layout="topleft"
+   label_width="100"
+   label="Chat Bubble:"
+   left ="20"
+   max_val="1.00"
+   min_val="0.00"
+   name="bubble_chat_opacity"
+   show_text="true"
+   top_pad = "3"
+   width="390" /> 
+  <text
+   follows="left|top"
+   layout="topleft"
+   left="210"
+   height="12"
+   name="custom_colors_text"
+   top_pad="15"
+   width="170">
+    Custom Colors
+  </text>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left="85"
+   mouse_opaque="false"
+   name="text_box1"
+   top_pad="20"
+   width="100">
+    Menu Background
+  </text> 
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="10"
+   name="swatch_menu_background"
+   top_delta="-7"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="MenuDefaultBgColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="MenuDefaultBgColor" />
+  </color_swatch>
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="30"
+   name="swatch_menu_popup"
+   top_delta="0"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="MenuPopupBgColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="MenuPopupBgColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="10"
+   mouse_opaque="false"
+   name="text_box2"
+   top_delta="7"
+   width="175">
+    Menu Popup
+  </text>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left="100"
+   mouse_opaque="false"
+   name="text_box3"
+   top_pad="20"
+   width="100">
+    Menu Highlight
+  </text> 
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="-5"
+   name="buttonnormal"
+   top_delta="-7"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="MenuItemHighlightBgColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="MenuItemHighlightBgColor" />
+  </color_swatch>
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="30"
+   name="buttonselect"
+   top_delta="0"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="MenuItemHighlightFgColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="MenuItemHighlightFgColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="10"
+   mouse_opaque="false"
+   name="text_box4"
+   top_delta="7"
+   width="175">
+    Menu HIghlight Text
+  </text>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left="85"
+   text_color="Yellow"
+   mouse_opaque="false"
+   name="text_box5"
+   top_pad="20"
+   width="100">
+    Panel Background
+  </text> 
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="10"
+   name="buttonnormal"
+   top_delta="-7"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="PanelDefaultBackgroundColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="PanelDefaultBackgroundColor" />
+  </color_swatch>
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="30"
+   name="buttonselect"
+   top_delta="0"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="PanelFocusBackgroundColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="PanelFocusBackgroundColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="10"
+   text_color="Yellow"
+   mouse_opaque="false"
+   name="text_box6"
+   top_delta="7"
+   width="175">
+    Panel Background Focus
+  </text>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left="77"
+   text_color="Yellow"
+   mouse_opaque="false"
+   name="text_box5"
+   top_pad="20"
+   width="105">
+    Floater Background
+  </text> 
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="13"
+   name="buttonnormal"
+   top_delta="-7"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="FloaterDefaultBackgroundColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="FloaterDefaultBackgroundColor" />
+  </color_swatch> 
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left_pad="30"
+   name="buttonselect"
+   top_delta="0"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="FloaterFocusBackgroundColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="FloaterFocusBackgroundColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="10"
+   text_color="Yellow"
+   mouse_opaque="false"
+   name="text_box6"
+   top_delta="7"
+   width="175">
+    Floater Background Focus
+  </text>
+  <text
+     type="string"
+     length="1"
+     follows="top|left"
+     height="12"
+     layout="topleft"
+     left="152"
+     name="reset_colors_label"
+     top_pad="30"
+     width="90">
+        Reset Colors
+    </text>
+	 <button
+	 enabled_control="ResetColors"
+     follows="top|left"
+     height="23"
+     image_overlay="Arrow_Up"
+     hover_glow_amount="0.15"
+     layout="topleft"
+     left_pad="-10"
+     name="reset_colors_popups"
+	 top_delta="-5"
+     width="40">
+        <button.commit_callback
+         function="Pref.ResetColors" />
+    </button>
+	<text
+     font="SansSerifSmall"
+     type="string"
+     text_color="Yellow"
+     length="1"
+     follows="left|top"
+     height="18"
+     layout="topleft"
+     left_pad="10"
+     name="reset_textbox"
+     width="200">
+        (Requires Restart)
+    </text>
+</panel>

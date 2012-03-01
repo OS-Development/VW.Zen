@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<panel
+ border="true"
+ follows="all"
+ height="408"
+ label="Build"
+ layout="topleft"
+ left="102"
+ name="advanced"
+ top="1"
+ width="517">
+	<panel.string
+     name="aspect_ratio_text">
+        [NUM]:[DEN]
+    </panel.string>
+  
+   
+    <text
+         follows="left|top"
+		 layout="topleft"
+         height="20"
+         left="30"
+		 top="20"
+         name="text_box_objprams"
+         width="175">
+         Default Object Parameters
+         </text>
+        <view_border
+         top_pad="5"
+         left="30"
+         height="75"
+		 width="200"
+         follows="left|top"
+		 layout="topleft"
+         bevel_style="none"
+         border_thickness="1"
+         name="SizeBorder"/>
+        <spinner
+         top="55"
+         left="50"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="X size"
+         label_width="40"
+		 initial_value="0.5"
+         max_val="64"
+         min_val="0.01"
+         name="X size"
+         width="120"
+         control_name="BuildPrefsXsize"/>
+        <spinner
+         top_pad="3"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="Y size"
+         label_width="40"
+		 initial_value="0.5"
+         max_val="64"
+         min_val="0.01"
+         name="Y size"
+         width="120"
+         control_name="BuildPrefsYsize"/>
+        <spinner
+         top_pad="3"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="Z size"
+         label_width="40"
+		 initial_value="0.5"
+         max_val="64"
+         min_val="0.01"
+         name="Z size"
+         width="120"
+         control_name="BuildPrefsZsize"/>
+        <text
+         top_pad="30"
+         left="30"
+         follows="left|top"
+		 layout="topleft"
+         height="20"
+         name="text_box_objmaterial"
+         width="50">
+         Material:
+         </text>
+        <combo_box
+         left_pad="2"
+         height="20"
+         width="80"
+         allow_text_entry="false"
+         follows="left|top"
+         name="material"
+         control_name="BuildPrefsMaterial">
+             <combo_item name="Wood" value="Wood">Wood</combo_item>
+			 <combo_item name="Stone" value="Stone">Stone</combo_item>
+             <combo_item name="Metal" value="Metal">Metal</combo_item>
+             <combo_item name="Glass" value="Glass">Glass</combo_item>
+             <combo_item name="Flesh" value="Flesh">Flesh</combo_item>
+             <combo_item name="Plastic" value="Plastic">Plastic</combo_item>
+             <combo_item name="Rubber" value="Rubber">Rubber</combo_item>
+        </combo_box>
+
+        <text
+         top_pad="30"
+         left="30"
+         follows="left|top"
+		 layout="topleft"
+         height="20"
+         name="text_box_pivotpoint"
+         width="135">
+          Pivot Point
+        </text>
+        <view_border
+         top_pad="5"
+         bevel_style="none"
+         border_thickness="1"
+         follows="left|top"
+		 layout="topleft"
+         height="145"
+         name="PivotBorder"
+         width="275"/>
+        <check_box
+         top_pad="-127"
+		 left="50"
+         follows="left|top"
+		 layout="topleft"
+         label="Show axis arrow on root prim position"
+         tool_tip="Default behaviour is to show the axis on the center of mass of a linkset. If enabled, the axis will be shown on the root prim of the linkset instead."
+         name="BuildPrefsActualRoot_toggle"
+         control_name="BuildPrefsActualRoot"/>
+        <spinner
+         top_pad="4"
+         left_delta="5"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="X pos"
+         label_width="40"
+         max_val="256"
+         min_val="-256"
+         name="X pos"
+         width="130"
+         control_name="BuildPrefsPivotX"/>
+        <spinner
+         top_pad="3"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="Y pos"
+         label_width="40"
+         max_val="256"
+         min_val="-256"
+         name="Y pos"
+         width="130"
+         control_name="BuildPrefsPivotY"/>
+        <spinner
+         top_pad="3"
+         decimal_digits="4"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         increment="0.05"
+         label="Z pos"
+         label_width="40"
+         max_val="256"
+         min_val="-256"
+         name="Z pos"
+         width="130"
+         control_name="BuildPrefsPivotZ"/>
+        <check_box
+         top_pad="15"
+         left_delta="-5"
+         enabled="true"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         label="Values are percent"
+         tool_tip="Default settings are Percentages and every axis set at 50"
+         name="PivotPerc_toggle"
+         width="100"
+         control_name="BuildPrefsPivotIsPercent"/>
+
+        <check_box
+         top_pad="5"
+         follows="left|top"
+		 layout="topleft"
+         height="16"
+         label="Enable highlighting of selected prims"
+         tool_tip="When unchecked, the yellow/blue outline effects are not rendered, improving performance when large numbers of prims are selected."
+         name="BuildPrefsRenderHighlight_toggle"
+         control_name="RenderHighlightSelections"/>
+</panel>

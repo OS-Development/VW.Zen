@@ -12,6 +12,9 @@ if (STANDALONE)
   set(BOOST_SIGNALS_LIBRARY boost_signals-mt)
   set(BOOST_SYSTEM_LIBRARY boost_system-mt)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem-mt)
+  set(BOOST_THREAD_LIBRARY boost_thread-mt)
+  set(BOOST_WAVE_LIBRARY boost_wave-mt)
+
 else (STANDALONE)
   use_prebuilt_binary(boost)
   set(Boost_INCLUDE_DIRS ${LIBS_PREBUILT_DIR}/include)
@@ -47,12 +50,20 @@ else (STANDALONE)
           debug libboost_system-vc100-mt-gd-${BOOST_VERSION})
       set(BOOST_FILESYSTEM_LIBRARY 
           optimized libboost_filesystem-vc100-mt-${BOOST_VERSION}
-          debug libboost_filesystem-vc100-mt-gd-${BOOST_VERSION})    
+          debug libboost_filesystem-vc100-mt-gd-${BOOST_VERSION})
+	  set(BOOST_THREAD_LIBRARY 
+		  optimized libboost_thread-vc100-mt-${BOOST_VERSION}
+		  debug libboost_thread-vc100-mt-gd-${BOOST_VERSION})
+	  set(BOOST_WAVE_LIBRARY 
+	      optimized libboost_wave-vc100-mt-${BOOST_VERSION}
+		  debug libboost_wave-vc100-mt-gd-${BOOST_VERSION})		  
     endif (MSVC80)
   elseif (DARWIN OR LINUX)
     set(BOOST_PROGRAM_OPTIONS_LIBRARY boost_program_options)
     set(BOOST_REGEX_LIBRARY boost_regex)
     set(BOOST_SYSTEM_LIBRARY boost_system)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem)
+	set(BOOST_THREAD_LIBRARY boost_thread)
+	set(BOOST_WAVE_LIBRARY boost_wave)
   endif (WINDOWS)
 endif (STANDALONE)

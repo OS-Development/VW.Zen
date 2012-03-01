@@ -82,7 +82,7 @@ const std::string LLAppViewerWin32::sWindowClass = "Second Life";
 bool create_app_mutex()
 {
 	bool result = true;
-	LPCWSTR unique_mutex_name = L"SecondLifeAppMutex";
+	LPCWSTR unique_mutex_name = L"ZenAppMutex";
 	HANDLE hMutex;
 	hMutex = CreateMutex(NULL, TRUE, unique_mutex_name); 
 	if(GetLastError() == ERROR_ALREADY_EXISTS) 

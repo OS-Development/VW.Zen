@@ -1270,8 +1270,8 @@ LLAudioSource::LLAudioSource(const LLUUID& id, const LLUUID& owner_id, const F32
 	mCurrentDatap(NULL),
 	mQueuedDatap(NULL)
 {
-}
 
+}
 
 LLAudioSource::~LLAudioSource()
 {

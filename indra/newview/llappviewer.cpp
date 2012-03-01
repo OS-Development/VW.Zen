@@ -206,6 +206,7 @@
 #include "llavatariconctrl.h"
 #include "llgroupiconctrl.h"
 #include "llviewerassetstats.h"
+#include "aoengine.h"
 
 // Include for security api initialization
 #include "llsecapi.h"
@@ -324,7 +325,7 @@ static BOOL gDoDisconnect = FALSE;
 static std::string gLaunchFileOnQuit;
 
 // Used on Win32 for other apps to identify our window (eg, win_setup)
-const char* const VIEWER_WINDOW_CLASSNAME = "Second Life";
+const char* const VIEWER_WINDOW_CLASSNAME = "Zen Viewer";
 
 //-- LLDeferredTaskList ------------------------------------------------------
 
@@ -435,7 +436,8 @@ void idle_afk_check()
 {
 	// check idle timers
 	F32 current_idle = gAwayTriggerTimer.getElapsedTimeF32();
-	F32 afk_timeout  = gSavedSettings.getS32("AFKTimeout");
+	static LLCachedControl<S32> afkTimeout(gSavedSettings, "AFKTimeout");
+	F32 afk_timeout = (F32)afkTimeout;
 	if (afk_timeout && (current_idle > afk_timeout) && ! gAgent.getAFK())
 	{
 		LL_INFOS("IdleAway") << "Idle more than " << afk_timeout << " seconds: automatically changing to Away status" << LL_ENDL;
@@ -674,7 +676,7 @@ bool LLAppViewer::init()
 
 	// Need to do this initialization before we do anything else, since anything
 	// that touches files should really go through the lldir API
-	gDirUtilp->initAppDirs("SecondLife");
+	gDirUtilp->initAppDirs("Zen Viewer");
 	// set skin search path to default, will be overridden later
 	// this allows simple skinned file lookups to work
 	gDirUtilp->setSkinFolder("default");
@@ -773,7 +775,7 @@ bool LLAppViewer::init()
     writeSystemInfo();
 
 	// Initialize updater service (now that we have an io pump)
-	initUpdater();
+	// initUpdater();
 	if(isQuitting())
 	{
 		// Early out here because updater set the quitting flag.
@@ -1065,7 +1067,7 @@ bool LLAppViewer::init()
 	}
 
 	LLAgentLanguage::init();
-
+	
 	return true;
 }
 
@@ -2494,7 +2496,14 @@ bool LLAppViewer::initConfiguration()
     {   
 		// hack to force the skin to default.
         gDirUtilp->setSkinFolder(skinfolder->getValue().asString());
-		//gDirUtilp->setSkinFolder("default");
+		loadSettingsFromDirectory("CurrentSkin");
+
+		const LLControlVariable* themefolder = gSavedSettings.getControl("SkinCurrentTheme");
+		if ( (themefolder) && (LLStringUtil::null != themefolder->getValue().asString()) )
+		{
+			gDirUtilp->setSkinThemeFolder(themefolder->getValue().asString());
+			loadSettingsFromDirectory("CurrentSkinTheme");
+		}
     }
 
     mYieldTime = gSavedSettings.getS32("YieldTime");
@@ -4082,7 +4091,8 @@ void LLAppViewer::idle()
 	// Smoothly weight toward current frame
 	gFPSClamped = (frame_rate_clamped + (4.f * gFPSClamped)) / 5.f;
 
-	F32 qas = gSavedSettings.getF32("QuitAfterSeconds");
+	static LLCachedControl<F32> quitAfterSeconds(gSavedSettings, "QuitAfterSeconds");
+	F32 qas = (F32)quitAfterSeconds;
 	if (qas > 0.f)
 	{
 		if (gRenderStartTime.getElapsedTimeF32() > qas)
@@ -4126,7 +4136,8 @@ void LLAppViewer::idle()
 	    // Update simulator agent state
 	    //
 
-		if (gSavedSettings.getBOOL("RotateRight"))
+		static LLCachedControl<bool> rotateRight(gSavedSettings, "RotateRight");
+		if (rotateRight)
 		{
 			gAgent.moveYaw(-1.f);
 		}
@@ -4651,7 +4662,8 @@ void LLAppViewer::idleNetwork()
 	gObjectList.mNumNewObjects = 0;
 	S32 total_decoded = 0;
 
-	if (!gSavedSettings.getBOOL("SpeedTest"))
+	static LLCachedControl<bool> speedTest(gSavedSettings, "SpeedTest");
+	if (!speedTest)
 	{
 		LLFastTimer t(FTM_IDLE_NETWORK); // decode
 		

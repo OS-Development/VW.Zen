@@ -1,5 +1,5 @@
 <?xml version="1.0" ?><notifications>
-    <global name="skipnexttime">
+  <global name="skipnexttime">
 
 		Don&apos;t show me this again
   </global>
@@ -11,6 +11,38 @@
 
   <global name="implicitclosebutton">
 		Close
+  </global>
+  
+  <global name="UnsupportedGLRequirements">
+You do not appear to have the proper hardware requirements for [APP_NAME]. [APP_NAME] requires an OpenGL graphics card that has multitexture support. If this is the case, you may want to make sure that you have the latest drivers for your graphics card, and service packs and patches for your operating system.
+
+If you continue to have problems, please visit the [SUPPORT_SITE].
+  </global>
+
+  <global name="UnsupportedCPUAmount">
+796
+  </global>
+
+  <global name="UnsupportedRAMAmount">
+510
+  </global>
+
+  <global name="UnsupportedGPU">
+- Your graphics card does not meet the minimum requirements.
+  </global>
+
+  <global name="UnsupportedRAM">
+- Your system memory does not meet the minimum requirements.
+  </global>
+
+<!-- these are alert strings from server. the name needs to match entire the server string, and needs to be changed
+	whenever the server string changes -->
+   <global name="You can only set your 'Home Location' on your land or at a mainland Infohub.">
+If you own a piece of land, you can make it your home location.
+Otherwise, you can look at the Map and find places marked &quot;Infohub&quot;.
+  </global>
+  <global name="You died and have been teleported to your home location">
+You died and have been teleported to your home location.
   </global>
 
   <template name="okbutton">
@@ -1058,6 +1090,13 @@ Port settings take effect after you restart [APP_NAME].
    name="ChangeSkin"
    type="alertmodal">
 The new skin will appear after you restart [APP_NAME].
+  </notification>
+  
+  <notification
+   icon="alertmodal.tga"
+   name="ResetColors"
+   type="alertmodal">
+The original colors will appear after you restart [APP_NAME].
   </notification>
 
   <notification
@@ -2415,7 +2454,7 @@ Would you be my friend?
    name="RemoveFromFriends"
    type="alertmodal">
     <tag>friendship</tag>
-Do you want to remove &lt;nolink&gt;[NAME]&lt;/nolink&gt; from your Friends List?
+Do you want to remove [NAME] from your Friends List?
     <tag>confirm</tag>
     <usetemplate
      name="okcancelbuttons"
@@ -4365,7 +4404,7 @@ Does this group contain Moderate content?
    label="Confirm restart"
    name="ConfirmRestart"
    type="alert">
-Do you really want to restart this region in 2 minutes?
+Do you really want to restart this region?
     <tag>confirm</tag>
     <usetemplate
      name="okcancelbuttons"
@@ -5207,7 +5246,7 @@ Topic: [SUBJECT], Message: [MESSAGE]
    name="FriendOnline"
    type="notifytip">
     <tag>friendship</tag>
-&lt;nolink&gt;[NAME]&lt;/nolink&gt; is Online
+[NAME] is Online
   </notification>
 
   <notification
@@ -5215,7 +5254,7 @@ Topic: [SUBJECT], Message: [MESSAGE]
    name="FriendOffline"
    type="notifytip">
     <tag>friendship</tag>
-&lt;nolink&gt;[NAME]&lt;/nolink&gt; is Offline
+[NAME] is Offline
   </notification>
 
   <notification
@@ -6226,7 +6265,7 @@ Your object named &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; has given you th
    name="FriendshipAccepted"
    type="offer">
     <tag>friendship</tag>
-&lt;nolink&gt;[NAME]&lt;/nolink&gt; accepted your friendship offer.
+[NAME] accepted your friendship offer.
   </notification>
 
   <notification
@@ -6235,7 +6274,7 @@ Your object named &lt;nolink&gt;[OBJECTFROMNAME]&lt;/nolink&gt; has given you th
    persist="true"
    type="notify">
     <tag>friendship</tag>
-&lt;nolink&gt;[NAME]&lt;/nolink&gt; declined your friendship offer.
+[NAME] declined your friendship offer.
   </notification>
   
     <notification
@@ -7649,6 +7688,162 @@ The site at &apos;&lt;nolink&gt;[HOST_NAME]&lt;/nolink&gt;&apos; in realm &apos;
    yestext="Quit"
    notext="Don't Quit"/>
   </notification>
+  
+  <!-- ## Zi: Animation Overrider -->
+  <notification
+   icon="alertmodal.tga"
+   name="NewAOSet"
+   type="alertmodal">
+Specify a name for the new AO set:
+(The name may not contain a ":" or "|" character)
+    <form name="form">
+      <input name="message" type="text">
+New AO Set
+      </input>
+      <button
+       default="true"
+       index="0"
+       name="OK"
+       text="OK"/>
+      <button
+       index="1"
+       name="Cancel"
+       text="Cancel"/>
+    </form>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="NewAOCantContainColon"
+   type="alertmodal">
+Could not create new AO set "[AO_SET_NAME]".
+The name may not contain ":" or "|" characters.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+  <notification
+   icon="alertmodal.tga"
+   name="RenameAOCantContainColon"
+   type="alertmodal">
+Could not rename new AO set to "[AO_SET_NAME]".
+The name may not contain ":" or "|" characters.
+    <usetemplate
+     name="okbutton"
+     yestext="OK"/>
+  </notification>
+
+<notification
+   icon="alertmodal.tga"
+   name="RemoveAOSet"
+   type="alertmodal">
+Remove AO set "[AO_SET_NAME]" from the list?
+    <usetemplate
+     name="okcancelbuttons"
+     notext="Cancel"
+     yestext="Remove"/>
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportSetAlreadyExists"
+   type="notifytip">
+An animation set with this name already exists.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportPermissionDenied"
+   type="notifytip">
+Insufficient permissions to read notecard.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportCreateSetFailed"
+   type="notifytip">
+Error while creating import set.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportDownloadFailed"
+   type="notifytip">
+Could not download notecard.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportNoText"
+   type="notifytip">
+Notecard is empty or unreadable.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportNoFolder"
+   type="notifytip">
+Couldn't find folder to read the animations.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportNoStatePrefix"
+   type="notifytip">
+Notecard line [LINE] has no valid [ state prefix.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportNoValidDelimiter"
+   type="notifytip">
+Notecard line [LINE] has no valid ] delimiter.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportStateNameNotFound"
+   type="notifytip">
+State name [NAME] not found.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportAnimationNotFound"
+   type="notifytip">
+Couldn't find animation [NAME]. Please make sure it's present in the same folder as the import notecard.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportInvalid"
+   type="notifytip">
+Notecard didn't contain any usable data. Aborting import.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportRetryCreateSet"
+   type="notifytip">
+Could not create import folder for animation set [NAME]. Retrying ...
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportAbortCreateSet"
+   type="notifytip">
+Could not create import folder for animation set [NAME]. Giving up.
+  </notification>
+
+  <notification
+   icon="notifytip.tga"
+   name="AOImportLinkFailed"
+   type="notifytip">
+Creating animation link for animation "[NAME]" failed!
+  </notification>
+
+<!-- ## Zi: Animation Overrider -->
 
   <notification
     name="ConfirmHideUI"
@@ -7664,36 +7859,58 @@ The site at &apos;&lt;nolink&gt;[HOST_NAME]&lt;/nolink&gt;&apos; in realm &apos;
       ignoretext="Confirm before hiding UI"/>
   </notification>
   
-  <global name="UnsupportedGLRequirements">
-You do not appear to have the proper hardware requirements for [APP_NAME]. [APP_NAME] requires an OpenGL graphics card that has multitexture support. If this is the case, you may want to make sure that you have the latest drivers for your graphics card, and service packs and patches for your operating system.
+  <notification
+   icon="alertmodal.tga"
+   name="ParticleScriptCreationFailed"
+   type="alertmodal">
+Could not create new script for this particle system.
+  </notification>
 
-If you continue to have problems, please visit the [SUPPORT_SITE].
-  </global>
+  <notification
+   icon="alertmodal.tga"
+   name="ParticleScriptNotFound"
+   type="alertmodal">
+Could not find the newly created script for this particle system.
+  </notification>
 
-  <global name="UnsupportedCPUAmount">
-796
-  </global>
+  <notification
+   icon="alertmodal.tga"
+   name="ParticleScriptCreateTempFileFailed"
+   type="alertmodal">
+Could not create temporary file for script upload.
+   <form name="form">
+      <ignore name="ignore"
+       text="A particle script was copied to my clipboard"/>
+    </form>
+  </notification>
 
-  <global name="UnsupportedRAMAmount">
-510
-  </global>
+  <notification
+   icon="notify.tga"
+   name="ParticleScriptInjected"
+   type="alertmodal">
+Particle script was injected successfully.
+   <form name="form">
+      <ignore name="ignore"
+       text="A particle script was injected to an object."/>
+    </form>
+  </notification>
 
-  <global name="UnsupportedGPU">
-- Your graphics card does not meet the minimum requirements.
-  </global>
+  <notification
+   icon="alertmodal.tga"
+   name="ParticleScriptCapsFailed"
+   type="alertmodal">
+Failed to inject script into object. Request for capabilities returned an empty address.
+  </notification>
 
-  <global name="UnsupportedRAM">
-- Your system memory does not meet the minimum requirements.
-  </global>
-
-<!-- these are alert strings from server. the name needs to match entire the server string, and needs to be changed
-	whenever the server string changes -->
-   <global name="You can only set your 'Home Location' on your land or at a mainland Infohub.">
-If you own a piece of land, you can make it your home location.
-Otherwise, you can look at the Map and find places marked &quot;Infohub&quot;.
-  </global>
-  <global name="You died and have been teleported to your home location">
-You died and have been teleported to your home location.
-  </global>
+  <notification
+   icon="notify.tga"
+   name="ParticleScriptCopiedToClipboard"
+   type="alertmodal">
+The LSL script to create this particle system has been copied to your clipboard. You can now paste it into a new script to use it.
+   <form name="form">
+      <ignore name="ignore"
+       text="A particle script was copied to my clipboard"/>
+    </form>
+  </notification>
 
 </notifications>

@@ -112,6 +112,7 @@ extern F32 ANIM_SPEED_MIN;
 #endif
 
 #include <boost/lexical_cast.hpp>
+#include "aoengine.h"
 
 // #define OUTPUT_BREAST_DATA
 
@@ -3349,8 +3350,13 @@ void LLVOAvatar::idleUpdateBelowWater()
 
 	F32 water_height;
 	water_height = getRegion()->getWaterHeight();
-
+	
+	BOOL wasBelowWater = mBelowWater;
+	
 	mBelowWater =  avatar_height < water_height;
+	
+	if (isSelf() && wasBelowWater!=mBelowWater)
+		AOEngine::instance().checkBelowWater(mBelowWater);
 }
 
 void LLVOAvatar::slamPosition()
@@ -3367,7 +3373,10 @@ void LLVOAvatar::slamPosition()
 
 bool LLVOAvatar::isVisuallyMuted()
 {
-	static LLCachedControl<U32> max_attachment_bytes(gSavedSettings, "RenderAutoMuteByteLimit");
+	//static LLCachedControl<U32> max_attachment_bytes(gSavedSettings, "RenderAutoMuteByteLimit");
+	U32 scale_factor = gSavedSettings.getU32("RenderAutoMuteByteLimit");
+	U32 max_attachment_bytes = scale_factor*1000;
+	
 	static LLCachedControl<F32> max_attachment_area(gSavedSettings, "RenderAutoMuteSurfaceAreaLimit");
 	
 	return LLMuteList::getInstance()->isMuted(getID()) ||
@@ -3609,7 +3618,7 @@ BOOL LLVOAvatar::updateCharacter(LLAgent &agent)
 			}
 			LLVector3 velDir = getVelocity();
 			velDir.normalize();
-			if ( mSignaledAnimations.find(ANIM_AGENT_WALK) != mSignaledAnimations.end())
+			if (!gSavedSettings.getBOOL("TurnAroundWhenWalkingBackwards") && (mSignaledAnimations.find(ANIM_AGENT_WALK) != mSignaledAnimations.end()))
 			{
 				F32 vpD = velDir * primDir;
 				if (vpD < -0.5f)
@@ -4930,7 +4939,17 @@ BOOL LLVOAvatar::startMotion(const LLUUID& id, F32 time_offset)
 
 	lldebugs << "motion requested " << id.asString() << " " << gAnimLibrary.animationName(id) << llendl;
 
-	LLUUID remap_id = remapMotionID(id);
+	LLUUID remap_id;
+	if(isSelf())
+	{
+		remap_id=AOEngine::getInstance()->override(id,TRUE);
+		if(remap_id.isNull())
+			remap_id=remapMotionID(id);
+		else
+			gAgent.sendAnimationRequest(remap_id,ANIM_REQUEST_START);
+	}
+	else
+		remap_id=remapMotionID(id);
 
 	if (remap_id != id)
 	{
@@ -4952,7 +4971,17 @@ BOOL LLVOAvatar::stopMotion(const LLUUID& id, BOOL stop_immediate)
 {
 	lldebugs << "motion requested " << id.asString() << " " << gAnimLibrary.animationName(id) << llendl;
 
-	LLUUID remap_id = remapMotionID(id);
+	LLUUID remap_id;
+	if(isSelf())
+	{
+		remap_id=AOEngine::getInstance()->override(id,FALSE);
+		if(remap_id.isNull())
+			remap_id=remapMotionID(id);
+		else
+			gAgent.sendAnimationRequest(remap_id,ANIM_REQUEST_STOP);
+	}
+	else
+		remap_id=remapMotionID(id);
 	
 	if (remap_id != id)
 	{
@@ -5209,6 +5238,10 @@ LLPolyMesh*	LLVOAvatar::getUpperBodyMesh()
 	return mMeshLOD[MESH_ID_UPPER_BODY]->mMeshParts[0]->getMesh();
 }
 
+LLPolyMesh* LLVOAvatar::getMesh(S32 which)
+{
+	return mMeshLOD[which]->mMeshParts[0]->getMesh();
+}
 
 //-----------------------------------------------------------------------------
 // LLVOAvatar::getPosGlobalFromAgent()
@@ -5728,6 +5761,7 @@ void LLVOAvatar::updateVisualParams()
 
 	dirtyMesh();
 	updateHeadOffset();
+	rebuildRiggedAttachments();
 }
 
 //-----------------------------------------------------------------------------

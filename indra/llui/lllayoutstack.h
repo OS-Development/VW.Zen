@@ -146,9 +146,9 @@ public:
 
 	void initFromParams(const Params& p);
 
-	void handleReshape(const LLRect& new_rect, bool by_user);
-
 	void reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
+	
+	void handleReshape(const LLRect& new_rect, bool by_user);
 	
 
 	void setVisible(BOOL visible);
@@ -180,6 +180,9 @@ public:
 	void storeOriginalDim();
 
 	void setIgnoreReshape(bool ignore) { mIgnoreReshape = ignore; }
+	
+	typedef boost::signals2::signal<void (LLUICtrl* ctrl, const LLRect& rect)> reshape_signal_t;
+	boost::signals2::connection setReshapeCallback(const reshape_signal_t::slot_type& cb);
 
 protected:
 	LLLayoutPanel(const Params& p);
@@ -197,6 +200,9 @@ protected:
 	bool	mIgnoreReshape;
 	LLLayoutStack::ELayoutOrientation mOrientation;
 	class LLResizeBar* mResizeBar;
+	
+	reshape_signal_t*	mReshapeSignal;
+	bool				mReshapeSignalFire;
 };
 
 

@@ -321,6 +321,7 @@ public:
 protected:
 	void setChannel(LLAudioChannel *channelp);
 	LLAudioChannel *getChannel() const						{ return mChannelp; }
+	
 
 protected:
 	LLUUID			mID; // The ID of the source is that of the object if it's attached to an object.
@@ -451,8 +452,6 @@ protected:
 	LLAudioData *mAudioDatap;
 	LLFrameTimer mLastUseTimer;
 };
-
-
 
 extern LLAudioEngine* gAudiop;
 
