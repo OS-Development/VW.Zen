@@ -2,6 +2,6 @@
 
 CFBundleName = "Zen Viewer";
 
-CFBundleShortVersionString = "Zen Viewer version 3.3.0.6";
-CFBundleGetInfoString = "Zen Viewer version 3.3.0.6, Copyright 2004-2009 Linden Research, Inc.";
+CFBundleShortVersionString = "Zen Viewer version 3.3.1.0";
+CFBundleGetInfoString = "Zen Viewer version 3.3.1.0, Copyright 2004-2009 Linden Research, Inc.";
 
