@@ -17,7 +17,7 @@
      layout="topleft"
      left="10"
      name="tell_me_label"
-     top="10"
+     top="15"
      width="50">
         Tell me...
     </text>

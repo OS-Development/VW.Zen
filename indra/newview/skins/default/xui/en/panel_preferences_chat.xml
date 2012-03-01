@@ -9,23 +9,46 @@
  name="chat"
  top="1"
  width="517">
-  <text
-   follows="left|top"
-   layout="topleft"
-   left="30"
-   height="12"
-   name="font_size"
-   width="120"
-   top="15">
-    Font size:
-  </text>
-  <radio_group
+ 
+	<tab_container
+	 follows="left|top"
+	 halign="center"
+	 height="439"
+	 left="0"
+	 name="Chat Info Tabs"
+	 tab_height="25"
+	 tab_min_width="40"
+	 tab_max_width="130"
+	 tab_position="top"
+	 top="408"
+	 width="540">
+	<panel
+	 border="true"
+	 follows="all"
+	 label="General"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="General">
+	 
+	 
+	 
+	<text
+	 follows="left|top"
+	 layout="topleft"
+	 left="30"
+	 height="12"
+	 name="font_size"
+	 width="120"
+	 top="15">
+     Font size:
+	</text>
+	<radio_group
      height="30"
      layout="topleft"
      left="50"
 	 control_name="ChatFontSize"
      name="chat_font_size"
-     top_pad="0"
+     top_pad="4"
      width="440">
         <radio_item
          height="16"
@@ -34,7 +57,7 @@
          left="0"
          name="radio"
          value="0"
-         top="10"
+         top="0"
          width="125" />
         <radio_item
          height="16"
@@ -64,7 +87,7 @@
      layout="topleft"
      left="50"
      name="play_typing_animation"
-     top_pad="10"
+     top_pad="7"
      width="400" />
     <check_box
      enabled="false"
@@ -73,7 +96,7 @@
      layout="topleft"
      left_delta="0"
      name="send_im_to_email"
-     top_pad="5"
+     top_pad="4"
      width="400" />
     <check_box
      enabled="false"
@@ -82,7 +105,7 @@
      layout="topleft"
      left_delta="0"
      name="plain_text_chat_history"
-     top_pad="5"
+     top_pad="4"
      width="400" />
     <check_box
      control_name="UseChatBubbles"
@@ -91,7 +114,7 @@
      label="Bubble Chat"
      layout="topleft"
      left_delta="0"
-     top_pad="5"
+     top_pad="4"
      name="bubble_text_chat"
      width="150" />     
     <text
@@ -99,7 +122,7 @@
      follows="left|top"
      layout="topleft"
      left="30"
-     height="20"
+     height="12"
      width="150"
      top_pad="15">
      Show IMs in:
@@ -110,7 +133,7 @@
      layout="topleft"
      top_delta="0" 
      left="130" 
-  	 height="20"
+  	 height="12"
 	 width="130"
 	 font="SansSerifSmall"
      text_color="Yellow">
@@ -122,7 +145,7 @@
      left="50"
      control_name="ChatWindow"
      name="chat_window"
-     top_pad="0"
+     top_pad="4"
      tool_tip="Show your Instant Messages in separate floaters, or in one floater with many tabs (Requires restart)"
      width="150">
      <radio_item
@@ -161,7 +184,7 @@
      layout="topleft"
      top_pad="10" 
      left="50" 
-     height="20"
+     height="12"
      tool_tip="Check to see popups when a Group Chat message arrives"
      width="400" />
     <check_box
@@ -169,7 +192,7 @@
      name="EnableIMChatPopups"
      label="IM Chats" 
      layout="topleft"
-     top_pad="5"
+     top_pad="4"
 	 left="50" 
      height="16"
      tool_tip="Check to see popups when an instant message arrives"
@@ -188,7 +211,7 @@
 	 max_val="60"
      min_val="1"
      name="nearby_toasts_lifetime"
-     top_pad="10"
+     top_pad="13"
      width="250" />
     <spinner
      control_name="NearbyToastFadingTime"
@@ -206,16 +229,321 @@
      name="nearby_toasts_fadingtime"
      top_pad="3"
      width="250" />
-  <button
+	<button
+	 follows="left|top"
+	 height="23"
+	 label="Chat Translation Settings"
+	 layout="topleft"
+	 left="30"
+	 name="ok_btn"
+	 top_pad="5"
+	 width="170">
+		<button.commit_callback
+		 function="Pref.TranslationSettings" />
+	</button>
+	</panel>
+	
+	
+	
+	
+	<panel
+	 border="true"
+	 follows="all"
+	 label="Colors"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="Colors">
+	<text
+     follows="left|top"
+	 layout="topleft"
+	 left="30"
+	 height="12"
+	 name="font_colors"
+	 top="30"
+	 width="170">
+		Chat font colors:
+	</text>
+	<color_swatch
+	 can_apply_immediately="true"
+	 follows="left|top"
+	 height="24"
+	 label_height="0"
+	 layout="topleft"
+	 left="40"
+	 name="user"
+	 top_pad="10"
+	 width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="UserChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="UserChatColor" />
+	</color_swatch>
+	<text
+	 type="string"
+	 length="1"
+	 follows="left|top"
+	 height="10"
+	 layout="topleft"
+	 left_pad="5"
+	 mouse_opaque="false"
+	 name="text_box1"
+	 top_delta="5"
+	 width="95">
+		Me
+	</text>
+	<color_swatch
+   can_apply_immediately="true"
    follows="left|top"
-   height="23"
-   label="Chat Translation Settings"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="190"
+   name="agent"
+   top_pad="-15"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="AgentChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="AgentChatColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box2"
+   top_delta="5"
+   width="95">
+    Others
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="EmphasisColor_35"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   label_width="60"
+   layout="topleft"
+   left="360"
+   name="objects"
+   top_pad="-15"
+   width="44">
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="ObjectChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="ObjectChatColor" />
+  </color_swatch>
+  <text
+     type="string"
+     length="1"
+     follows="left|top"
+     height="10"
+     layout="topleft"
+     left_pad="5"
+     mouse_opaque="false"
+     name="text_box3"
+     top_delta="5"
+     width="95">
+    Objects
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="LtGray"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   label_width="44"
+   layout="topleft"
+   left="40"
+   name="system"
+   top_pad="22"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="SystemChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="SystemChatColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box4"
+   top_delta="5"
+   width="95">
+    System
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="Red"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="190"
+   name="script_error"
+   top_pad="-15"
+   width="44">
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="ScriptErrorColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="ScriptErrorColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box5"
+   top_delta="5"
+   width="95">
+    Errors
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="LtOrange"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="360"
+   name="direct"
+   top_pad="-15"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="DirectChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="DirectChatColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box10"
+   top_delta="5"
+   width="95">
+    Direct
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="LtYellow"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="40"
+   name="owner"
+   top_pad="22"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="llOwnerSayChatColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="llOwnerSayChatColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box7"
+   top_delta="5"
+   width="95">
+    Owner
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   color="EmphasisColor"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="190"
+   name="links"
+   top_pad="-15"
+   width="44" >
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="HTMLLinkColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="HTMLLinkColor" />
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box9"
+   top_delta="5"
+   width="95">
+    URLs
+  </text>
+  
+	<text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="15"
    layout="topleft"
    left="30"
-   name="ok_btn"
-   top="-40"
-   width="170">
-   <button.commit_callback
-    function="Pref.TranslationSettings" />
-  </button>
+   name="effects_color_textbox"
+   top_pad="30"
+   width="200">
+    Selection Beam:
+  </text>
+  <color_swatch
+	 can_apply_immediately="true"
+     follows="left|top"
+     height="24"
+     label_height="0"
+     layout="topleft"
+     left="40"
+     name="effect_color_swatch"
+     tool_tip="Click to open Color Picker"
+     width="44">
+    <color_swatch.init_callback
+		 function="Pref.getUIColor"
+		 parameter="EffectColor" />
+    <color_swatch.commit_callback
+		 function="Pref.applyUIColor"
+		 parameter="EffectColor" />
+    <color_swatch.caption_text
+    height="0" />
+  </color_swatch>
+  
+	</panel>
+	</tab_container>
 </panel>

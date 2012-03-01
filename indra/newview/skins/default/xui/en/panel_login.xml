@@ -60,7 +60,7 @@ font="SansSerifBig"
 height="16"
 name="zenviewer_text"
 top="6"
-left="20"
+left="15"
 width="150">
 Zen Viewer
 </text>
@@ -69,8 +69,8 @@ follows="left|bottom"
 font="SansSerifSmall"
 height="16"
 name="currversion_text"
-top_pad="10"
-left="20"
+top_pad="8"
+left="15"
 width="150">
 Installed Version:
 </text>
@@ -85,7 +85,7 @@ tool_tip=""
 left_pad="-50"
 top_delta="-5"
 name="installversionid_combo"
-width="100">
+width="80">
   <combo_box.combo_button
    visible ="false"/>
   <combo_box.drop_down_button
@@ -97,7 +97,7 @@ font="SansSerifSmall"
 height="16"
 name="installversion_text"
 top_pad="5"
-left="20"
+left="15"
 width="150">
 Available Version:
 </text>
@@ -112,7 +112,7 @@ tool_tip=""
 left_pad="-50"
 top_delta="-5"
 name="availversionid_combo"
-width="100">
+width="80">
   <combo_box.combo_button
    visible ="false"/>
   <combo_box.drop_down_button
@@ -129,7 +129,7 @@ width="100">
   left_pad="-10"
   name="download_btn"
   tool_tip="Zen Viewer download site."
-  top="27"
+  top="25"
   width="75" />
 <text
 follows="left|bottom"
@@ -137,7 +137,7 @@ font="SansSerifSmall"
 height="16"
 name="username_text"
 top="10"
-left_pad="70"
+left_pad="40"
 width="150">
 Username:
 </text>
@@ -165,7 +165,7 @@ label="Delete this entry"
 label_color="White"
 layout="topleft"
 top_pad="0"
-left="355"
+left="300"
 name="delete_saved_login_btn"
 width="150"
 tab_stop="false" />
@@ -199,13 +199,13 @@ name="remember_check"
 width="135" />
 <button
   follows="left|bottom"
-  height="23"
+  height="22"
   image_unselected="PushButton_On"
   image_selected="PushButton_On_Selected"
   label="Log In"
   label_color="White"
   layout="topleft"
-  left_pad="75"
+  left_pad="10"
   name="connect_btn"
   top="25"
   width="90" />
@@ -213,21 +213,21 @@ width="135" />
   follows="left|bottom"
   font="SansSerifSmall"
   height="15"
-  left_pad="8"
+  left_pad="10"
   name="start_location_text"
   top="10"
   width="130">
-       Start at:
+       Region:
  </text>
 <combo_box
 allow_text_entry="true"
 control_name="NextLoginLocation"
   follows="left|bottom"
-  height="23"
+  height="22"
 max_chars="128"
 top_pad="0"
 name="start_location_combo"
-     width="165">
+     width="135">
 <combo_box.item
 label="My last location"
 name="MyLastLocation"
@@ -240,14 +240,24 @@ name="MyHome"
 label="&lt;Type region name&gt;"
 name="Typeregionname"   value="" />
 </combo_box>
+<text
+  follows="left|bottom"
+  font="SansSerifSmall"
+  height="15"
+  left_pad="10"
+  name="start_location_text"
+  top="10"
+  width="130">
+       Grid:
+ </text>
 <combo_box
 allow_text_entry="true"
 font="SansSerifSmall"
    follows="left|right|bottom"
-   height="23"
+   height="22"
    max_chars="256"
 layout="topleft"
-top_pad="2"
+top_pad="0"
 name="server_combo"
 width="135"
   visible="false" />

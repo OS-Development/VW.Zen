@@ -80,13 +80,6 @@
          name="chat" />
 		 <panel
 		 class="panel_preference"
-         filename="panel_preferences_colors.xml"
-         label="Chat Colors"
-         layout="topleft"
-         help_topic="preferences_colors_tab"
-         name="colors" />
-		 <panel
-		 class="panel_preference"
          filename="panel_preferences_nametags.xml"
          label="Name Tags"
          layout="topleft"
@@ -122,13 +115,6 @@
          name="display" />
 		 <panel
 		 class="panel_preference"
-         filename="panel_preferences_shadows.xml"
-         label="Shadows"
-         layout="topleft"
-         help_topic="preferences_shadows_tab"
-         name="shadows" />
-        <panel
-		 class="panel_preference"
          filename="panel_preferences_camera.xml"
          label="Camera"
          layout="topleft"
@@ -155,13 +141,6 @@
          layout="topleft"
          help_topic="preferences_skins_tab"
          name="skins" />
-		 <panel
-		 class="panel_preference_automute"
-         filename="panel_preferences_automute.xml"
-         label="Visual Auto-Mute"
-         layout="topleft"
-         help_topic="preferences_automute_tab"
-         name="visualautomute" />
     </tab_container>
 
 </floater>
