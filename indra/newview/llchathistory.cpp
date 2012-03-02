@@ -58,6 +58,7 @@
 #include "llstring.h"
 
 #include "llviewercontrol.h"
+#include "llviewernetwork.h"
 
 static LLDefaultChildRegistry::Register<LLChatHistory> r("chat_history");
 
@@ -267,7 +268,7 @@ public:
 		if (chat.mFromName.empty()
 			|| mSourceType == CHAT_SOURCE_SYSTEM)
 		{
-			mFrom = LLTrans::getString("SECOND_LIFE");
+			mFrom = LLGridManager::getInstance()->getGridLabel();
 			user_name->setValue(mFrom);
 			updateMinUserNameWidth();
 		}

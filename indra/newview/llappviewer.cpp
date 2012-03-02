@@ -1491,7 +1491,7 @@ bool LLAppViewer::cleanup()
 {
 	//ditch LLVOAvatarSelf instance
 	gAgentAvatarp = NULL;
-
+	
 	// workaround for DEV-35406 crash on shutdown
 	LLEventPumps::instance().reset();
 
@@ -2476,19 +2476,19 @@ bool LLAppViewer::initConfiguration()
     // What can happen is that someone can use IE (or potentially 
     // other browsers) and do the rough equivalent of command 
     // injection and steal passwords. Phoenix. SL-55321
-    if(clp.hasOption("url"))
+    
+	// The gridmanager doesn't know the grids yet, only prepare
+	// parsing the slurls, actually done when the grids are fetched 
+	// (currently at the top of startup STATE_AUDIO_INIT,
+	// but rather it belongs into the gridmanager)
+
+	if(clp.hasOption("url"))
     {
-		LLStartUp::setStartSLURL(LLSLURL(clp.getOption("url")[0]));
-		if(LLStartUp::getStartSLURL().getType() == LLSLURL::LOCATION) 
-		{  
-			LLGridManager::getInstance()->setGridChoice(LLStartUp::getStartSLURL().getGrid());
-			
-		}  
+		LLStartUp::setStartSLURLString((clp.getOption("url")[0])); 
     }
     else if(clp.hasOption("slurl"))
     {
-		LLSLURL start_slurl(clp.getOption("slurl")[0]);
-		LLStartUp::setStartSLURL(start_slurl);
+		LLStartUp::setStartSLURLString(clp.getOption("slurl")[0]);
     }
 
     const LLControlVariable* skinfolder = gSavedSettings.getControl("SkinCurrent");
@@ -2547,7 +2547,8 @@ bool LLAppViewer::initConfiguration()
 	// crash as this dialog is always frontmost.
 	std::string splash_msg;
 	LLStringUtil::format_map_t args;
-	args["[APP_NAME]"] = LLTrans::getString("SECOND_LIFE");
+	args["[APP_NAME]"] = LLGridManager::getInstance()->getGridLabel();
+	args["[CURRENT_GRID]"] = LLGridManager::getInstance()->getGridLabel();
 	splash_msg = LLTrans::getString("StartupLoading", args);
 	LLSplashScreen::show();
 	LLSplashScreen::update(splash_msg);
@@ -3921,11 +3922,13 @@ void LLAppViewer::forceDisconnect(const std::string& mesg)
 	{
 		// Tell users what happened
 		args["ERROR_MESSAGE"] = big_reason;
+		args["CURRENT_GRID"] = LLGridManager::getInstance()->getGridLabel();
 		LLNotificationsUtil::add("ErrorMessage", args, LLSD(), &finish_forced_disconnect);
 	}
 	else
 	{
 		args["MESSAGE"] = big_reason;
+		args["CURRENT_GRID"] = LLGridManager::getInstance()->getGridLabel();
 		LLNotificationsUtil::add("YouHaveBeenLoggedOut", args, LLSD(), &finish_disconnect );
 	}
 }

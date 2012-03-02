@@ -74,7 +74,7 @@ public:
 	static void closePanel();
 
 
- 	void setSiteIsAlive( bool alive );
+// 	void setSiteIsAlive( bool alive );
 
 	static void loadLoginPage();	
 	static void giveFocus();
@@ -121,6 +121,9 @@ private:
 
 	static LLPanelLogin* sInstance;
 	static BOOL		sCapslockDidNotification;
+	
+	int mGridEntries;
+	std::string mLoginPage;
 };
 
 #endif

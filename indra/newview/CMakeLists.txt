@@ -1434,6 +1434,7 @@ set(viewer_APPSETTINGS_FILES
     app_settings/logcontrol.xml
     app_settings/low_graphics.xml
     app_settings/mid_graphics.xml
+	app_settings/grids.fallback.xml
     app_settings/settings.xml
     app_settings/settings_crash_behavior.xml
     app_settings/settings_files.xml
@@ -2081,10 +2082,10 @@ if (LL_TESTS)
     "${test_libs}"
     )
 
-  LL_ADD_INTEGRATION_TEST(llviewernetwork
-     llviewernetwork.cpp
-    "${test_libs}"
-    )
+ # LL_ADD_INTEGRATION_TEST(llviewernetwork
+ #    llviewernetwork.cpp
+ #   "${test_libs}"
+ #   )
 
   LL_ADD_INTEGRATION_TEST(llsimplestat
     ""

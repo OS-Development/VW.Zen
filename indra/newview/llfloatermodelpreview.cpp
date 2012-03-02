@@ -114,6 +114,7 @@
 #include "llviewershadermgr.h"
 #include "glod/glod.h"
 #include <boost/algorithm/string.hpp>
+#include "llworld.h"
 
 
 const S32 SLM_SUPPORTED_VERSION = 3;
@@ -3404,7 +3405,10 @@ void LLModelPreview::rebuildUploadData()
 		}
 	}
 
-	F32 max_import_scale = (DEFAULT_MAX_PRIM_SCALE-0.1f)/max_scale;
+	// F32 max_import_scale = (DEFAULT_MAX_PRIM_SCALE-0.1f)/max_scale;
+	
+	F32 region_max_prim_scale = LLWorld::getInstance()->getRegionMaxPrimScale();
+	F32 max_import_scale = (region_max_prim_scale-0.1f)/max_scale;
 
 	F32 max_axis = llmax(mPreviewScale.mV[0], mPreviewScale.mV[1]);
 	max_axis = llmax(max_axis, mPreviewScale.mV[2]);
