@@ -991,11 +991,13 @@ void LLGridManager::updateIsInProductionGrid()
 	{
 		LL_DEBUGS("GridManager")<< "uri: "<< uris[0]  << "set IsInSLBeta" << LL_ENDL;
 		mIsInSLBeta = true;
+		gSavedSettings.setString("WebProfileNonProductionURL", "https://my-demo.secondlife.com/[AGENT_NAME]");
 		return;
 	}
 
 	LL_DEBUGS("GridManager")<< "uri: "<< uris[0]  << "set IsInOpenSim" << LL_ENDL;
 	mIsInOpenSim = true;
+	gSavedSettings.setString("WebProfileNonProductionURL", "http://my.osgrid.org/?name=[AGENT_NAME]");
 }
 
 bool LLGridManager::isInSLMain()

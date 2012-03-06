@@ -51,12 +51,13 @@ std::string getProfileURL(const std::string& agent_name)
 	{
 		url = gSavedSettings.getString("WebProfileNonProductionURL");
 	}
-	else
+	else 
 	{
 		//OpenSimFIXME: get from grid - but how?
 		// possibilities: 	* grid_info  (profiles accessible outside the grid)
 		// 			* login message (profiles only within the grid)
 		//			* capability (better for decentaliced environment)
+		url = gSavedSettings.getString("WebProfileNonProductionURL");
 	}
 
 	LLSD subs;
