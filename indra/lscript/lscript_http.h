@@ -35,6 +35,7 @@ enum LLScriptHTTPRequestParameterKey
   HTTP_MIMETYPE,
   HTTP_BODY_MAXLENGTH,
   HTTP_VERIFY_CERT
+  HTTP_VERBOSE_THROTTLE
 };
 
 enum LLScriptHTTPResponseMetadataKey
