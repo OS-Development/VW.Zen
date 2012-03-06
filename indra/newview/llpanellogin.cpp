@@ -1133,8 +1133,14 @@ void LLPanelLogin::updateSavedLoginsCombo()
 				name = name.substr(0,arobase);
 				LLSD grid_info;
 				LLGridManager::getInstance()->getGridData(gridname,grid_info);
-				//name = (grid_info["gridname"].asString()=="Second Life")?name:name+" @ "+grid_info["gridname"].asString();
-				name = (grid_info["gridname"].asString()=="Second Life")?name:name+"";
+				if(gSavedSettings.getBOOL("ShowUserName@GridName"))
+				{
+					name = (grid_info["gridname"].asString()=="Second Life")?name:name+" @ "+grid_info["gridname"].asString();
+				}
+				else
+				{
+					name = (grid_info["gridname"].asString()=="Second Life")?name:name+"";
+				}
 				saved_logins_combo->add(name,LLSD(credname)); 
 			}
 	}

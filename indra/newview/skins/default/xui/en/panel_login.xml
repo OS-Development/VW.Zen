@@ -70,7 +70,7 @@ font="SansSerifSmall"
 height="16"
 name="currversion_text"
 top_pad="8"
-left="15"
+left="10"
 width="150">
 Installed Version:
 </text>
@@ -97,7 +97,7 @@ font="SansSerifSmall"
 height="16"
 name="installversion_text"
 top_pad="5"
-left="15"
+left="10"
 width="150">
 Available Version:
 </text>
@@ -137,7 +137,7 @@ font="SansSerifSmall"
 height="16"
 name="username_text"
 top="10"
-left_pad="40"
+left_pad="35"
 width="150">
 Username:
 </text>
@@ -151,7 +151,7 @@ combo_editor.prevalidate_callback="ascii"
 tool_tip="The username you chose when you registered, like bobsmith12 or Steller Sunshine"
 top_pad="0"
 name="username_combo"
-width="178">
+width="200">
   <combo_box.combo_button
    visible ="true"/>
   <combo_box.drop_down_button
@@ -165,9 +165,9 @@ label="Delete this entry"
 label_color="White"
 layout="topleft"
 top_pad="0"
-left="300"
+left="290"
 name="delete_saved_login_btn"
-width="150"
+width="172"
 tab_stop="false" />
 <text
 follows="left|bottom"
