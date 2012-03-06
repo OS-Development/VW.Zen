@@ -2820,7 +2820,7 @@ On success the object is moved and TRUE is returned, on failure the object does 
         (Aurora-Sim only)
     </string>
     <!-- *** END OF OpenSimulator & Aurora-Sim syntax section *** -->
-  </string>
+  
 
 
 
