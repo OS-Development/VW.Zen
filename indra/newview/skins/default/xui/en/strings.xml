@@ -1939,6 +1939,7 @@ Sends msg on channel (not DEBUG_CHANNEL) directly to prim or avatar target anywh
 <string name="LSLTipText_llGetEnv" translate="false">
 string llGetEnv(string name)
 Returns a string with the requested data about the region.
+</string>
 <string name="LSLTipText_llScriptProfiler" translate="false">
 llScriptProfiler(integer flags)
 Enables or disables the scripts profiling state.
