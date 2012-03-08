@@ -633,6 +633,8 @@ set(viewer_SOURCE_FILES
 	pipeline.cpp
 	qtoolalign.cpp
 	zendata.cpp
+	NACLfloaterblacklist.cpp
+	NACLfloaterexploresounds.cpp
     )
 
 set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
@@ -1194,6 +1196,8 @@ set(viewer_HEADER_FILES
     VertexCache.h
     VorbisFramework.h
 	zendata.h
+	NACLfloaterblacklist.h
+	NACLfloaterexploresounds.h
     )
 
 source_group("CMake Rules" FILES ViewerInstall.cmake)

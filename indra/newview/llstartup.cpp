@@ -197,6 +197,9 @@
 #endif
 
 #include "zendata.h"
+// NaCl - Asset blacklister
+#include "NACLfloaterblacklist.h"
+// NaCl End
 
 //
 // exported globals
@@ -1003,7 +1006,10 @@ bool idle_startup()
 		
 		LLFile::mkdir(gDirUtilp->getChatLogsDir());
 		LLFile::mkdir(gDirUtilp->getPerAccountChatLogsDir());
-
+		
+		// NaCl - Asset blacklister
+		NACLFloaterBlacklist::loadFromSave();
+		// NaCl End
 
 		//good a place as any to create user windlight directories
 		std::string user_windlight_path_name(gDirUtilp->getExpandedFilename( LL_PATH_USER_SETTINGS , "windlight", ""));
