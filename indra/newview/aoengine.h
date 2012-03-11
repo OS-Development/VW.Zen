@@ -33,6 +33,7 @@
 #include "llsingleton.h"
 #include "lluuid.h"
 #include "llpointer.h"
+#include "llextendedstatus.h"
 
 class AOTimerCollection
 :	public LLEventTimer
