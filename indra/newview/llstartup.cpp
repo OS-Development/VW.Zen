@@ -309,7 +309,6 @@ public:
 	virtual void result(const LLSD& content)
 	{
 		std::string filename = gDirUtilp->getExpandedFilename(LL_PATH_USER_SETTINGS, "grids.remote.xml");
-
 		llofstream out_file;
 		out_file.open(filename);
 		LLSDSerialize::toPrettyXML(content, out_file);
@@ -640,7 +639,8 @@ bool idle_startup()
 
 		LL_INFOS("AppInit") << "Message System Initialized." << LL_ENDL;
 		
-		if(!gSavedSettings.getBOOL("GridListDownload"))
+		std::string grid_list_download_url = gSavedSettings.getString("GridListDownloadURL");
+		if(!gSavedSettings.getBOOL("GridListDownload") || grid_list_download_url.empty())
 		{
 			sGridListRequestReady = true;
 		}
@@ -656,31 +656,10 @@ bool idle_startup()
 				last_modified = file_stat.st_mtime;
 			}
 
-			std::string url = gSavedSettings.getString("GridListDownloadURL");
-			LLHTTPClient::getIfModified(url, new GridListRequestResponder(), last_modified );
+			LLHTTPClient::getIfModified(grid_list_download_url, new GridListRequestResponder(), last_modified );
 		}
-		// Fetch grid infos as needed
 		LLGridManager::getInstance()->initGrids();
-		LLStartUp::setStartupState( STATE_FETCH_GRID_INFO );
-	}
-
-	if (STATE_FETCH_GRID_INFO == LLStartUp::getStartupState())
-	{
-		static LLFrameTimer grid_timer;
-
-		const F32 grid_time = grid_timer.getElapsedTimeF32();
-		const F32 MAX_GRID_TIME = 15.f;//don't wait forever
-
-		if(grid_time>MAX_GRID_TIME ||
-			( sGridListRequestReady && LLGridManager::getInstance()->isReadyToLogin() ))
-		{
-			LLStartUp::setStartupState( STATE_AUDIO_INIT );
-		}
-		else
-		{
-			ms_sleep(1);
-			return FALSE;
-		}
+		LLStartUp::setStartupState( STATE_AUDIO_INIT );
 	}
 
 	if (STATE_AUDIO_INIT == LLStartUp::getStartupState())
@@ -2777,7 +2756,6 @@ std::string LLStartUp::startupStateToString(EStartupState state)
 #define RTNENUM(E) case E: return #E
 	switch(state){
 		RTNENUM( STATE_FIRST );
-		RTNENUM( STATE_FETCH_GRID_INFO);
 		RTNENUM( STATE_AUDIO_INIT);
 		RTNENUM( STATE_BROWSER_INIT );
 		RTNENUM( STATE_LOGIN_SHOW );

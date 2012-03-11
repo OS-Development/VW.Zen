@@ -160,6 +160,7 @@ const char* DEFAULT_LOGIN_PAGE = "http://viewer-login.agni.lindenlab.com/";
 const char* SYSTEM_GRID_SLURL_BASE = "secondlife://%s/secondlife/";
 const char* MAIN_GRID_SLURL_BASE = "http://maps.secondlife.com/secondlife/";
 const char* SYSTEM_GRID_APP_SLURL_BASE = "secondlife:///app";
+const char* DEFAULT_HG_BASE = "hg://%s/";
 const char* DEFAULT_SLURL_BASE = "https://%s/region/";
 const char* DEFAULT_APP_SLURL_BASE = "x-grid-location-info://%s/app";
 
@@ -482,7 +483,7 @@ void LLGridManager::gridInfoResponderCB(GridEntry* grid_entry)
 
 
 	std::string grid = grid_entry->grid[GRID_VALUE].asString();
-	std::string slurl_base(llformat(DEFAULT_SLURL_BASE, grid.c_str()));
+	std::string slurl_base(llformat(DEFAULT_HG_BASE, grid.c_str()));
 	grid_entry->grid[GRID_SLURL_BASE]= slurl_base;
 
 	LLDate now = LLDate::now();
@@ -1055,8 +1056,8 @@ std::string LLGridManager::getSLURLBase(const std::string& grid)
 		// add the grid with the additional values, or update the
 		// existing grid if it exists with the given values
 		addGrid(grid_entry, FETCHTEMP);
-		ret = llformat(DEFAULT_SLURL_BASE, grid.c_str());
-		LL_DEBUGS("GridManager") << "DEFAULT_SLURL_BASE: " << ret  << LL_ENDL;
+		ret = llformat(DEFAULT_HG_BASE, grid.c_str());
+		LL_DEBUGS("GridManager") << "DEFAULT_HG_BASE: " << ret  << LL_ENDL;
 	}
 
 	return  ret;
@@ -1074,7 +1075,26 @@ std::string LLGridManager::getAppSLURLBase(const std::string& grid)
 	}
 	else
 	{
-		ret =  llformat(DEFAULT_APP_SLURL_BASE, grid.c_str());
+		std::string app_base;
+		if(mGridList.has(grid) && mGridList[grid].has(GRID_SLURL_BASE))
+		{
+			std::string grid_slurl_base = mGridList[grid][GRID_SLURL_BASE].asString();
+			if( 0 == grid_slurl_base.find("hg://"))
+			{
+				app_base = DEFAULT_HG_BASE;
+				app_base.append("app");
+			}
+			else 
+			{
+				app_base = DEFAULT_APP_SLURL_BASE;
+			}
+		}
+		else 
+		{
+			app_base = DEFAULT_APP_SLURL_BASE;
+		}
+
+		ret =  llformat(app_base.c_str(), grid.c_str());
 	}
 
 	LL_DEBUGS("GridManager") << "App slurl base: " << ret << LL_ENDL;

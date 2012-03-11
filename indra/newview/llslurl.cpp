@@ -36,6 +36,7 @@
 #include "curl/curl.h"
 #include "llworld.h"
 
+const char* LLSLURL::HG_SCHEME		 = "hg";
 const char* LLSLURL::SLURL_HTTP_SCHEME		 = "http";
 const char* LLSLURL::SLURL_HTTPS_SCHEME		 = "https";
 const char* LLSLURL::SLURL_SECONDLIFE_SCHEME	 = "secondlife";
@@ -193,6 +194,11 @@ LLSLURL::LLSLURL(const std::string& slurl)
 				// it wasn't a /secondlife/<region> or /app/<params>, so it must be secondlife://<region>
 				// therefore the hostname will be the region name, and it's a location type
 				mType = LOCATION;
+				
+				//use current grid for compatibility
+				//with viewer 1 slurls.
+				mGrid = LLGridManager::getInstance()->getGrid();
+
 				// 'normalize' it so the region name is in fact the head of the path_array
 				path_array.insert(0, slurl_uri.hostNameAndPort());
 		    }
@@ -200,18 +206,19 @@ LLSLURL::LLSLURL(const std::string& slurl)
 		else if(   (slurl_uri.scheme() == LLSLURL::SLURL_HTTP_SCHEME)
 		 	|| (slurl_uri.scheme() == LLSLURL::SLURL_HTTPS_SCHEME)
 		 	|| (slurl_uri.scheme() == LLSLURL::SLURL_X_GRID_LOCATION_INFO_SCHEME)
-			)
-		{
-		    // We're dealing with either a Standalone style slurl or slurl.com slurl
-		  if ((slurl_uri.hostName() == LLSLURL::SLURL_COM) ||
+			|| (slurl_uri.scheme() == LLSLURL::HG_SCHEME))
+			{
+			// We're dealing with either a Standalone style slurl or slurl.com slurl
+			if ((slurl_uri.hostName() == LLSLURL::SLURL_COM) ||
 		      (slurl_uri.hostName() == LLSLURL::WWW_SLURL_COM) || 
-		      (slurl_uri.hostName() == LLSLURL::MAPS_SECONDLIFE_COM))
+		      (slurl_uri.hostName() == LLSLURL::MAPS_SECONDLIFE_COM)
+)
 			{
 				LL_DEBUGS("SLURL") << "slurl style slurl.com"  << LL_ENDL;
 				// slurl.com implies maingrid
 				mGrid = MAINGRID;
 			}
-		    else
+			else
 			{
 				LL_DEBUGS("SLURL") << "slurl style Standalone"  << LL_ENDL;
 				// Don't try to match any old http://<host>/ URL as a SLurl.
@@ -266,6 +273,11 @@ LLSLURL::LLSLURL(const std::string& slurl)
 				mType = APP;
 				path_array.erase(0);
 				// leave app appended.  
+			}
+			else if ( slurl_uri.scheme() == LLSLURL::HG_SCHEME)
+			{
+				LL_DEBUGS("SLURL") << "its a location hop"  << LL_ENDL;
+				mType = LOCATION;
 			}
 			else
 			{

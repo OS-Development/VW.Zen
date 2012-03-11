@@ -1262,14 +1262,20 @@ void LLPanelLogin::onServerComboLostFocus(LLFocusableElement* fe)
 
 void LLPanelLogin::updateLoginPanelLinks()
 {
+	if(!sInstance) return;
+	
 	LLSD grid_data;
 	LLGridManager::getInstance()->getGridData(grid_data);
-	bool system_grid = grid_data.has(GRID_IS_SYSTEM_GRID_VALUE);
 	
+	bool system_grid = grid_data.has(GRID_IS_SYSTEM_GRID_VALUE);
+	bool has_register = LLGridManager::getInstance()->isInOpenSim() 
+				&& grid_data.has(GRID_REGISTER_NEW_ACCOUNT);
+	bool has_password = LLGridManager::getInstance()->isInOpenSim() 
+				&& grid_data.has(GRID_FORGOT_PASSWORD);
 	// need to call through sInstance, as it's called from onSelectServer, which
 	// is static.
-	sInstance->getChildView("create_new_account_text")->setVisible( system_grid);
-	sInstance->getChildView("forgot_password_text")->setVisible( system_grid);
+	sInstance->getChildView("create_new_account_text")->setVisible( system_grid || has_register);
+	sInstance->getChildView("forgot_password_text")->setVisible( system_grid || has_password);
 }
 
 
