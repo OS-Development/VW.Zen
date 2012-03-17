@@ -704,7 +704,7 @@
      decimal_digits="0"
      follows="left|top"
      height="20"
-     increment="16"
+     increment="32"
      initial_value="32"
      label="Texture Memory (MB):"
      label_width="128"

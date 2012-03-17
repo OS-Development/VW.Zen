@@ -33,7 +33,7 @@
 	  <key>Type</key>
 	  <string>String</string>
 	  <key>Value</key>
-	  <string>http://localhost/grids.xml</string>
+	  <string>https://bitbucket.org/Zena_Juran/zendataxml/downloads/grids.xml</string>
 	</map>
 	<key>NCLMTPDirect</key>
 	<map>
@@ -11102,7 +11102,7 @@
       <key>Type</key>
       <string>F32</string>
       <key>Value</key>
-      <real>1500.0</real>
+      <real>1000.0</real>
     </map>
     <key>UpdaterMaximumBandwidth</key>
     <map>
