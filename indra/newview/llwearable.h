@@ -91,6 +91,8 @@ public:
 	BOOL				exportFile(LLFILE* file) const;
 	BOOL				importFile(LLFILE* file);
 	
+	BOOL				FileExportParams(FILE* file);
+	
 	void				setParamsToDefaults();
 	void				setTexturesToDefaults();
 
@@ -155,9 +157,10 @@ private:
 	param_map_t mSavedVisualParamMap; // last saved version of visual params
 
 	visual_param_index_map_t mVisualParamIndexMap;
-
+	
 	te_map_t mTEMap;				// maps TE to LocalTextureObject
 	te_map_t mSavedTEMap;			// last saved version of TEMap
+	
 	LLUUID				mItemID;  // ID of the inventory item in the agent's inventory	
 };
 

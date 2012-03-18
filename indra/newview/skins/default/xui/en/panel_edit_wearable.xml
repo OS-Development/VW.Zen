@@ -428,15 +428,15 @@
          top="8"
          visible="false"
          width="333" />
-    </panel>
-    <panel
-     follows="bottom|left|right"
-     height="23"
-     layout="topleft"
-     left="2"
-     name="button_panel"
-     top_pad="6"
-     width="333">
+	</panel>
+	<panel
+		follows="bottom|left|right"
+		height="23"
+		layout="topleft"
+		left="2"
+		name="button_panel"
+		top_pad="6"
+		width="333">
         <layout_stack
          follows="bottom|left|right"
          height="23"
@@ -478,13 +478,54 @@
                 <button
                  follows="bottom|left|right"
                  height="23"
-                 label="Undo Changes"
+                 label="Undo"
                  layout="topleft"
                  left="1"
                  name="revert_button"
                  top="0"
                  width="148" />
             </layout_panel>
+			<layout_panel
+             follows="bottom|left|right"
+             height="23"
+             layout="bottomleft"
+             left="0"			
+             mouse_opaque="false"
+             name="import_btn_lp"
+             auto_resize="true"
+             width="154">
+                <button
+                 follows="bottom|left|right"
+                 height="23"
+                 label="Import"
+                 layout="topleft"
+                 left="1"
+                 name="Import"
+                 top="0"
+                 width="153" />
+            </layout_panel>
+            <layout_panel
+             follows="bottom|left|right"
+             height="23"
+             layout="bottomleft"
+             left_pad="3"			
+             mouse_opaque="false"
+             name="export_btn_lp"
+             auto_resize="true"
+             width="152">
+                <button
+                 follows="bottom|left|right"
+                 height="23"
+                 label="Export"
+                 layout="topleft"
+                 left="1"
+                 name="Export"
+                 top="0"
+                 width="148" />
+            </layout_panel>
         </layout_stack>
-    </panel>
+	</panel>
+	
+	
+	
 </panel>

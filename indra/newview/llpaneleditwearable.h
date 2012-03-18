@@ -75,11 +75,15 @@ public:
 	void				saveAsCallback(const LLSD& notification, const LLSD& response);
 
 	virtual void		setVisible(BOOL visible);
+	
+	static void			onBtnImport(void* userdata);
+	static void			onBtnExport(void* userdata);
 
 
 private:
 	typedef std::map<F32, LLViewerVisualParam*> value_map_t;
 
+	void 				showImportExportBtns();
 	void				showWearable(LLWearable* wearable, BOOL show, BOOL disable_camera_switch = FALSE);
 	void				updateScrollingPanelUI();
 	LLPanel*			getPanel(LLWearableType::EType type);

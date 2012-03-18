@@ -118,6 +118,29 @@ LLAssetType::EType LLWearable::getAssetType() const
 	return LLWearableType::getAssetType(mType);
 }
 
+BOOL LLWearable::FileExportParams( FILE* file )
+{
+	// wearable type 
+	S32 type = (S32)mType;
+	fprintf( file, "type %d\n", type );
+
+	// parameters
+	S32 num_parameters = mVisualParamIndexMap.size();
+	fprintf( file, "parameters %d\n", num_parameters );
+
+	for (visual_param_index_map_t::const_iterator iter = mVisualParamIndexMap.begin();
+		 iter != mVisualParamIndexMap.end(); 
+		 ++iter)
+	{
+		S32 param_id = iter->first;
+		const LLVisualParam* param = iter->second;
+		F32 param_weight = param->getWeight();
+		fprintf( file, "%d %s\n", param_id, terse_F32_to_string(param_weight).c_str() );
+	}
+	
+	return TRUE;
+}
+
 BOOL LLWearable::exportFile(LLFILE* file) const
 {
 	// header and version
