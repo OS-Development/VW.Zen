@@ -2395,6 +2395,14 @@ Please try logging in again in a minute.</string>
         string osUnixTimeToTimestamp(integer unixtime)
         Converts unixtime to an llGetTimeStamp() formated string.
     </string>
+	<string name="LSLTipText_osGetGridGatekeeperURI" translate="false"> <!-- Mar.11.2012 -->
+		string osGetGridGatekeeperURI()
+		returns the value of Gatekeeper in [GridService] section for both standalone and grids. 
+	</string>
+	<string name="LSLTipText_osGetInventoryDesc" translate="false">     <!-- Mar.17.2012 -->
+		string osGetInventoryDesc(string itemName)
+		returns the description of an inventory item contained within a prim. 
+	</string>    
     <string name="LSLTipText_cmSetWindlightScene" translate="false">
         cmSetWindlightScene(list rules)
         Set the current WindLight scene. Estate managers and owners only.

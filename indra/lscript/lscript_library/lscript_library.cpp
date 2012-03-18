@@ -580,6 +580,8 @@ void LLScriptLibrary::init()
     addFunction(10.f, 0.f, dummy_func, "osNpcStopAnimation",NULL,"ks"); // mar.5.2012
     addFunction(10.f, 0.f, dummy_func, "osOwnerSaveAppearance", NULL, "s");
     addFunction(10.f, 0.f, dummy_func, "osAgentSaveAppearance", NULL, "ks");
+	addFunction(10.f, 0.f, dummy_func, "osGetGridGatekeeperURI", "s", "NULL");  //mar.11.2012 
+	addFunction(10.f, 0.f, dummy_func, "osGetInventoryDesc", "s", "s");    //mar.17.2012
 //
 // OSSL Functions Aurora-Sim Unique
     addFunction(10.f, 0.f, dummy_func, "osReturnObject", NULL, "k");
