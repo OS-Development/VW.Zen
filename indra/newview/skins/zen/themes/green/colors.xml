@@ -513,10 +513,10 @@
 	 reference="LtGray_50" />
     <color
      name="MenuItemEnabledColor"
-     reference="LtGray" />
+     reference="White" />
     <color
      name="MenuItemHighlightBgColor"
-     value="0 1 0 1" />
+     value="0 1 0 0.75" />
     <color
      name="MenuItemHighlightFgColor"
      reference="White" />
