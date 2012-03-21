@@ -869,21 +869,10 @@ void LLFolderViewItem::draw()
 	const BOOL in_inventory = getListener() && gInventory.isObjectDescendentOf(getListener()->getUUID(), gInventory.getRootFolderID());
 	const BOOL in_library = getListener() && gInventory.isObjectDescendentOf(getListener()->getUUID(), gInventory.getLibraryRootFolderID());
 
-	//--------------------------------------------------------------------------------//
-	// Draw open folder arrow
-	//
 	const bool up_to_date = mListener && mListener->isUpToDate();
 	const bool possibly_has_children = ((up_to_date && hasVisibleChildren()) // we fetched our children and some of them have passed the filter...
 										|| (!up_to_date && mListener && mListener->hasChildren())); // ...or we know we have children but haven't fetched them (doesn't obey filter)
-	if (possibly_has_children)
-	{
-		LLUIImage* arrow_image = default_params.folder_arrow_image;
-		gl_draw_scaled_rotated_image(
-			mIndentation, getRect().getHeight() - ARROW_SIZE - TEXT_PAD - TOP_PAD,
-			ARROW_SIZE, ARROW_SIZE, mControlLabelRotation, arrow_image->getImage(), sFgColor);
-	}
-
-
+	
 	//--------------------------------------------------------------------------------//
 	// Draw highlight for selected items
 	//
@@ -1099,6 +1088,18 @@ void LLFolderViewItem::draw()
 							  sFilterTextColor, LLFontGL::LEFT, LLFontGL::BOTTOM, LLFontGL::NORMAL, LLFontGL::NO_SHADOW,
 							  filter_string_length, S32_MAX, &right_x, FALSE );
 		}
+	}
+	
+	//--------------------------------------------------------------------------------//
+	// Draw open folder arrow
+	//
+	
+	if (possibly_has_children)
+	{
+		LLUIImage* arrow_image = default_params.folder_arrow_image;
+		gl_draw_scaled_rotated_image(
+			mIndentation, getRect().getHeight() - ARROW_SIZE - TEXT_PAD - TOP_PAD,
+			ARROW_SIZE, ARROW_SIZE, mControlLabelRotation, arrow_image->getImage(), sFgColor);
 	}
 }
 
