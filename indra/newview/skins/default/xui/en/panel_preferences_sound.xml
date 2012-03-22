@@ -9,6 +9,29 @@
  name="Preference Media panel"
  top="1"
  width="517">
+ 
+	<tab_container
+	 follows="left|top"
+	 halign="center"
+	 height="439"
+	 left="0"
+	 name="Sound Media Tabs"
+	 tab_height="25"
+	 tab_min_width="40"
+	 tab_max_width="130"
+	 tab_position="top"
+	 top="408"
+	 width="540">
+	 
+	 <panel
+	 border="true"
+	 follows="all"
+	 label="Sound"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="Sound">
+ 
+ 
     <panel.string
      name="middle_mouse">
      Middle Mouse
@@ -16,18 +39,17 @@
     <slider
      control_name="AudioLevelMaster"
      follows="left|top"
-     font.style="BOLD"
      height="15"
      increment="0.025"
      initial_value="0.5"
-     label="Master volume"
+     label="Master Volume"
 	   label_width="120"
      layout="topleft"
      left="0"
      name="System Volume"
      show_text="false"
      slider_label.halign="right"
-     top="10"
+     top="30"
      volume="true"
      width="300">
         <slider.commit_callback
@@ -319,17 +341,17 @@
 		control_name="ParcelMediaAutoPlayEnable"
 		enabled_control="AudioStreamingMedia"
 		value="true"
-		follows="left|bottom|right"
+		follows="left|top"
 		height="15"
 		tool_tip="Check this to let media auto-play if it wants"
 		label="Allow Media to auto-play"
-		top_pad="1"
+		top_pad="30"
 		left="25"/>
  	<check_box
 		name="media_show_on_others_btn"
 		control_name="MediaShowOnOthers"
 		value="true"
-		follows="left|bottom|right"
+		follows="left|top"
 		height="15"
 		tool_tip="Uncheck this to hide media attached to other avatars nearby"
 		label="Play media attached to other avatars"
@@ -340,22 +362,70 @@
 		control_name="EnableGestureSounds"
         disabled_control="MuteAudio"
 		value="true"
-		follows="left|bottom|right"
+		follows="left|top"
 		height="15"
 		tool_tip="Check this to hear sounds from gestures"
 		label="Play sounds from gestures"
 		top_pad="1"
 		left="25"/>
+		
+		
+	<check_box
+         control_name="ShowStreamMetadata"
+         name="ShowStreamMetadata"
+         label="Show stream title in nearby chat"
+         follows="left|top"
+         layout="topleft"
+         top_pad="30"
+         left="25"
+         height="15"
+         width="200" />
+        <check_box
+         top_pad="1"
+         left="45"
+         control_name="StreamMetadataAnnounceToChat"
+         name="StreamMetadataAnnounceToChat"
+         label="Send stream title to channel:"
+         layout="left|top"
+         height="15"
+         width="180" />
+        <spinner
+         top_delta="-4"
+         control_name="StreamMetadataAnnounceChannel"
+         enabled_control="StreamMetadataAnnounceToChat"
+         decimal_digits="0"
+         layout="topleft"
+         follows="left|top"
+         height="15"
+         left_pad="5"
+         increment="1"
+         initial_val="362394"
+         max_val="2147483647"
+         min_val="1"
+         name="StreamMetadataAnnounceChannel"
+         width="90" />	
+		
+		
+		
+	</panel>
+		
+	<panel
+	 border="true"
+	 follows="all"
+	 label="Voice Chat"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="VoiceChat">	
     <text
      type="string"
      length="1"
-     follows="left|top"
+	 follows="left|top"
      height="20"
      layout="topleft"
      left="25"
      name="voice_chat_settings"
      width="200"
-     top_pad="7">
+     top="30">
 	  Voice Chat Settings
     </text>
     <text
@@ -364,7 +434,7 @@
      follows="left|top"
      layout="topleft"
 	   left="46"
-	   top_delta="16"
+	   top_delta="20"
      name="Listen from"
      width="112">
         Listen from:
@@ -426,7 +496,7 @@
    layout="topleft"
    left="44"
    name="enable_lip_sync"
-   top_pad="5" 
+   top_pad="30" 
    width="237"/>
  <check_box
   follows="top|left"
@@ -487,7 +557,7 @@
    label="Input/Output devices"
    layout="topleft"
    left="20"
-   top_pad="6"
+   top_pad="30"
    name="device_settings_btn"
    width="190">
   </button>
@@ -496,8 +566,11 @@
     filename="panel_sound_devices.xml"
      visiblity_control="ShowDeviceSettings"
      name="device_settings_panel"
-    top_pad="0"
+    top_pad="20"
     width="480"
     left="18"
     class="panel_voice_device_settings"/>
-    </panel>
+	</panel>
+	</panel>
+	</tab_container>
+</panel>

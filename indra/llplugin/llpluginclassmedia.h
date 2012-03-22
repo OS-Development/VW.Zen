@@ -423,6 +423,17 @@ protected:
 	F64				mCurrentRate;
 	F64				mLoadedDuration;
 	
+public:
+	std::string const& getArtist() const
+	{ return mArtist; }
+
+	std::string const& getTitle() const
+	{ return mTitle; }
+
+private:
+	std::string mArtist;
+	std::string mTitle;
+	
 //--------------------------------------
 	//debug use only
 	//

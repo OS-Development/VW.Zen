@@ -81,6 +81,7 @@ set(viewer_SOURCE_FILES
 	aoset.cpp
 	fsareasearch.cpp
 	groupchatlistener.cpp
+	streamtitledisplay.cpp
     llaccountingcostmanager.cpp
     llagent.cpp
     llagentaccess.cpp
@@ -646,6 +647,7 @@ set(viewer_HEADER_FILES
 	aoset.h
 	fsareasearch.h
 	groupchatlistener.h
+	streamtitledisplay.h
     llaccountingcostmanager.h
     llagent.h
     llagentaccess.h

@@ -863,7 +863,13 @@ void LLPluginClassMedia::receivePluginMessage(const LLPluginMessage &message)
 	if(message_class == LLPLUGIN_MESSAGE_CLASS_MEDIA)
 	{
 		std::string message_name = message.getName();
-		if(message_name == "texture_params")
+		
+		if( message_name == "ndMediadata_change" )
+		{
+			mTitle = message.getValue( "title" );
+			mArtist = message.getValue( "artist" );
+		}
+		else if(message_name == "texture_params")
 		{
 			mRequestedTextureDepth = message.getValueS32("depth");
 			mRequestedTextureInternalFormat = message.getValueU32("internalformat");
