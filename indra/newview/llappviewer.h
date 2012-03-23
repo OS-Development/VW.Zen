@@ -39,7 +39,6 @@ class LLTextureCache;
 class LLImageDecodeThread;
 class LLTextureFetch;
 class LLWatchdogTimeout;
-class LLUpdaterService;
 
 struct apr_dso_handle_t;
 
@@ -196,7 +195,6 @@ private:
 	void initMaxHeapSize();
 	bool initThreads(); // Initialize viewer threads, return false on failure.
 	bool initConfiguration(); // Initialize settings from the command line/config file.
-	void initUpdater(); // Initialize the updater service.
 	bool initCache(); // Initialize local client cache.
 	void checkMemory() ;
 
@@ -273,24 +271,11 @@ private:
 	std::set<struct apr_dso_handle_t*> mPlugins;
 
 	LLFrameTimer mMemCheckTimer;
-	
-	boost::scoped_ptr<LLUpdaterService> mUpdater;
 
 	//---------------------------------------------
 	//*NOTE: Mani - legacy updater stuff
 	// Still useable?
-public:
 
-	//some information for updater
-	typedef struct
-	{
-		std::string mUpdateExePath;
-		std::ostringstream mParams;
-	}LLUpdaterInfo ;
-	static LLUpdaterInfo *sUpdaterInfo ;
-
-	void launchUpdater();
-	//---------------------------------------------
 };
 
 // consts from viewer.h

@@ -339,7 +339,6 @@ class WindowsManifest(ViewerManifest):
         
         #self.disable_manifest_check()
 
-        self.path(src="../viewer_components/updater/scripts/windows/update_install.bat", dst="update_install.bat")
         # Get shared libs from the shared libs staging directory
         if self.prefix(src=os.path.join(os.pardir, 'sharedlibs', self.args['configuration']),
                        dst=""):
@@ -680,8 +679,6 @@ class DarwinManifest(ViewerManifest):
             # copy additional libs in <bundle>/Contents/MacOS/
             self.path("../packages/lib/release/libndofdev.dylib", dst="Resources/libndofdev.dylib")
 
-            self.path("../viewer_components/updater/scripts/darwin/update_install", "MacOS/update_install")
-
             # most everything goes in the Resources directory
             if self.prefix(src="", dst="Resources"):
                 super(DarwinManifest, self).construct()
@@ -762,7 +759,6 @@ class DarwinManifest(ViewerManifest):
                 
                 # our apps
                 self.path("../mac_crash_logger/" + self.args['configuration'] + "/mac-crash-logger.app", "mac-crash-logger.app")
-                self.path("../mac_updater/" + self.args['configuration'] + "/mac-updater.app", "mac-updater.app")
 
                 # plugin launcher
                 self.path("../llplugin/slplugin/" + self.args['configuration'] + "/SLPlugin.app", "SLPlugin.app")
@@ -770,7 +766,6 @@ class DarwinManifest(ViewerManifest):
                 # our apps dependencies on shared libs
                 if dylibs["llcommon"]:
                     mac_crash_logger_res_path = self.dst_path_of("mac-crash-logger.app/Contents/Resources")
-                    mac_updater_res_path = self.dst_path_of("mac-updater.app/Contents/Resources")
                     slplugin_res_path = self.dst_path_of("SLPlugin.app/Contents/Resources")
                     for libfile in ("libllcommon.dylib",
                                     "libapr-1.0.dylib",
@@ -784,10 +779,6 @@ class DarwinManifest(ViewerManifest):
                         self.run_command("ln -sf %(target)r %(link)r" % 
                                          {'target': target_lib,
                                           'link' : os.path.join(mac_crash_logger_res_path, libfile)}
-                                         )
-                        self.run_command("ln -sf %(target)r %(link)r" % 
-                                         {'target': target_lib,
-                                          'link' : os.path.join(mac_updater_res_path, libfile)}
                                          )
                         self.run_command("ln -sf %(target)r %(link)r" % 
                                          {'target': target_lib,
@@ -955,7 +946,6 @@ class LinuxManifest(ViewerManifest):
 
         self.path("Zen-bin","bin/do-not-directly-run-Zen-bin")
         self.path("../linux_crash_logger/linux-crash-logger","bin/linux-crash-logger.bin")
-        self.path("../linux_updater/linux-updater", "bin/linux-updater.bin")
         self.path("../llplugin/slplugin/SLPlugin", "bin/SLPlugin")
 
         if self.prefix("res-sdl"):
@@ -971,8 +961,6 @@ class LinuxManifest(ViewerManifest):
                 self.path("secondlife_256.BMP","ll_icon.BMP")
                 self.end_prefix("res-sdl")
             self.end_prefix(icon_path)
-
-        self.path("../viewer_components/updater/scripts/linux/update_install", "bin/update_install")
 
         # plugins
         if self.prefix(src="", dst="bin/llplugin"):

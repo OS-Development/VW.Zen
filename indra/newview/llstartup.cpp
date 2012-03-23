@@ -1081,8 +1081,6 @@ bool idle_startup()
 
 		login->setSerialNumber(LLAppViewer::instance()->getSerialNumber());
 		login->setLastExecEvent(gLastExecEvent);
-		login->setUpdaterLauncher(boost::bind(&LLAppViewer::launchUpdater, LLAppViewer::instance()));
-
 		// This call to LLLoginInstance::connect() starts the 
 		// authentication process.
 		login->connect(gUserCredential);
@@ -1149,16 +1147,6 @@ bool idle_startup()
 				gUserCredential->clearAuthenticator();
 			}
 
-			if(reason_response == "update" 
-				|| reason_response == "optional")
-			{
-				// In the case of a needed update, quit.
-				// Its either downloading or declined.
-				// If optional was skipped this case shouldn't 
-				// be reached.
-				LLLoginInstance::getInstance()->disconnect();
-				LLAppViewer::instance()->forceQuit();
-			}
 			else 
 			{
 				if (reason_response != "tos") 
