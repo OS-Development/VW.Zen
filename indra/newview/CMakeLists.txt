@@ -634,6 +634,8 @@ set(viewer_SOURCE_FILES
 	pipeline.cpp
 	qtoolalign.cpp
 	zendata.cpp
+	NACLfloaterblacklist.cpp
+	NACLfloaterexploresounds.cpp
     )
 
 set(VIEWER_BINARY_NAME "Zen-bin" CACHE STRING
@@ -1196,6 +1198,8 @@ set(viewer_HEADER_FILES
     VertexCache.h
     VorbisFramework.h
 	zendata.h
+	NACLfloaterblacklist.h
+	NACLfloaterexploresounds.h
     )
 
 source_group("CMake Rules" FILES ViewerInstall.cmake)
@@ -1596,9 +1600,12 @@ if (WINDOWS)
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/SLVoice.exe
 	  ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/vivoxsdk.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/ortp.dll
+      ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/libsndfile-1.dll
+      ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/zlib1.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/alut.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/wrap_oal.dll
       ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/vivoxplatform.dll
+      ${SHARED_LIB_STAGING_DIR}/${CMAKE_CFG_INTDIR}/vivoxoal.dll
       ${GOOGLE_PERF_TOOLS_SOURCE}
       ${CMAKE_CURRENT_SOURCE_DIR}/licenses-win32.txt
       ${CMAKE_CURRENT_SOURCE_DIR}/featuretable.txt
