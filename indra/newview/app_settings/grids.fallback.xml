@@ -1,9 +1,35 @@
 <llsd>
     <map>
+	<key>localhost:9100</key>
+        <map>
+        <key>LastModified</key>
+            <date>2012-03-29T12:00:00Z</date>
+        <key>grid_login_id</key>
+            <string>localhost:9100</string>
+        <key>gridname</key>
+            <string>Sim-on-a-Stick</string>
+        <key>gridnick</key>
+            <string>simonastick</string>
+        <key>login_identifier_types</key>
+            <array>
+                <string>agent</string>
+                <string>account</string>
+            </array>
+        <key>loginpage</key>
+            <string>http://127.0.0.1:9100/wifi/welcome.html</string>
+        <key>loginuri</key>
+            <array>
+                <string>http://localhost:9100</string>
+            </array>
+        <key>name</key>
+            <string>localhost:9100</string>
+        <key>slurl_base</key>
+            <string>hg://localhost/</string>
+        </map>
 	<key>avination.net/</key>
         <map>
         <key>LastModified</key>
-            <date>2011-08-28T12:00:00.00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>https://www.avination.com/</string>
         <key>grid_login_id</key>
@@ -35,7 +61,7 @@
 	<key>francogrid.org</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-18T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http:/francogrid.org/</string>
         <key>grid_login_id</key>
@@ -67,7 +93,7 @@
 	<key>ufsgrid.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.ufsgrid.com/</string>
         <key>grid_login_id</key>
@@ -99,7 +125,7 @@
 	<key>oneworldgrid.co.uk:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://oneworldgrid.co.uk</string>
         <key>grid_login_id</key>
@@ -131,7 +157,7 @@
 	<key>islandoasisgrid.biz:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.islandoasis.biz</string>
         <key>grid_login_id</key>
@@ -163,7 +189,7 @@
 	<key>GayNations.org:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://GayNations.org/index.php</string>
         <key>grid_login_id</key>
@@ -195,7 +221,7 @@
 	<key>anskygrid.ca:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://gridnirvana.net/</string>
         <key>grid_login_id</key>
@@ -227,7 +253,7 @@
 	<key>gridnirvana.net:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://gridnirvana.net/</string>
         <key>grid_login_id</key>
@@ -259,7 +285,7 @@
 	<key>tertiarygrid.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://tertiarygrid.com/gettingstarted.php</string>
         <key>grid_login_id</key>
@@ -291,7 +317,7 @@
 	<key>vwc.selfip.net:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.virtualworldsgrid.com</string>
         <key>grid_login_id</key>
@@ -323,7 +349,7 @@
 	<key>newworldgrid.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.newworldgrid.com/about</string>
         <key>grid_login_id</key>
@@ -355,7 +381,7 @@
 	<key>fleepgrid.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://fleepgrid.com/blog/</string>
         <key>grid_login_id</key>
@@ -387,7 +413,7 @@
     <key>craft-world.org:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.craft-world.org/</string>
         <key>grid_login_id</key>
@@ -419,7 +445,7 @@
     <key>grid.3rdrockgrid.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://3rdrockgrid.com/</string>
         <key>grid_login_id</key>
@@ -455,7 +481,7 @@
     <key>grid01.from-ne.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.youralternativelife.com</string>
         <key>grid_login_id</key>
@@ -485,7 +511,7 @@
     <key>inworldz.com:8002</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://inworldz.com/</string>
         <key>grid_login_id</key>
@@ -521,7 +547,7 @@
     <key>localhost:9000</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>grid_login_id</key>
             <string>localhost:9000</string>
         <key>gridname</key>
@@ -547,7 +573,7 @@
     <key>osgrid.org</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://www.osgrid.org/</string>
         <key>grid_login_id</key>
@@ -583,7 +609,7 @@
     <key>reactiongrid.com:8008</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>about</key>
             <string>http://reactiongrid.com/Default.aspx</string>
         <key>grid_login_id</key>
@@ -619,7 +645,7 @@
     <key>util.aditi.lindenlab.com</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>app_slurl_base</key>
             <string>secondlife:///app</string>
         <key>gridname</key>
@@ -648,7 +674,7 @@
     <key>util.agni.lindenlab.com</key>
         <map>
         <key>LastModified</key>
-            <date>2012-03-03T12:00:00Z</date>
+            <date>2012-03-29T12:00:00Z</date>
         <key>app_slurl_base</key>
             <string>secondlife:///app</string>
         <key>favorite</key>
