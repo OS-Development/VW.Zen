@@ -388,7 +388,8 @@ void LLNearbyChatScreenChannel::arrangeToasts()
 
 	S32 channel_bottom = channel_rect.mBottom;
 
-	S32		bottom = channel_bottom + 80;
+//	S32		bottom = channel_bottom + 80;
+	S32		bottom = channel_bottom + gSavedSettings.getS32("NearbyToastOffset");
 	S32		margin = gSavedSettings.getS32("ToastGap");
 
 	//sort active toasts
@@ -477,7 +478,7 @@ void LLNearbyChatHandler::initChannel()
 void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 									  const LLSD &args)
 {
-	if(chat_msg.mMuted == TRUE)
+	if ( (chat_msg.mMuted) && (!gSavedSettings.getBOOL("ShowBlockedChat")) )
 		return;
 
 	if(chat_msg.mText.empty())
@@ -541,6 +542,7 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 
 	if(chat_msg.mSourceType == CHAT_SOURCE_AGENT 
 		&& chat_msg.mFromID.notNull() 
+		&& !chat_msg.mMuted	
 		&& chat_msg.mFromID != gAgentID)
 	{
  		LLFirstUse::otherAvatarChatFirst();
@@ -558,6 +560,7 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 		&& nearby_chat->isInVisibleChain() 
 		|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT
 			&& gSavedSettings.getBOOL("UseChatBubbles") )
+		|| chat_msg.mMuted 
 		|| !mChannel->getShowToasts() ) // to prevent toasts in Busy mode
 		return;//no need in toast if chat is visible or if bubble chat is enabled
 

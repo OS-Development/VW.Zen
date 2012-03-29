@@ -64,6 +64,7 @@ public:
 								ignore_tab,
 								show_line_numbers,
 								commit_on_focus_lost,
+								commit_on_return,
 								show_context_menu;
 
 		//colors
@@ -201,6 +202,10 @@ public:
 
 	void			setShowContextMenu(bool show) { mShowContextMenu = show; }
 	bool			getShowContextMenu() const { return mShowContextMenu; }
+	
+public:
+	LLContextMenu*	getContextMenu() const;
+	void			setContextMenu(LLContextMenu* pMenu);
 
 protected:
 	void			showContextMenu(S32 x, S32 y);
@@ -316,6 +321,7 @@ private:
 
 	BOOL			mTabsToNextField;		// if true, tab moves focus to next field, else inserts spaces
 	BOOL			mCommitOnFocusLost;
+	BOOL			mCommitOnReturn;
 	BOOL			mTakesFocus;
 
 	BOOL			mAllowEmbeddedItems;
@@ -329,7 +335,9 @@ private:
 	keystroke_signal_t mKeystrokeSignal;
 	LLTextValidate::validate_func_t mPrevalidateFunc;
 
-	LLContextMenu* mContextMenu;
+	//LLContextMenu* mContextMenu;
+	LLHandle<LLContextMenu> mContextMenuHandle;
+	
 }; // end class LLTextEditor
 
 // Build time optimization, generate once in .cpp file

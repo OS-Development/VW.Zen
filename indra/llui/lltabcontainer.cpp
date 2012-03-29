@@ -130,9 +130,8 @@ public:
 		switch(mIconAlignment)
 		{
 		case LLFontGL::LEFT:
-			icon_rect.setLeftTopAndSize(button_rect.mLeft + mIconCtrlPad, button_rect.mTop - mIconCtrlPad, 
-				icon_size, icon_size);
-			setLeftHPad(icon_size + mIconCtrlPad * 2);
+			icon_rect.setLeftTopAndSize(mIconCtrlPad * 1.5, button_rect.getHeight() - mIconCtrlPad, icon_size, icon_size);
+			setLeftHPad(icon_size + mIconCtrlPad * 3);
 			break;
 		case LLFontGL::HCENTER:
 			icon_rect.setLeftTopAndSize(button_rect.mRight - (button_rect.getWidth() + mIconCtrlPad - icon_size)/2, button_rect.mTop - mIconCtrlPad, 
@@ -210,6 +209,7 @@ LLTabContainer::Params::Params()
 	label_pad_left("label_pad_left"),
 	tab_position("tab_position"),
 	hide_tabs("hide_tabs", false),
+	tab_allow_rearrange("tab_allow_rearrange", false),
 	tab_padding_right("tab_padding_right"),
 	first_tab("first_tab"),
 	middle_tab("middle_tab"),
@@ -225,6 +225,7 @@ LLTabContainer::LLTabContainer(const LLTabContainer::Params& p)
 :	LLPanel(p),
 	mCurrentTabIdx(-1),
 	mTabsHidden(p.hide_tabs),
+	mAllowRearrange(p.tab_allow_rearrange),
 	mScrolled(FALSE),
 	mScrollPos(0),
 	mScrollPosPixels(0),
@@ -571,11 +572,15 @@ BOOL LLTabContainer::handleMouseDown( S32 x, S32 y, MASK mask )
 		}
 		if( tab_rect.pointInRect( x, y ) )
 		{
-			S32 index = getCurrentPanelIndex();
-			index = llclamp(index, 0, tab_count-1);
-			LLButton* tab_button = getTab(index)->mButton;
 			gFocusMgr.setMouseCapture(this);
-			tab_button->setFocus(TRUE);
+			
+			// Only set keyboard focus to the tab button of the active panel (if we have one) if the user actually clicked on it
+			if (mCurrentTabIdx >= 0)
+			{
+				LLButton* pActiveTabBtn = mTabList[mCurrentTabIdx]->mButton;
+				if (pActiveTabBtn->pointInView(x - pActiveTabBtn->getRect().mLeft, y - pActiveTabBtn->getRect().mBottom))
+					pActiveTabBtn->setFocus(TRUE);
+			}
 		}
 	}
 	return handled;
@@ -727,6 +732,11 @@ BOOL LLTabContainer::handleToolTip( S32 x, S32 y, MASK mask)
 // virtual
 BOOL LLTabContainer::handleKeyHere(KEY key, MASK mask)
 {
+	if ( (mAllowRearrange) && (hasMouseCapture()) )
+	{
+		return FALSE;	// Don't process movement keys while the user might be rearranging tabs
+	}
+	
 	BOOL handled = FALSE;
 	if (key == KEY_LEFT && mask == MASK_ALT)
 	{
@@ -1625,21 +1635,22 @@ void LLTabContainer::reshapeTuple(LLTabTuple* tuple)
 {
 	static LLUICachedControl<S32> tab_padding ("UITabPadding", 0);
 
-	if (!mIsVertical)
-	{
-		S32 image_overlay_width = 0;
+	S32 image_overlay_width = 0;
 
-		if(mCustomIconCtrlUsed)
-		{
-			LLCustomButtonIconCtrl* button = dynamic_cast<LLCustomButtonIconCtrl*>(tuple->mButton);
-			LLIconCtrl* icon_ctrl = button ? button->getIconCtrl() : NULL;
-			image_overlay_width = icon_ctrl ? icon_ctrl->getRect().getWidth() : 0;
-		}
-		else
-		{
-			image_overlay_width = tuple->mButton->getImageOverlay().notNull() ?
-					tuple->mButton->getImageOverlay()->getImage()->getWidth(0) : 0;
-		}
+	if(mCustomIconCtrlUsed)
+	{
+		LLCustomButtonIconCtrl* button = dynamic_cast<LLCustomButtonIconCtrl*>(tuple->mButton);
+		LLIconCtrl* icon_ctrl = button ? button->getIconCtrl() : NULL;
+		image_overlay_width = icon_ctrl ? icon_ctrl->getRect().getWidth() : 0;
+	}
+	else
+	{
+		image_overlay_width = tuple->mButton->getImageOverlay().notNull() ?
+				tuple->mButton->getImageOverlay()->getImage()->getWidth(0) : 0;
+	}
+	
+	if (!mIsVertical)
+ 	{
 		// remove current width from total tab strip width
 		mTotalTabWidth -= tuple->mButton->getRect().getWidth();
 
@@ -1652,6 +1663,10 @@ void LLTabContainer::reshapeTuple(LLTabTuple* tuple)
 
 		// tabs have changed size, might need to scroll to see current tab
 		updateMaxScrollPos();
+	}
+	else
+	{
+		tuple->mPadding = image_overlay_width;
 	}
 }
 
@@ -2041,7 +2056,40 @@ void LLTabContainer::commitHoveredButton(S32 x, S32 y)
 			S32 local_y = y - tuple->mButton->getRect().mBottom;
 			if (tuple->mButton->pointInView(local_x, local_y) && tuple->mButton->getEnabled() && !tuple->mTabPanel->getVisible())
 			{
-				tuple->mButton->onCommit();
+				if ( (mAllowRearrange) && (mCurrentTabIdx >= 0) && (mTabList[mCurrentTabIdx]->mButton->hasFocus()) )
+				{
+					S32 idxHover = iter - mTabList.begin();
+					if ( (mCurrentTabIdx >= mLockedTabCount) && (idxHover >= mLockedTabCount) && (mCurrentTabIdx != idxHover) )
+					{
+						LLRect rctCurTab = mTabList[mCurrentTabIdx]->mButton->getRect();
+						LLRect rctHoverTab = mTabList[idxHover]->mButton->getRect();
+						
+						// Only rearrange the tabs if the mouse pointer has cleared the overlap area
+						// TODO-Catznip: [Catznip-2.1] The "cleared overlap" needs more testing for a variety of tab configurations
+						bool fClearedOverlap = 
+							(mIsVertical) 
+							? ( (idxHover < mCurrentTabIdx) && (y > rctHoverTab.mTop - rctCurTab.getHeight()) ) ||
+							  ( (idxHover > mCurrentTabIdx) && (y < rctCurTab.mTop - rctHoverTab.getHeight()) )
+							: ( (idxHover < mCurrentTabIdx) && (x < rctHoverTab.mLeft + rctCurTab.getWidth()) ) ||
+							  ( (idxHover > mCurrentTabIdx) && (x > rctCurTab.mLeft + rctHoverTab.getWidth()) );
+						if (fClearedOverlap)
+						{
+							tuple = mTabList[mCurrentTabIdx];
+
+							mTabList.erase(mTabList.begin() + mCurrentTabIdx);
+							mTabList.insert(mTabList.begin() + idxHover, tuple);
+
+							tuple->mButton->onCommit();
+							tuple->mButton->setFocus(TRUE);
+						}
+					}
+				}
+				else
+				{
+					tuple->mButton->onCommit();
+					tuple->mButton->setFocus(TRUE);
+				}
+				break;
 			}
 		}
 	}

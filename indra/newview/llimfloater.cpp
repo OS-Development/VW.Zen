@@ -221,6 +221,11 @@ void LLIMFloater::sendMsg()
 
 			updateMessages();
 		}
+		else if (gSavedSettings.getBOOL("CloseIMOnEmptyReturn"))
+		{
+			// Close if we're the child of a floater
+			closeFloater();
+		}
 	}
 }
 

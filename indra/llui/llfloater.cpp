@@ -80,6 +80,7 @@ std::string	LLFloater::sButtonNames[BUTTON_COUNT] =
 {
 	"llfloater_close_btn",		//BUTTON_CLOSE
 	"llfloater_restore_btn",	//BUTTON_RESTORE
+	"llfloater_collapse_btn",	//BUTTON_COLLAPSE
 	"llfloater_minimize_btn",	//BUTTON_MINIMIZE
 	"llfloater_tear_off_btn",	//BUTTON_TEAR_OFF
 	"llfloater_dock_btn",		//BUTTON_DOCK
@@ -96,6 +97,7 @@ std::string LLFloater::sButtonToolTipsIndex[BUTTON_COUNT]=
 	"BUTTON_CLOSE_WIN",		//"Close (Ctrl-W)",	//BUTTON_CLOSE
 #endif
 	"BUTTON_RESTORE",		//"Restore",	//BUTTON_RESTORE
+	"BUTTON_COLLAPSE",		//"Collapse",	//BUTTON_COLLAPSE
 	"BUTTON_MINIMIZE",		//"Minimize",	//BUTTON_MINIMIZE
 	"BUTTON_TEAR_OFF",		//"Tear Off",	//BUTTON_TEAR_OFF
 	"BUTTON_DOCK",
@@ -106,15 +108,17 @@ LLFloater::click_callback LLFloater::sButtonCallbacks[BUTTON_COUNT] =
 {
 	LLFloater::onClickClose,	//BUTTON_CLOSE
 	LLFloater::onClickMinimize, //BUTTON_RESTORE
+	LLFloater::onClickCollapse, //BUTTON_COLLAPSE
 	LLFloater::onClickMinimize, //BUTTON_MINIMIZE
 	LLFloater::onClickTearOff,	//BUTTON_TEAR_OFF
 	LLFloater::onClickDock,		//BUTTON_DOCK
 	LLFloater::onClickHelp		//BUTTON_HELP
 };
 
+BOOL LLFloater::sShowCollapseButton = FALSE;
 LLMultiFloater* LLFloater::sHostp = NULL;
 BOOL			LLFloater::sQuitting = FALSE; // Flag to prevent storing visibility controls while quitting
-
+LLFloater::handle_map_t	LLFloater::sFloaterMap;
 LLFloaterView* gFloaterView = NULL;
 
 LLFloaterView::snap_changed_signal_t LLFloaterView::s_SnapChangedSignal;
@@ -178,6 +182,7 @@ LLFloater::Params::Params()
 	save_dock_state("save_dock_state", false),
 	save_rect("save_rect", false),
 	save_visibility("save_visibility", false),
+	save_tearoff_state("save_tearoff_state", false),
 	can_dock("can_dock", false),
 	show_title("show_title", true),
 	open_positioning("open_positioning", LLFloaterEnums::OPEN_POSITIONING_NONE),
@@ -188,12 +193,14 @@ LLFloater::Params::Params()
 	close_image("close_image"),
 	restore_image("restore_image"),
 	minimize_image("minimize_image"),
+	collapse_image("collapse_image"),
 	tear_off_image("tear_off_image"),
 	dock_image("dock_image"),
 	help_image("help_image"),
 	close_pressed_image("close_pressed_image"),
 	restore_pressed_image("restore_pressed_image"),
 	minimize_pressed_image("minimize_pressed_image"),
+	collapse_pressed_image("collapse_pressed_image"),
 	tear_off_pressed_image("tear_off_pressed_image"),
 	dock_pressed_image("dock_pressed_image"),
 	help_pressed_image("help_pressed_image"),
@@ -260,6 +267,7 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	mHeaderHeight(p.header_height),
 	mLegacyHeaderHeight(p.legacy_header_height),
 	mMinimized(FALSE),
+	mCollapseOnMinimize(FALSE),
 	mForeground(FALSE),
 	mFirstLook(TRUE),
 	mButtonScale(1.0f),
@@ -270,10 +278,21 @@ LLFloater::LLFloater(const LLSD& key, const LLFloater::Params& p)
 	mHasBeenDraggedWhileMinimized(FALSE),
 	mPreviousMinimizedBottom(0),
 	mPreviousMinimizedLeft(0),
+	mTearOffSignal(NULL),
 	mMinimizeSignal(NULL)
 //	mNotificationContext(NULL)
 {
-//	mNotificationContext = new LLFloaterNotificationContext(getHandle());
+	static bool sShowCollapseInit = false;
+	if (!sShowCollapseInit)
+	{
+		LLControlVariable* pControl = LLUI::getControlControlGroup("ShowFloaterCollapseButton").getControl("ShowFloaterCollapseButton");
+		if (pControl)
+		{
+			sShowCollapseButton = pControl->getValue().asBoolean();
+			pControl->getSignal()->connect(boost::bind(&LLFloater::handleShowCollapseButtonChanged, _2));
+			sShowCollapseInit = true;
+		}
+	}
 
 	// Clicks stop here.
 	setMouseOpaque(TRUE);
@@ -315,6 +334,7 @@ void LLFloater::initFloater(const Params& p)
 	if ( !mDragOnLeft && mCanMinimize )
 	{
 		mButtonsEnabled[BUTTON_MINIMIZE] = TRUE;
+		mButtonsEnabled[BUTTON_COLLAPSE] = sShowCollapseButton;
 	}
 
 	if(mCanDock)
@@ -545,6 +565,8 @@ LLFloater::~LLFloater()
 	storeDockStateControl();
 
 	delete mMinimizeSignal;
+	
+	delete mTearOffSignal;
 }
 
 void LLFloater::storeRectControl()
@@ -568,6 +590,14 @@ void LLFloater::storeDockStateControl()
 	if( !sQuitting && mDocStateControl.size() > 1 )
 	{
 		getControlGroup()->setBOOL( mDocStateControl, isDocked() );
+	}
+}
+
+void LLFloater::storeTearOffStateControl()
+{
+	if ( (!sQuitting) && (mCanTearOff) && (mTearOffStateControl.size() > 1) )
+	{
+		getControlGroup()->setBOOL(mTearOffStateControl, isTornOff());
 	}
 }
 
@@ -859,14 +889,23 @@ LLMultiFloater* LLFloater::getHost()
 	return (LLMultiFloater*)mHostHandle.get(); 
 }
 
+LLMultiFloater* LLFloater::getLastHost() const
+{
+	return (LLMultiFloater*)mLastHostHandle.get(); 
+}
+
 void LLFloater::applyControlsAndPosition(LLFloater* other)
 {
 	if (!applyDockState())
 	{
-		if (!applyRectControl())
+		if ( (!applyRectControl()) && ((!getHost()) || (mTornOff)) )
 		{
 			applyPositioning(other);
 		}
+	}
+	if (getHost())
+	{
+		applyTearOffState();
 	}
 }
 
@@ -960,6 +999,15 @@ void LLFloater::applyPositioning(LLFloater* other)
 	default:
 		// Do nothing
 		break;
+	}
+}
+
+void LLFloater::applyTearOffState()
+{
+	if ( (mCanTearOff) && (mTearOffStateControl.size() > 1) )
+	{
+		bool tearoffState = getControlGroup()->getBOOL(mTearOffStateControl);
+		setTornOff(tearoffState);
 	}
 }
 
@@ -1149,7 +1197,11 @@ void LLFloater::setMinimized(BOOL minimize)
 		// If the floater has been dragged while minimized in the
 		// past, then locate it at its previous minimized location.
 		// Otherwise, ask the view for a minimize position.
-		if (mHasBeenDraggedWhileMinimized)
+		if (mCollapseOnMinimize)
+		{
+			setOrigin(mExpandedRect.mLeft, mExpandedRect.mTop - floater_header_size);
+		}
+		else if (mHasBeenDraggedWhileMinimized)
 		{
 			setOrigin(mPreviousMinimizedLeft, mPreviousMinimizedBottom);
 		}
@@ -1163,6 +1215,7 @@ void LLFloater::setMinimized(BOOL minimize)
 		if (mButtonsEnabled[BUTTON_MINIMIZE])
 		{
 			mButtonsEnabled[BUTTON_MINIMIZE] = FALSE;
+			mButtonsEnabled[BUTTON_COLLAPSE] = FALSE;
 			mButtonsEnabled[BUTTON_RESTORE] = TRUE;
 		}
 
@@ -1202,24 +1255,34 @@ void LLFloater::setMinimized(BOOL minimize)
 		}
 		
 		// Reshape *after* setting mMinimized
-		reshape( minimized_width, floater_header_size, TRUE);
+		reshape((!mCollapseOnMinimize) ? minimized_width : mExpandedRect.getWidth(), floater_header_size, TRUE);
 	}
 	else
 	{
 		// If this window has been dragged while minimized (at any time),
 		// remember its position for the next time it's minimized.
-		if (mHasBeenDraggedWhileMinimized)
+		if ( (mHasBeenDraggedWhileMinimized) && (!mCollapseOnMinimize) )
 		{
 			const LLRect& currentRect = getRect();
 			mPreviousMinimizedLeft = currentRect.mLeft;
 			mPreviousMinimizedBottom = currentRect.mBottom;
 		}
 
-		setOrigin( mExpandedRect.mLeft, mExpandedRect.mBottom );
+		// If the floater was moved while collapsed then expand it in-place, otherwise, snap back to the position it was in when minimized.
+		if (mCollapseOnMinimize)
+		{
+			const LLRect& currentRect = getRect();
+			setOrigin(currentRect.mLeft, currentRect.mTop - mExpandedRect.getHeight());
+		}
+		else
+		{
+			setOrigin(mExpandedRect.mLeft, mExpandedRect.mBottom);
+		}
 
 		if (mButtonsEnabled[BUTTON_RESTORE])
 		{
 			mButtonsEnabled[BUTTON_MINIMIZE] = TRUE;
+			mButtonsEnabled[BUTTON_COLLAPSE] = sShowCollapseButton;
 			mButtonsEnabled[BUTTON_RESTORE] = FALSE;
 		}
 
@@ -1249,6 +1312,7 @@ void LLFloater::setMinimized(BOOL minimize)
 		}
 		
 		mMinimized = FALSE;
+		mCollapseOnMinimize = FALSE;
 
 		// Reshape *after* setting mMinimized
 		reshape( mExpandedRect.getWidth(), mExpandedRect.getHeight(), TRUE );
@@ -1610,46 +1674,111 @@ void LLFloater::onClickMinimize(LLFloater* self)
 	self->setMinimized( !self->isMinimized() );
 }
 
-void LLFloater::onClickTearOff(LLFloater* self)
+void LLFloater::onClickCollapse(LLFloater* self)
 {
 	if (!self)
 		return;
-	S32 floater_header_size = self->mHeaderHeight;
-	LLMultiFloater* host_floater = self->getHost();
-	if (host_floater) //Tear off
-	{
-		LLRect new_rect;
-		host_floater->removeFloater(self);
-		// reparent to floater view
-		gFloaterView->addChild(self);
+	self->mCollapseOnMinimize = !self->isMinimized();
+	self->setMinimized(!self->isMinimized());
+}
 
-		self->openFloater(self->getKey());
+void LLFloater::setTornOff(bool torn_off)
+{
+	if ( (!mCanTearOff) || (mTornOff == torn_off) )
+		return;
+
+	LLMultiFloater* host_floater = getHost();
+	if ( (torn_off) && (host_floater) )		// Tear off
+	{
+		if (mTearOffSignal)
+			(*mTearOffSignal)(this, LLSD(true));
+
+		LLRect new_rect;
+		host_floater->removeFloater(this);
+		// reparent to floater view
+		gFloaterView->addChild(this);
+
+		openFloater(getKey());
 		
 		// only force position for floaters that don't have that data saved
-		if (self->mRectControl.size() <= 1)
+		if (mRectControl.size() <= 1)
 		{
-			new_rect.setLeftTopAndSize(host_floater->getRect().mLeft + 5, host_floater->getRect().mTop - floater_header_size - 5, self->getRect().getWidth(), self->getRect().getHeight());
-			self->setRect(new_rect);
+			new_rect.setLeftTopAndSize(host_floater->getRect().mLeft + 5, host_floater->getRect().mTop - mHeaderHeight - 5, getRect().getWidth(), getRect().getHeight());
+			setRect(new_rect);
 		}
-		gFloaterView->adjustToFitScreen(self, FALSE);
+		gFloaterView->adjustToFitScreen(this, FALSE);
 		// give focus to new window to keep continuity for the user
-		self->setFocus(TRUE);
-		self->setTornOff(true);
+		setFocus(TRUE);
+		mTornOff = true;;
 	}
-	else  //Attach to parent.
+	else if (!torn_off)						// Attach to parent.
 	{
-		LLMultiFloater* new_host = (LLMultiFloater*)self->mLastHostHandle.get();
+		LLMultiFloater* new_host = (LLMultiFloater*)mLastHostHandle.get();
 		if (new_host)
 		{
-			self->setMinimized(FALSE); // to reenable minimize button if it was minimized
-			new_host->showFloater(self);
+			if (mTearOffSignal)
+				(*mTearOffSignal)(this, LLSD(false));
+
+			setMinimized(FALSE); // to reenable minimize button if it was minimized
+			new_host->showFloater(this);
 			// make sure host is visible
 			new_host->openFloater(new_host->getKey());
 		}
-		self->setTornOff(false);
+		mTornOff = false;
 	}
-	self->updateTitleButtons();
+	updateTitleButtons();
+
+	storeTearOffStateControl();
 }
+
+void LLFloater::onClickTearOff(LLFloater* self)
+{
+	if ( (self) && (self->mCanTearOff) )
+	{
+		self->setTornOff(!self->mTornOff);
+	}
+}
+
+//void LLFloater::onClickTearOff(LLFloater* self)
+//{
+//	if (!self)
+//		return;
+//	S32 floater_header_size = self->mHeaderHeight;
+//	LLMultiFloater* host_floater = self->getHost();
+//	if (host_floater) //Tear off
+//	{
+//		LLRect new_rect;
+//		host_floater->removeFloater(self);
+//		// reparent to floater view
+//		gFloaterView->addChild(self);
+//
+//		self->openFloater(self->getKey());
+//		
+//		// only force position for floaters that don't have that data saved
+//		if (self->mRectControl.size() <= 1)
+//		{
+//			new_rect.setLeftTopAndSize(host_floater->getRect().mLeft + 5, host_floater->getRect().mTop - floater_header_size - 5, self->getRect().getWidth(), self->getRect().getHeight());
+//			self->setRect(new_rect);
+//		}
+//		gFloaterView->adjustToFitScreen(self, FALSE);
+//		// give focus to new window to keep continuity for the user
+//		self->setFocus(TRUE);
+//		self->setTornOff(true);
+//	}
+//	else  //Attach to parent.
+//	{
+//		LLMultiFloater* new_host = (LLMultiFloater*)self->mLastHostHandle.get();
+//		if (new_host)
+//		{
+//			self->setMinimized(FALSE); // to reenable minimize button if it was minimized
+//			new_host->showFloater(self);
+//			// make sure host is visible
+//			new_host->openFloater(new_host->getKey());
+//		}
+//		self->setTornOff(false);
+//	}
+//	self->updateTitleButtons();
+//}
 
 // static
 void LLFloater::onClickDock(LLFloater* self)
@@ -1671,6 +1800,17 @@ void LLFloater::onClickHelp( LLFloater* self )
 		{
 			LLUI::sHelpImpl->showTopic(help_topic);
 		}
+	}
+}
+
+void LLFloater::handleShowCollapseButtonChanged(const LLSD& sdValue)
+{
+	sShowCollapseButton = sdValue.asBoolean();
+	for (handle_map_t::iterator itFloater = sFloaterMap.begin(); itFloater != sFloaterMap.end(); ++itFloater)
+	{
+		LLFloater* pFloater = itFloater->second;
+		pFloater->mButtonsEnabled[BUTTON_COLLAPSE] = pFloater->mButtonsEnabled[BUTTON_MINIMIZE] && sShowCollapseButton;
+		pFloater->updateTitleButtons();
 	}
 }
 
@@ -1907,6 +2047,7 @@ void	LLFloater::setCanMinimize(BOOL can_minimize)
 	}
 
 	mButtonsEnabled[BUTTON_MINIMIZE] = can_minimize && !isMinimized();
+	mButtonsEnabled[BUTTON_COLLAPSE] = can_minimize && !isMinimized() && sShowCollapseButton;
 	mButtonsEnabled[BUTTON_RESTORE]  = can_minimize &&  isMinimized();
 
 	updateTitleButtons();
@@ -2108,6 +2249,8 @@ LLUIImage* LLFloater::getButtonImage(const Params& p, EFloaterButton e)
 			return p.restore_image;
 		case BUTTON_MINIMIZE:
 			return p.minimize_image;
+		case BUTTON_COLLAPSE:
+			return p.collapse_image;
 		case BUTTON_TEAR_OFF:
 			return p.tear_off_image;
 		case BUTTON_DOCK:
@@ -2129,6 +2272,8 @@ LLUIImage* LLFloater::getButtonPressedImage(const Params& p, EFloaterButton e)
 			return p.restore_pressed_image;
 		case BUTTON_MINIMIZE:
 			return p.minimize_pressed_image;
+		case BUTTON_COLLAPSE:
+			return p.collapse_pressed_image;
 		case BUTTON_TEAR_OFF:
 			return p.tear_off_pressed_image;
 		case BUTTON_DOCK:
@@ -2948,6 +3093,10 @@ void LLFloater::setInstanceName(const std::string& name)
 		{
 			mDocStateControl = LLFloaterReg::declareDockStateControl(ctrl_name);
 		}
+		if(!mTearOffStateControl.empty())
+		{
+			mTearOffStateControl = LLFloaterReg::declareTearOffStateControl(ctrl_name);
+		}
 	}
 }
 
@@ -3030,6 +3179,10 @@ void LLFloater::initFromParams(const LLFloater::Params& p)
 	{
 		mDocStateControl = "t"; // flag to build mDocStateControl name once mInstanceName is set
 	}
+	if (p.save_tearoff_state)
+	{
+		mTearOffStateControl = "t"; // flag to build mTearOffStateControl name once mInstanceName is set
+	}
 	
 	// open callback 
 	if (p.open_callback.isProvided())
@@ -3052,6 +3205,12 @@ boost::signals2::connection LLFloater::setMinimizeCallback( const commit_signal_
 { 
 	if (!mMinimizeSignal) mMinimizeSignal = new commit_signal_t();
 	return mMinimizeSignal->connect(cb); 
+}
+
+boost::signals2::connection LLFloater::setTearOffCallback( const commit_signal_t::slot_type& cb ) 
+{ 
+	if (!mTearOffSignal) mTearOffSignal = new commit_signal_t();
+	return mTearOffSignal->connect(cb); 
 }
 
 boost::signals2::connection LLFloater::setOpenCallback( const commit_signal_t::slot_type& cb )

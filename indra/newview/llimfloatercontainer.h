@@ -51,11 +51,15 @@ public:
 								BOOL select_added_floater, 
 								LLTabContainer::eInsertionPoint insertion_point = LLTabContainer::END);
 
+	/*virtual*/ void removeFloater(LLFloater* floaterp);
+	
 	static LLFloater* getCurrentVoiceFloater();
 
 	static LLIMFloaterContainer* findInstance();
 
 	static LLIMFloaterContainer* getInstance();
+	
+	static const std::string& getFloaterXMLFile();
 
 	virtual void setMinimized(BOOL b);
 

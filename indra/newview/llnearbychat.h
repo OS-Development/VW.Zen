@@ -43,8 +43,15 @@ public:
 
 	/** @param archive true - to save a message to the chat history log */
 	void	addMessage			(const LLChat& message,bool archive = true, const LLSD &args = LLSD());	
-	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
-	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
+//	void	onNearbyChatContextMenuItemClicked(const LLSD& userdata);
+//	bool	onNearbyChatCheckContextMenuItem(const LLSD& userdata);
+
+	static void onNearbyChatAction(const LLSD& sdParam);
+	static bool onNearbyChatCheck(const LLSD& sdParam);
+	static void onSetChatBarType(const LLSD& sdParam);
+	static bool onCheckChatBarType(const LLSD& sdParam);
+	static void onSetFontSize(const LLSD& sdParam);
+	static bool onCheckFontSize(const LLSD& sdParam);
 
 	virtual BOOL	handleMouseDown(S32 x, S32 y, MASK mask);
 	virtual void	draw();
@@ -60,6 +67,9 @@ public:
 	static void processChatHistoryStyleUpdate(const LLSD& newvalue);
 
 	void loadHistory();
+	
+	const std::vector<LLChat>& getHistory() const		{ return mMessageArchive; }
+	void  setHistory(const std::vector<LLChat>& msgs)	{ mMessageArchive = msgs; }
 
 	static LLNearbyChat* getInstance();
 	void removeScreenChat();

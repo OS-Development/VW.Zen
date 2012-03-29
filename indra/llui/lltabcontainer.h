@@ -83,6 +83,7 @@ public:
 											label_pad_left;
 
 		Optional<bool>						hide_tabs;
+		Optional<bool>						tab_allow_rearrange;
 		Optional<S32>						tab_padding_right;
 
 		Optional<TabParams>					first_tab,
@@ -222,6 +223,9 @@ public:
 	void onPrevBtnHeld(const LLSD& data);
 	void onJumpFirstBtn( const LLSD& data );
 	void onJumpLastBtn( const LLSD& data );
+	
+	void setAllowRearrange(BOOL enable)	{ mAllowRearrange = enable; }
+	BOOL getAllowRearrange() const		{ return mAllowRearrange; }
 
 private:
 
@@ -262,6 +266,7 @@ private:
 	
 	S32								mCurrentTabIdx;
 	BOOL							mTabsHidden;
+	BOOL							mAllowRearrange;
 
 	BOOL							mScrolled;
 	LLFrameTimer					mScrollTimer;

@@ -29,9 +29,6 @@
 	 layout="topleft"
 	 mouse_opaque="false"
 	 name="General">
-	 
-	 
-	 
 	<text
 	 follows="left|top"
 	 layout="topleft"
@@ -39,7 +36,7 @@
 	 height="12"
 	 name="font_size"
 	 width="120"
-	 top="15">
+	 top="30">
      Font size:
 	</text>
 	<radio_group
@@ -48,7 +45,7 @@
      left="50"
 	 control_name="ChatFontSize"
      name="chat_font_size"
-     top_pad="4"
+     top_pad="0"
      width="440">
         <radio_item
          height="16"
@@ -57,7 +54,7 @@
          left="0"
          name="radio"
          value="0"
-         top="0"
+         top="10"
          width="125" />
         <radio_item
          height="16"
@@ -87,7 +84,7 @@
      layout="topleft"
      left="50"
      name="play_typing_animation"
-     top_pad="7"
+     top_pad="30"
      width="400" />
     <check_box
      enabled="false"
@@ -96,7 +93,7 @@
      layout="topleft"
      left_delta="0"
      name="send_im_to_email"
-     top_pad="4"
+     top_pad="5"
      width="400" />
     <check_box
      enabled="false"
@@ -105,7 +102,7 @@
      layout="topleft"
      left_delta="0"
      name="plain_text_chat_history"
-     top_pad="4"
+     top_pad="5"
      width="400" />
     <check_box
      control_name="UseChatBubbles"
@@ -114,64 +111,18 @@
      label="Bubble Chat"
      layout="topleft"
      left_delta="0"
-     top_pad="4"
+     top_pad="5"
      name="bubble_text_chat"
      width="150" />     
-    <text
-     name="show_ims_in_label"
-     follows="left|top"
-     layout="topleft"
-     left="30"
-     height="12"
-     width="150"
-     top_pad="15">
-     Show IMs in:
-    </text>
-    <text
-     name="requires_restart_label"
-     follows="left|top"
-     layout="topleft"
-     top_delta="0" 
-     left="130" 
-  	 height="12"
-	 width="130"
-	 font="SansSerifSmall"
-     text_color="Yellow">
-      (Requires Restart)
-      </text>
-    <radio_group
-     follows="left|top"
-     height="30"
-     left="50"
-     control_name="ChatWindow"
-     name="chat_window"
-     top_pad="4"
-     tool_tip="Show your Instant Messages in separate floaters, or in one floater with many tabs (Requires restart)"
-     width="150">
-     <radio_item
-      height="16"
-      label="Separate Windows"
-      layout="topleft"
-      left="0"
-      name="radio"
-      value="0"
-      top="0"
-      width="150" />
-     <radio_item
-      height="16"
-      label="Tabs"
-      layout="topleft"
-      left_delta="0"
-      name="radio2"
-      value="1"
-      top_pad="5"
-      width="150" />
-    </radio_group>
+    
+	
+	
+	
     <text
      name="disable_toast_label"
      follows="left|top"
      layout="topleft"
-     top_pad="20" 
+     top_pad="30" 
      left="30" 
      height="10"
      width="400">
@@ -184,7 +135,7 @@
      layout="topleft"
      top_pad="10" 
      left="50" 
-     height="12"
+     height="20"
      tool_tip="Check to see popups when a Group Chat message arrives"
      width="400" />
     <check_box
@@ -192,12 +143,266 @@
      name="EnableIMChatPopups"
      label="IM Chats" 
      layout="topleft"
-     top_pad="4"
+     top_pad="5"
 	 left="50" 
      height="16"
      tool_tip="Check to see popups when an instant message arrives"
      width="400" />
-    <spinner
+    
+  <button
+   follows="left|top"
+   height="23"
+   label="Chat Translation Settings"
+   layout="topleft"
+   left="30"
+   name="ok_btn"
+   top_pad="30"
+   width="170">
+   <button.commit_callback
+    function="Pref.TranslationSettings" />
+  </button>
+  </panel>
+  
+  <panel
+	 border="true"
+	 follows="all"
+	 label="Instant Messages"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="IMS">
+  <text
+     name="show_ims_in_label"
+     follows="left|top"
+     layout="topleft"
+     left="30"
+     height="20"
+     width="150"
+     top="30">
+     Show IMs in:
+    </text>
+    <text
+     name="requires_restart_label"
+     follows="left|top"
+     layout="topleft"
+     top_delta="0" 
+     left="130" 
+  	 height="20"
+	 width="130"
+	 font="SansSerifSmall"
+     text_color="Yellow">
+      (Requires Restart)
+      </text>
+    <radio_group
+     follows="left|top"
+     height="30"
+     left="50"
+     control_name="ChatWindow"
+     name="chat_window"
+     top_pad="5"
+     tool_tip="Show your Instant Messages in separate floaters, or in one floater with many tabs (Requires restart)"
+     width="150">
+     <radio_item
+      height="16"
+      label="Separate Windows"
+      layout="topleft"
+      left="0"
+      name="radio4"
+      value="0"
+      top="0"
+      width="150" />
+     <radio_item
+      height="16"
+      label="Tabs"
+      layout="topleft"
+      left_delta="0"
+      name="radio5"
+      value="1"
+      top_pad="5"
+      width="150" />
+    </radio_group>
+	
+	
+	<radio_group
+	  follows="left|top"
+	  height="30"
+	  enabled_control="IMUseVerticalTabsControl"
+	  control_name="IMUseVerticalTabs"
+	  left="195"
+	  name="radio_imtab_orientation"
+	  top_delta="20"
+	  width="221">
+	   <radio_item
+	    height="16"
+		label="Horizontal"
+		layout="topleft"
+		name="radio6"
+		value="0"
+		top="0"
+		width="125" />
+	   <radio_item
+	    height="16"
+		label="Vertical"
+		layout="topleft"
+		left_pad="45"
+		top_delta="0"
+		name="radio7"
+		value="1"
+		width="125" />
+	</radio_group>
+  
+	
+	<check_box
+     control_name="RearrangeIMTabs"
+     follows="left|top"
+     height="16"
+     label="Drag-rearrange IM tabs"
+     layout="topleft"
+     left="50"
+     top_pad="15"
+     name="check_imtab_rearrange"
+     width="150" />
+	<check_box
+     control_name="IMShowTabImage"
+     follows="left|top"
+     height="16"
+     label="Show Profile Icons on Tabs"
+     layout="topleft"
+     left="50"
+     top_pad="5"
+     name="imtab_profileicon"
+     width="150" />	
+	<check_box
+     control_name="LogInstantMessages"
+     follows="left|top"
+     height="16"
+     label="Log IMs"
+     layout="topleft"
+     left="50"
+     top_pad="30"
+     name="log_ims"
+     width="150" /> 
+	<check_box
+     control_name="LogShowHistory"
+     follows="left|top"
+     height="16"
+     label="Show IM History"
+     layout="topleft"
+     left="50"
+     top_pad="5"
+     name="show_im_history"
+     width="150" />
+
+  
+  </panel>
+  
+  
+  
+  
+  <panel
+	 border="true"
+	 follows="all"
+	 label="Nearby Chat"
+	 layout="topleft"
+	 mouse_opaque="false"
+	 name="NearbyChat">
+	 
+			<text
+			 follows="left|top"
+			 height="15"
+			 layout="topleft"
+			 left="30"
+			 mouse_opaque="false"
+			 name="text_nearbychatbar"
+			 top="30"
+			 type="string"
+			 width="75">
+				Text Entry :
+			</text>
+			<combo_box
+			 allow_text_entry="false"
+			 bottom_delta="3"
+			 control_name="NearbyChatFloaterBarType"
+			 follows="left|top"
+			 height="23"
+			 layout="topleft"
+			 left_pad="10"
+			 mouse_opaque="true"
+			 name="combo_nearbychatbar"
+			 width="100">
+				<combo_box.item
+				 label="Single-line"
+				 value="1" />
+				<combo_box.item
+				 label="Multi-line"
+				 value="2" />
+			</combo_box>
+			
+			<icon
+			follows="left|top"
+			height="18"
+			image_name="Key_Enter"
+			layout="topleft"
+			name="returnkey"
+			mouse_opaque="false"
+			visible="true"
+			width="18"
+			top_pad="25"
+			left="30" />
+			
+			<text
+			 follows="left|top"
+			 height="16"
+			 layout="topleft"
+			 left_pad="12"
+			 mouse_opaque="false"
+			 name="text_link_showusernames"
+			 top_delta="3"
+			 type="string"
+			 width="140">
+				Close on empty return :
+			</text>
+			<check_box
+			 control_name="CloseChatOnEmptyReturn"
+			 follows="left|top"
+			 height="20"
+			 label="Nearby Chat"
+			 layout="topleft"
+			 left="60"
+			 name="checkChatCloseNearbyOnEmptyReturn"
+			 top_pad="5"
+			 width="350"/>
+			<check_box
+			 control_name="CloseIMOnEmptyReturn"
+			 follows="left|top"
+			 height="20"
+			 label="Instant Messages"
+			 layout="topleft"
+			 left="60"
+			 name="checkChatCloseIMOnEmptyReturn"
+			 top_pad="0"
+			 width="350"/>
+			
+	<check_box
+	 control_name="NearbyChatFloaterWindow"
+	 follows="left|top"
+	 height="20"
+	 label="Embed Nearby Chat in Conversations Floater"
+	 layout="topleft"
+	 left="60"
+	 name="check_nearbychat_window"
+	 top_pad="20"
+	 width="350"/>
+	 <check_box
+	 control_name="ShowBlockedChat"
+	 follows="left|top"
+	 height="20"
+	 label="Show Blocked Chat in Nearby Chat History"
+	 layout="topleft"
+	 left="60"
+	 name="show_blocked_chat"
+	 top_pad="0"
+	 width="350"/>
+	<spinner
      control_name="NearbyToastLifeTime"
      decimal_digits="0"
      follows="left|top"
@@ -207,17 +412,17 @@
      label="Nearby chat toasts life time:"
      label_width="200"
      layout="topleft"
-     left="30"
+     left="60"
 	 max_val="60"
      min_val="1"
      name="nearby_toasts_lifetime"
-     top_pad="13"
+     top_pad="30"
      width="250" />
     <spinner
      control_name="NearbyToastFadingTime"
      decimal_digits="0"
      follows="left|top"
-     height="30"
+     height="60"
      increment="1"
      initial_value="3"
      label="Nearby chat toasts fading time:"
@@ -229,23 +434,8 @@
      name="nearby_toasts_fadingtime"
      top_pad="3"
      width="250" />
-	<button
-	 follows="left|top"
-	 height="23"
-	 label="Chat Translation Settings"
-	 layout="topleft"
-	 left="30"
-	 name="ok_btn"
-	 top_pad="5"
-	 width="170">
-		<button.commit_callback
-		 function="Pref.TranslationSettings" />
-	</button>
 	</panel>
-	
-	
-	
-	
+  
 	<panel
 	 border="true"
 	 follows="all"
@@ -253,47 +443,50 @@
 	 layout="topleft"
 	 mouse_opaque="false"
 	 name="Colors">
-	<text
-     follows="left|top"
-	 layout="topleft"
-	 left="30"
-	 height="12"
-	 name="font_colors"
-	 top="30"
-	 width="170">
-		Chat font colors:
-	</text>
-	<color_swatch
-	 can_apply_immediately="true"
-	 follows="left|top"
-	 height="24"
-	 label_height="0"
-	 layout="topleft"
-	 left="40"
-	 name="user"
-	 top_pad="10"
-	 width="44" >
+	 
+	
+  <text
+   follows="left|top"
+   layout="topleft"
+   left="30"
+   height="12"
+   name="font_colors"
+   top="30"
+   width="170"
+   >
+    Chat font colors:
+  </text>
+  <color_swatch
+   can_apply_immediately="true"
+   follows="left|top"
+   height="24"
+   label_height="0"
+   layout="topleft"
+   left="40"
+   name="user"
+   top_pad="10"
+   width="44" >
     <color_swatch.init_callback
 		 function="Pref.getUIColor"
 		 parameter="UserChatColor" />
     <color_swatch.commit_callback
 		 function="Pref.applyUIColor"
 		 parameter="UserChatColor" />
-	</color_swatch>
-	<text
-	 type="string"
-	 length="1"
-	 follows="left|top"
-	 height="10"
-	 layout="topleft"
-	 left_pad="5"
-	 mouse_opaque="false"
-	 name="text_box1"
-	 top_delta="5"
-	 width="95">
-		Me
-	</text>
-	<color_swatch
+  </color_swatch>
+  <text
+   type="string"
+   length="1"
+   follows="left|top"
+   height="10"
+   layout="topleft"
+   left_pad="5"
+   mouse_opaque="false"
+   name="text_box1"
+   top_delta="5"
+   width="95">
+    Me
+  </text>
+  <color_swatch
    can_apply_immediately="true"
    follows="left|top"
    height="24"

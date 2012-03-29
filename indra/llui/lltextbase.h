@@ -114,7 +114,8 @@ public:
 	/*virtual*/ bool				canEdit() const { return true; }
 	/*virtual*/ const LLColor4&		getColor() const					{ return mStyle->getColor(); }
 	/*virtual*/ LLStyleConstSP		getStyle() const					{ return mStyle; }
-	/*virtual*/ void 				setStyle(LLStyleConstSP style)	{ mStyle = style; }
+	///*virtual*/ void 				setStyle(LLStyleConstSP style)	{ mStyle = style; }
+	/*virtual*/ void 				setStyle(LLStyleConstSP style)	{ mStyle = style; mFontHeight = llceil(style->getFont()->getLineHeight());}
 	/*virtual*/ void				setToken( LLKeywordToken* token )	{ mToken = token; }
 	/*virtual*/ LLKeywordToken*		getToken() const					{ return mToken; }
 	/*virtual*/ BOOL				getToolTip( std::string& msg ) const;
@@ -202,6 +203,7 @@ public:
 	bool		getDimensions(S32 first_char, S32 num_chars, S32& width, S32& height) const;
 	S32			getNumChars(S32 num_pixels, S32 segment_offset, S32 line_offset, S32 max_chars) const;
 	F32			draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect);
+	void		setStyle(LLStyleConstSP style);
 
 private:
 	S32			mFontHeight;
@@ -249,6 +251,7 @@ public:
 		Optional<LLUIColor>		cursor_color,
 								text_color,
 								text_readonly_color,
+								text_label_color,
 								bg_readonly_color,
 								bg_writeable_color,
 								bg_focus_color,
@@ -365,11 +368,13 @@ public:
 	void					endOfDoc();
 	void					changePage( S32 delta );
 	void					changeLine( S32 delta );
+	void					setSelection(S32 start, S32 end);
 
 	bool					scrolledToStart();
 	bool					scrolledToEnd();
 
 	const LLFontGL*			getDefaultFont() const					{ return mDefaultFont; }
+	void					setFont(const LLFontGL* pFont);
 
 	virtual void			appendLineBreakSegment(const LLStyle::Params& style_params);
 	virtual void			appendImageSegment(const LLStyle::Params& style_params);
@@ -516,7 +521,8 @@ protected:
 	// default text style
 	LLStyle::Params				mDefaultStyle;
 	bool						mStyleDirty;
-	const LLFontGL* const		mDefaultFont;		// font that is used when none specified, can only be set by constructor
+	//const LLFontGL* const		mDefaultFont;		// font that is used when none specified, can only be set by constructor
+	const LLFontGL* 			mDefaultFont;		// font that is used when none specified
 	const LLFontGL::ShadowType	mFontShadow;		// shadow style, can only be set by constructor
 
 	// colors
@@ -570,6 +576,9 @@ protected:
 	bool						mScrollNeeded;		// need to change scroll region because of change to cursor position
 	S32							mScrollIndex;		// index of first character to keep visible in scroll region
 
+	LLUIString					mLabel;
+	LLUIColor					mLabelColor;
+	
 	// Fired when a URL link is clicked
 	commit_signal_t*			mURLClickSignal;
 

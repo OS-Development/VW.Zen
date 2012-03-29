@@ -2517,16 +2517,12 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 	{
 		LLNearbyChatBar* nearby_chat = LLFloaterReg::findTypedInstance<LLNearbyChatBar>("chat_bar");
 
-		if (nearby_chat)
-		{
-			LLLineEditor* chat_editor = nearby_chat->getChatBox();
-		
-		// arrow keys move avatar while chatting hack
-		if (chat_editor && chat_editor->hasFocus())
+		LLNearbyChatBarBase* pChatBarImpl = (nearby_chat) ? nearby_chat->getChatBarImpl() : NULL;
+		if ( (pChatBarImpl) && (pChatBarImpl->getChatBoxCtrl()) && (pChatBarImpl->getChatBoxCtrl()->hasFocus()) )
 		{
 			// If text field is empty, there's no point in trying to move
 			// cursor with arrow keys, so allow movement
-			if (chat_editor->getText().empty() 
+			if (pChatBarImpl->getChatBoxText().empty() 
 				|| gSavedSettings.getBOOL("ArrowKeysAlwaysMove"))
 			{
 				// let Control-Up and Control-Down through for chat line history,
@@ -2550,7 +2546,6 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 					}
 				}
 			}
-		}
 		}
 		if (keyboard_focus->handleKey(key, mask, FALSE))
 		{
@@ -2582,11 +2577,14 @@ BOOL LLViewerWindow::handleKey(KEY key, MASK mask)
 	if ( gSavedSettings.getS32("LetterKeysFocusChatBar") && !gAgentCamera.cameraMouselook() && 
 		!keyboard_focus && key < 0x80 && (mask == MASK_NONE || mask == MASK_SHIFT) )
 	{
-		LLLineEditor* chat_editor = LLFloaterReg::getTypedInstance<LLNearbyChatBar>("chat_bar")->getChatBox();
-		if (chat_editor)
+//		LLLineEditor* chat_editor = LLFloaterReg::getTypedInstance<LLNearbyChatBar>("chat_bar")->getChatBox();
+//		if (chat_editor)
+		LLNearbyChatBar* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChatBar>("chat_bar");
+		if (nearby_chat)
 		{
 			// passing NULL here, character will be added later when it is handled by character handler.
-			LLNearbyChatBar::getInstance()->startChat(NULL);
+			//LLNearbyChatBar::getInstance()->startChat(NULL);
+			nearby_chat->startChat(NULL);
 			return TRUE;
 		}
 	}

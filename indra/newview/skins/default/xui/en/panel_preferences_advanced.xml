@@ -22,7 +22,7 @@
      label="Show script errors in:"
      layout="topleft"
      left="30"
-     top="15" 
+     top="20" 
      name="show_script_errors"
      width="150" />
     <radio_group
@@ -78,6 +78,16 @@
         (Requires Restart)
     </text>
 	<check_box
+     control_name="ShowFloaterCollapseButton"
+     follows="top|left"
+     height="15"
+     label="Show Floater Collapse Button"
+     layout="topleft"
+     left="30"
+     name="collapse_floaters"
+     top_pad="0"
+     width="237"/>
+	<check_box
      control_name="AllowMultipleViewers"
      follows="top|left"
      height="15"
@@ -95,27 +105,27 @@
      layout="topleft"
      left="30"
      name="show_advanced_menu_check"
-     top_pad="4"
+     top_pad="2"
      width="237"/>
 	 <check_box
      control_name="ForceShowGrid"
      follows="top|left"
      height="15"
-     label="Show Grid Selection at login"
+     label="Show Grid Selection at Login"
      layout="topleft"
      left="30"
      name="show_grid_selection_check"
-     top_pad="4"
+     top_pad="2"
      width="237"/>
 	 <check_box
      control_name="ShowUserName@GridName"
      follows="top|left"
      height="15"
-     label="Show Username @ Gridname at login"
+     label="Show Username @ Gridname at Login"
      layout="topleft"
      left="30"
      name="show_grid_name"
-     top_pad="4"
+     top_pad="2"
      width="237"/>
 	<check_box
         control_name="ImagePipelineUseHTTP"
@@ -133,7 +143,7 @@
         layout="topleft"
         left="30"
         name="Atlas"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="AnimateTextures"
@@ -142,7 +152,7 @@
         layout="topleft"
         left="30"
         name="AnimTextures"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="AuditTexture"
@@ -151,7 +161,7 @@
         layout="topleft"
         left="30"
         name="TexAudit"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="TextureLoadFullRes"
@@ -160,7 +170,7 @@
         layout="topleft"
         left="30"
         name="FullResTextures"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="RenderWaterMipNormal"
@@ -170,7 +180,7 @@
         layout="topleft"
         left="30"
         name="MipMaps"
-        top_pad="4"
+        top_pad="2"
         width="200" />
 		<check_box
         control_name="NoPreload"
@@ -179,7 +189,7 @@
         layout="topleft"
         left="30"
         name="NoPreload"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="RenderUseFarClip"
@@ -189,7 +199,7 @@
         left="30"
 	tool_tip="Switches between the normal Camera Mode where Objects get derendered when moving your Camera away from them and a more -from Avatar- like rendering method where everything until your Render Range gets rendered no matter if you are zooming away"
         name="RenderUseFarClip"
-        top_pad="4"
+        top_pad="2"
         width="200" />
         <check_box
         control_name="RenderAutoMaskAlphaNonDeferred"
@@ -207,7 +217,7 @@
         layout="topleft"
         left="30"
         name="DEF Alpha"
-        top_pad="4"
+        top_pad="2"
         width="200" />
 		<slider
         control_name="BackgroundYieldTime"

@@ -34,6 +34,38 @@
 #include "llvoiceclient.h"
 #include "lloutputmonitorctrl.h"
 #include "llspeakers.h"
+#include "llnearbychatbarbase.h"
+
+class LLNearbyChat;
+
+class LLNearbyChatBarSingle 
+	: public LLPanel
+	, public LLNearbyChatBarBase
+{
+public:
+	LLNearbyChatBarSingle();
+	/*virtual*/ ~LLNearbyChatBarSingle() {}
+
+public:
+	/*virtual*/ void draw();
+	/*virtual*/ BOOL postBuild();
+protected:
+	void displaySpeakingIndicator();
+	void onChatBoxCommit();
+	void onChatFontChange(LLFontGL* fontp);
+
+	// LLNearbyChatBarBase overrides
+public:
+	/*virtual*/ LLUICtrl* getChatBoxCtrl()								{ return mChatBox; }
+	/*virtual*/ LLWString getChatBoxText()								{ return mChatBox->getConvertedText(); }
+	/*virtual*/ void      setChatBoxText(const LLStringExplicit& text)	{ mChatBox->setText(text); }
+	/*virtual*/ void	  setChatBoxCursorToEnd()						{ mChatBox->setCursorToEnd(); }
+
+protected:
+	LLLineEditor*		 mChatBox;
+	LLOutputMonitorCtrl* mOutputMonitor;
+	LLLocalSpeakerMgr*	 mSpeakerMgr;
+};
 
 class LLNearbyChatBar :	public LLFloater
 {
@@ -47,9 +79,9 @@ public:
 
 	static LLNearbyChatBar* getInstance();
 
-	LLLineEditor* getChatBox() { return mChatBox; }
 
-	virtual void draw();
+	LLNearbyChatBarBase* getChatBarImpl() const { return mChatBarImpl; }
+
 
 	std::string getCurrentChat();
 	virtual BOOL handleKeyHere( KEY key, MASK mask );
@@ -57,41 +89,35 @@ public:
 	static void startChat(const char* line);
 	static void stopChat();
 
-	static void sendChatFromViewer(const std::string &utf8text, EChatType type, BOOL animate);
-	static void sendChatFromViewer(const LLWString &wtext, EChatType type, BOOL animate);
-
 	void showHistory();
 	void enableTranslationCheckbox(BOOL enable);
-	/*virtual*/void setMinimized(BOOL b);
+
+	/*virtual*/ BOOL canClose();
+
 
 protected:
-	static BOOL matchChatTypeTrigger(const std::string& in_str, std::string* out_str);
-	static void onChatBoxKeystroke(LLLineEditor* caller, void* userdata);
-	static void onChatBoxFocusLost(LLFocusableElement* caller, void* userdata);
-	void onChatBoxFocusReceived();
-
-	void sendChat( EChatType type );
-	void onChatBoxCommit();
-	void onChatFontChange(LLFontGL* fontp);
+	bool onNewNearbyChatMsg(const LLSD& sdEvent);
+	void onTearOff(const LLSD& sdData);
 
 	/* virtual */ bool applyRectControl();
 
 	void onToggleNearbyChatPanel();
 
-	static LLWString stripChannelNumber(const LLWString &mesg, S32* channel);
-	EChatType processChatTypeTriggers(EChatType type, std::string &str);
+public:
+	static const std::string&	getFloaterXMLFile();
+	static bool					isTabbedNearbyChat();
+	static void					processFloaterTypeChanged();
+protected:
+	static void* createChatBarSingle(void*);
+	static void* createChatBarMulti(void*);
 
-	void displaySpeakingIndicator();
 
-	// Which non-zero channel did we last chat on?
-	static S32 sLastSpecialChatChannel;
-
-	LLLineEditor*			mChatBox;
-	LLView*					mNearbyChat;
-	LLOutputMonitorCtrl*	mOutputMonitor;
-	LLLocalSpeakerMgr*		mSpeakerMgr;
+	LLPanel*			 mNearbyChatContainer;		// "panel_nearby_chat" is the parent panel containing "nearby_chat"
+	LLNearbyChat*		 mNearbyChat;				// "nearby_chat"
+	LLNearbyChatBarBase* mChatBarImpl;
 
 	S32 mExpandedHeight;
+	S32 mExpandedHeightMin;
 };
 
 #endif

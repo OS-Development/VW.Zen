@@ -34,6 +34,7 @@
 #include "llgroupiconctrl.h"
 #include "llagent.h"
 #include "lltransientfloatermgr.h"
+#include "llviewercontrol.h"
 
 //
 // LLIMFloaterContainer
@@ -56,6 +57,10 @@ BOOL LLIMFloaterContainer::postBuild()
 	mNewMessageConnection = LLIMModel::instance().mNewMsgSignal.connect(boost::bind(&LLIMFloaterContainer::onNewMessageReceived, this, _1));
 	// Do not call base postBuild to not connect to mCloseSignal to not close all floaters via Close button
 	// mTabContainer will be initialized in LLMultiFloater::addChild()
+	
+	if (gSavedSettings.getBOOL("RearrangeIMTabs"))
+		mTabContainer->setAllowRearrange(true);
+	
 	return TRUE;
 }
 
@@ -86,34 +91,70 @@ void LLIMFloaterContainer::addFloater(LLFloater* floaterp,
 		openFloater(floaterp->getKey());
 		return;
 	}
+	
+	LLUUID session_id = floaterp->getKey();
+	if (session_id.isNull())
+	{
+		// Re-insert the nearby chat floater at the start
+		insertion_point = LLTabContainer::START;
+	}
 
 	LLMultiFloater::addFloater(floaterp, select_added_floater, insertion_point);
 
-	LLUUID session_id = floaterp->getKey();
+//	LLUUID session_id = floaterp->getKey();
 
 	LLIconCtrl* icon = 0;
 
-	if(gAgent.isInGroup(session_id, TRUE))
+	if (session_id.isNull())
 	{
-		LLGroupIconCtrl::Params icon_params;
-		icon_params.group_id = session_id;
-		icon = LLUICtrlFactory::instance().create<LLGroupIconCtrl>(icon_params);
+		// Don't allow the nearby chat tab to be drag-rearranged
+		mTabContainer->lockTabs(1);
+
+		// Add an icon for the nearby chat floater
+		LLIconCtrl::Params icon_params;
+		icon_params.image = LLUI::getUIImage("Command_Chat_Icon");
+		icon = LLUICtrlFactory::instance().create<LLIconCtrl>(icon_params);
+	}
+	else if (gAgent.isInGroup(session_id, TRUE))
+	{
+		if (gSavedSettings.getBOOL("IMShowTabImage"))
+		{
+			LLGroupIconCtrl::Params icon_params;
+			icon_params.group_id = session_id;
+			icon = LLUICtrlFactory::instance().create<LLGroupIconCtrl>(icon_params);
+		}
 
 		mSessions[session_id] = floaterp;
 		floaterp->mCloseSignal.connect(boost::bind(&LLIMFloaterContainer::onCloseFloater, this, session_id));
 	}
 	else
 	{
-		LLUUID avatar_id = LLIMModel::getInstance()->getOtherParticipantID(session_id);
+		if (gSavedSettings.getBOOL("IMShowTabImage"))
+		{
+			LLUUID avatar_id = LLIMModel::getInstance()->getOtherParticipantID(session_id);
 
-		LLAvatarIconCtrl::Params icon_params;
-		icon_params.avatar_id = avatar_id;
-		icon = LLUICtrlFactory::instance().create<LLAvatarIconCtrl>(icon_params);
+			LLAvatarIconCtrl::Params icon_params;
+			icon_params.avatar_id = avatar_id;
+			icon = LLUICtrlFactory::instance().create<LLAvatarIconCtrl>(icon_params);
+		}
 
 		mSessions[session_id] = floaterp;
 		floaterp->mCloseSignal.connect(boost::bind(&LLIMFloaterContainer::onCloseFloater, this, session_id));
 	}
-	mTabContainer->setTabImage(floaterp, icon);
+	if (icon)
+	{
+		mTabContainer->setTabImage(floaterp, icon);
+	}
+}
+
+void LLIMFloaterContainer::removeFloater(LLFloater* floaterp)
+{
+	LLUUID idSession = floaterp->getKey();
+	if (idSession.isNull())
+	{
+		mTabContainer->unlockTabs();
+	}
+	LLMultiFloater::removeFloater(floaterp);
 }
 
 void LLIMFloaterContainer::onCloseFloater(LLUUID& id)
@@ -143,6 +184,13 @@ LLIMFloaterContainer* LLIMFloaterContainer::findInstance()
 LLIMFloaterContainer* LLIMFloaterContainer::getInstance()
 {
 	return LLFloaterReg::getTypedInstance<LLIMFloaterContainer>("im_container");
+}
+
+const std::string& LLIMFloaterContainer::getFloaterXMLFile()
+{
+	static const std::string strFile = 
+		(!gSavedSettings.getBOOL("IMUseVerticalTabs")) ? "floater_im_container.xml" : "floater_im_container_vert.xml";
+	return strFile;
 }
 
 void LLIMFloaterContainer::setMinimized(BOOL b)

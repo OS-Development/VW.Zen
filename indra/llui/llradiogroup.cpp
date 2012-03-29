@@ -344,6 +344,10 @@ void LLRadioGroup::setValue( const LLSD& value )
 		{
 			setSelectedIndex((S32) value.asInteger(), TRUE);
 		}
+		else if (value.isBoolean())
+		{
+			setSelectedByValue((value.asBoolean()) ? "1" : "0" , TRUE);
+		}
 		else
 		{
 			setSelectedIndex(-1, TRUE);

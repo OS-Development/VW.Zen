@@ -144,6 +144,7 @@ LLTextBase::Params::Params()
 :	cursor_color("cursor_color"),
 	text_color("text_color"),
 	text_readonly_color("text_readonly_color"),
+	text_label_color("text_label_color"),
 	bg_visible("bg_visible", false),
 	border_visible("border_visible", false),
 	bg_readonly_color("bg_readonly_color"),
@@ -209,6 +210,8 @@ LLTextBase::LLTextBase(const LLTextBase::Params &p)
 	mIsSelecting( FALSE ),
 	mPlainText ( p.plain_text ),
 	mWordWrap(p.wrap),
+	mLabel(p.label),
+	mLabelColor(p.text_label_color),
 	mUseEllipses( p.use_ellipses ),
 	mParseHTML(p.parse_urls),
 	mParseHighlights(p.parse_highlights),
@@ -503,6 +506,12 @@ void LLTextBase::drawText()
 	const S32 text_len = getLength();
 	if( text_len <= 0 )
 	{
+		if ( (!hasFocus()) && (mLabel.length()) )
+		{
+			mDefaultFont->render(
+				mLabel.getWString(), 0, mLineInfoList.begin()->mRect.mLeft, mDocumentView->getRect().mBottom, mLabelColor, 
+				LLFontGL::LEFT, LLFontGL::BOTTOM, 0, LLFontGL::NO_SHADOW, S32_MAX, mDocumentView->getRect().getWidth());
+		}
 		return;
 	}
 	S32 selection_left = -1;
@@ -1773,6 +1782,24 @@ void LLTextBase::needsReflow(S32 index)
 	mReflowIndex = llmin(mReflowIndex, index);
 }
 
+void LLTextBase::setFont(const LLFontGL* pFont)
+{
+	for(segment_set_t::iterator itSegment = mSegments.begin(); itSegment != mSegments.end(); ++itSegment)
+	{
+		LLTextSegmentPtr segment = *itSegment;
+
+		LLStyleConstSP curStyle = segment->getStyle();
+		if (curStyle->getFont() == mDefaultFont)
+		{
+			LLStyleSP newStyle(new LLStyle(*curStyle));
+			newStyle->setFont(pFont);
+			LLStyleConstSP newStyleConst(newStyle);
+			segment->setStyle(newStyleConst);
+		}
+	}
+	mDefaultFont = pFont;
+}
+
 void LLTextBase::appendLineBreakSegment(const LLStyle::Params& style_params)
 {
 	segment_vec_t segments;
@@ -2470,6 +2497,17 @@ void LLTextBase::endSelection()
 	}
 }
 
+void LLTextBase::setSelection(S32 start, S32 end)
+{
+	S32 len = getLength();
+
+	mIsSelecting = TRUE;
+	mSelectionStart = llclamp(start, 0, len);
+	mSelectionEnd = llclamp(end, 0, len);
+
+	setCursorPos(mSelectionEnd);
+}
+
 // get portion of document that is visible in text editor
 LLRect LLTextBase::getVisibleDocumentRect() const
 {
@@ -2985,6 +3023,11 @@ S32	LLLineBreakTextSegment::getNumChars(S32 num_pixels, S32 segment_offset, S32 
 F32	LLLineBreakTextSegment::draw(S32 start, S32 end, S32 selection_start, S32 selection_end, const LLRect& draw_rect)
 {
 	return  draw_rect.mLeft;
+}
+
+void LLLineBreakTextSegment::setStyle(LLStyleConstSP style)
+{
+	mFontHeight = llceil(style->getFont()->getLineHeight());
 }
 
 LLImageTextSegment::LLImageTextSegment(LLStyleConstSP style,S32 pos,class LLTextBase& editor)

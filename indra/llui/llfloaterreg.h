@@ -41,6 +41,7 @@ class LLFloater;
 class LLUICtrl;
 
 typedef boost::function<LLFloater* (const LLSD& key)> LLFloaterBuildFunc;
+typedef boost::function<const std::string& (void)> LLFloaterFileFunc;
 
 class LLFloaterReg
 {
@@ -55,6 +56,7 @@ public:
 	struct BuildData
 	{
 		LLFloaterBuildFunc mFunc;
+		LLFloaterFileFunc mFileFunc;
 		std::string mFile;
 	};
 	typedef std::map<std::string, BuildData> build_map_t;
@@ -84,6 +86,8 @@ public:
 	
 	static void add(const std::string& name, const std::string& file, const LLFloaterBuildFunc& func,
 					const std::string& groupname = LLStringUtil::null);
+	static void addWithFileCallback(const std::string& name, const LLFloaterFileFunc& fileFunc, const LLFloaterBuildFunc& func,
+					const std::string& groupname = LLStringUtil::null);				
 
 	// Helpers
 	static LLFloater* getLastFloaterInGroup(const std::string& name);
@@ -120,6 +124,9 @@ public:
 
 	static std::string declareDockStateControl(const std::string& name);
 	static std::string getDockStateControlName(const std::string& name);
+	
+	static std::string declareTearOffStateControl(const std::string& name);
+	static std::string getTearOffStateControlName(const std::string& name);
 
 	static void registerControlVariables();
 

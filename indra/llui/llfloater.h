@@ -106,6 +106,7 @@ public:
 	{
 		BUTTON_CLOSE = 0,
 		BUTTON_RESTORE,
+		BUTTON_COLLAPSE,
 		BUTTON_MINIMIZE,
 		BUTTON_TEAR_OFF,
 		BUTTON_DOCK,
@@ -129,6 +130,7 @@ public:
 								save_rect,
 								save_visibility,
 								save_dock_state,
+								save_tearoff_state,
 								can_dock,
 								show_title;
 		
@@ -144,12 +146,14 @@ public:
 		Optional<LLUIImage*>	close_image,
 								restore_image,
 								minimize_image,
+								collapse_image,
 								tear_off_image,
 								dock_image,
 								help_image;
 		Optional<LLUIImage*>	close_pressed_image,
 								restore_pressed_image,
 								minimize_pressed_image,
+								collapse_pressed_image,
 								tear_off_pressed_image,
 								dock_pressed_image,
 								help_pressed_image;
@@ -177,6 +181,7 @@ public:
 	bool buildFromFile(const std::string &filename, LLXMLNodePtr output_node = NULL);
 
 	boost::signals2::connection setMinimizeCallback( const commit_signal_t::slot_type& cb );
+	boost::signals2::connection setTearOffCallback( const commit_signal_t::slot_type& cb );
 	boost::signals2::connection setOpenCallback( const commit_signal_t::slot_type& cb );
 	boost::signals2::connection setCloseCallback( const commit_signal_t::slot_type& cb );
 
@@ -206,6 +211,8 @@ public:
 	void			center();
 
 	LLMultiFloater* getHost();
+	
+	LLMultiFloater* getLastHost() const;
 
 	void			applyTitle();
 	std::string		getCurrentTitle() const;
@@ -296,8 +303,11 @@ public:
 
 	bool            isDocked() const { return mDocked; }
 	virtual void    setDocked(bool docked, bool pop_on_undock = true);
+	
+	bool            isTornOff() const { return mTornOff; }
+	virtual void    setTornOff(bool torn_off);
 
-	virtual void    setTornOff(bool torn_off) { mTornOff = torn_off; }
+	// virtual void    setTornOff(bool torn_off) { mTornOff = torn_off; }
 
 	// Return a closeable floater, if any, given the current focus.
 	static LLFloater* getClosableFloaterFromFocus(); 
@@ -313,9 +323,11 @@ public:
 
 	static void		onClickClose(LLFloater* floater);
 	static void		onClickMinimize(LLFloater* floater);
+	static void		onClickCollapse(LLFloater* floater);
 	static void		onClickTearOff(LLFloater* floater);
 	static void     onClickDock(LLFloater* floater);
 	static void		onClickHelp(LLFloater* floater);
+	static void		handleShowCollapseButtonChanged(const LLSD& sdValue);
 
 	static void		setFloaterHost(LLMultiFloater* hostp) {sHostp = hostp; }
 	static LLMultiFloater* getFloaterHost() {return sHostp; }
@@ -333,9 +345,11 @@ protected:
 	virtual bool	applyRectControl();
 	bool			applyDockState();
 	void			applyPositioning(LLFloater* other);
+	void			applyTearOffState();
 	void			storeRectControl();
 	void			storeVisibilityControl();
 	void			storeDockStateControl();
+	void			storeTearOffStateControl();
 
 	void		 	setKey(const LLSD& key);
 	void		 	setInstanceName(const std::string& name);
@@ -394,11 +408,14 @@ public:
 	commit_signal_t mCloseSignal;		
 
 	commit_signal_t* mMinimizeSignal;
+	
+	commit_signal_t* mTearOffSignal;
 
 protected:
 	std::string		mRectControl;
 	std::string		mVisibilityControl;
 	std::string		mDocStateControl;
+	std::string		mTearOffStateControl;
 	LLSD			mKey;				// Key used for retrieving instances; set (for now) by LLFLoaterReg
 
 	LLDragHandle*	mDragHandle;
@@ -432,6 +449,7 @@ private:
 	S32				mLegacyHeaderHeight;// HACK see initFloaterXML()
 	
 	BOOL			mMinimized;
+	BOOL			mCollapseOnMinimize;
 	BOOL			mForeground;
 	LLHandle<LLFloater>	mDependeeHandle;
 	
@@ -459,9 +477,14 @@ private:
 	static std::string	sButtonNames[BUTTON_COUNT];
 	static std::string	sButtonToolTips[BUTTON_COUNT];
 	static std::string  sButtonToolTipsIndex[BUTTON_COUNT];
+	static BOOL			sShowCollapseButton;
 	
 	typedef void(*click_callback)(LLFloater*);
 	static click_callback sButtonCallbacks[BUTTON_COUNT];
+	
+	typedef std::map<LLHandle<LLFloater>, LLFloater*> handle_map_t;
+	typedef std::map<LLHandle<LLFloater>, LLFloater*>::iterator handle_map_iter_t;
+	static handle_map_t		sFloaterMap;
 
 	BOOL			mHasBeenDraggedWhileMinimized;
 	S32				mPreviousMinimizedBottom;

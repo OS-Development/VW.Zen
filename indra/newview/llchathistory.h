@@ -116,6 +116,8 @@ class LLChatHistory : public LLUICtrl
 		 */
 		void appendMessage(const LLChat& chat, const LLSD &args = LLSD(), const LLStyle::Params& input_append_params = LLStyle::Params());
 		/*virtual*/ void clear();
+		
+		LLTextEditor* getEditor() const { return mEditor; }
 
 	private:
 		std::string mLastFromName;

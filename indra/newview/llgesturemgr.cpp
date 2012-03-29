@@ -51,7 +51,8 @@
 #include "llviewermessage.h"
 #include "llvoavatarself.h"
 #include "llviewerstats.h"
-#include "llnearbychatbar.h"
+//#include "llnearbychatbar.h"
+#include "llnearbychatbarbase.h"
 #include "llappearancemgr.h"
 #include "llgesturelistener.h"
 
@@ -997,7 +998,8 @@ void LLGestureMgr::runStep(LLMultiGesture* gesture, LLGestureStep* step)
 
 			const BOOL animate = FALSE;
 
-			LLNearbyChatBar::getInstance()->sendChatFromViewer(chat_text, CHAT_TYPE_NORMAL, animate);
+			//LLNearbyChatBar::getInstance()->sendChatFromViewer(chat_text, CHAT_TYPE_NORMAL, animate);
+			LLNearbyChatBarBase::sendChatFromViewer(chat_text, CHAT_TYPE_NORMAL, animate);
 
 			gesture->mCurrentStep++;
 			break;
