@@ -423,12 +423,18 @@ BOOL LLInvFVBridge::isClipboardPasteable() const
 			return FALSE;
 		}
 
-		const LLInventoryItem *item = model->getItem(item_id);
+		const LLViewerInventoryItem *item = model->getItem(item_id);
 		if (item)
 		{
 			if (!item->getPermissions().allowCopyBy(agent_id))
 			{
-				return FALSE;
+				// We allow copy/pasting of links as long as their target is available
+				// (and disallow if the user is trying to paste a folder link pointing to the current folder)
+				if ( (!item->getIsLinkType()) || (!item->getLinkedItem()) ||
+					((LLAssetType::AT_LINK_FOLDER == item->getActualType()) && (item->getLinkedUUID() == mUUID)) )
+				{
+					return FALSE;
+				}
 			}
 		}
 	}
@@ -591,14 +597,7 @@ void LLInvFVBridge::getClipboardEntries(bool show_asset_id,
 					disabled_items.push_back(std::string("Copy Asset UUID"));
 				}
 			}
-			items.push_back(std::string("Copy Separator"));
 			
-			items.push_back(std::string("Copy"));
-			if (!isItemCopyable())
-			{
-				disabled_items.push_back(std::string("Copy"));
-			}
-
 			if (canListOnMarketplace())
 			{
 				items.push_back(std::string("Marketplace Separator"));
@@ -610,6 +609,14 @@ void LLInvFVBridge::getClipboardEntries(bool show_asset_id,
 				}
 			}
 		}
+	}
+	
+	items.push_back(std::string("Copy Separator"));
+	
+	items.push_back(std::string("Copy"));
+	if (!isItemCopyable())
+	{
+		disabled_items.push_back(std::string("Copy"));
 	}
 
 	// Don't allow items to be pasted directly into the COF or the inbox/outbox
@@ -1601,7 +1608,7 @@ BOOL LLItemBridge::removeItem()
 	// we can't do this check because we may have items in a folder somewhere that is
 	// not yet in memory, so we don't want false negatives.  (If disabled, then we 
 	// know we only have links in the Outfits folder which we explicitly fetch.)
-	if (!gSavedSettings.getBOOL("InventoryLinking"))
+	// Users move folders around and reuse links that way... if we know something has links then it's just bad not to warn them :|
 	{
 		if (!item->getIsLinkType())
 		{
@@ -1656,19 +1663,18 @@ BOOL LLItemBridge::isItemCopyable() const
 	LLViewerInventoryItem* item = getItem();
 	if (item)
 	{
-		// Can't copy worn objects. DEV-15183
-		if(get_is_item_worn(mUUID))
+		// We'll allow copying a link if:
+		//   - its target is available
+		//   - it doesn't point to another link [see LLViewerInventoryItem::getLinkedItem() which returns NULL in that case]
+		if ( (item->getIsLinkType()) && (!item->getLinkedItem()) )
 		{
 			return FALSE;
 		}
 
-		// You can never copy a link.
-		if (item->getIsLinkType())
-		{
-			return FALSE;
-		}
+//		return item->getPermissions().allowCopyBy(gAgent.getID()) || gSavedSettings.getBOOL("InventoryLinking");
+		return item->getPermissions().allowCopyBy(gAgent.getID()) || LLAssetType::lookupCanLink(item->getType());
 
-		return item->getPermissions().allowCopyBy(gAgent.getID()) || gSavedSettings.getBOOL("InventoryLinking");
+
 	}
 	return FALSE;
 }
@@ -2881,13 +2887,27 @@ void LLFolderBridge::pasteFromClipboard()
 				}
 				else
 				{
-					copy_inventory_item(
-						gAgent.getID(),
-						item->getPermissions().getOwner(),
-						item->getUUID(),
-						parent_id,
-						std::string(),
-						LLPointer<LLInventoryCallback>(NULL));
+					if (item->getPermissions().allowCopyBy(gAgent.getID()))
+					{
+						copy_inventory_item(
+							gAgent.getID(),
+							item->getPermissions().getOwner(),
+							item->getUUID(),
+							parent_id,
+							std::string(),
+							LLPointer<LLInventoryCallback>(NULL));
+					}
+					else if (LLAssetType::lookupIsLinkType(item->getActualType()))
+					{
+						link_inventory_item(
+							gAgent.getID(),
+							item->getLinkedUUID(),
+							parent_id,
+							item->getName(),
+							item->getDescription(),
+							item->getActualType(),
+							LLPointer<LLInventoryCallback>(NULL));
+					}
 				}
 			}
 		}
