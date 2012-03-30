@@ -151,6 +151,23 @@ BOOL LLPanelMainInventory::postBuild()
 		recent_items_panel->getFilter()->markDefault();
 		recent_items_panel->setSelectCallback(boost::bind(&LLPanelMainInventory::onSelectionChange, this, recent_items_panel, _1, _2));
 	}
+	
+	LLInventoryPanel* worn_items_panel = getChild<LLInventoryPanel>("Worn Items");
+	if (worn_items_panel)
+	{
+		worn_items_panel->setWorn(TRUE);
+		worn_items_panel->setSortOrder(gSavedSettings.getU32(LLInventoryPanel::DEFAULT_SORT_ORDER));
+		worn_items_panel->setShowFolderState(LLInventoryFilter::SHOW_NON_EMPTY_FOLDERS);
+		worn_items_panel->getFilter()->setFilterObjectTypes(0xffffffff - (0x1 << LLInventoryType::IT_GESTURE));
+
+		if( worn_items_panel->getRootFolder() )
+		{
+			worn_items_panel->getRootFolder()->setOpenArrangeRecursively(TRUE, LLFolderViewFolder::RECURSE_NO);
+			worn_items_panel->getRootFolder()->arrangeAll();
+		}
+
+		worn_items_panel->setSelectCallback(boost::bind(&LLPanelMainInventory::onSelectionChange, this, worn_items_panel, _1, _2));
+	}
 
 	// Now load the stored settings from disk, if available.
 	std::ostringstream filterSaveName;
@@ -172,6 +189,15 @@ BOOL LLPanelMainInventory::postBuild()
 				LLSD recent_items = savedFilterState.get(
 					recent_items_panel->getFilter()->getName());
 				recent_items_panel->getFilter()->fromLLSD(recent_items);
+			}
+		}
+		if(worn_items_panel)
+		{
+			if(savedFilterState.has(worn_items_panel->getFilter()->getName()))
+			{
+				LLSD worn_items = savedFilterState.get(
+													   worn_items_panel->getFilter()->getName());
+				worn_items_panel->getFilter()->fromLLSD(worn_items);
 			}
 		}
 
@@ -228,6 +254,18 @@ LLPanelMainInventory::~LLPanelMainInventory( void )
 			filterRoot[filter->getName()] = filterState;
 		}
 	}
+	
+	LLInventoryPanel* worn_items_panel = getChild<LLInventoryPanel>("Worn Items");
+    if (worn_items_panel)
+    {
+        LLInventoryFilter* filter = recent_items_panel->getFilter();
+        if (filter)
+        {
+            LLSD filterState;
+            filter->toLLSD(filterState);
+            filterRoot[filter->getName()] = filterState;
+        }
+    }
 
 	std::ostringstream filterSaveName;
 	filterSaveName << gDirUtilp->getExpandedFilename(LL_PATH_PER_SL_ACCOUNT, FILTERS_FILENAME);
@@ -627,6 +665,7 @@ void LLPanelMainInventory::setSelectCallback(const LLFolderView::signal_t::slot_
 {
 	getChild<LLInventoryPanel>("All Items")->setSelectCallback(cb);
 	getChild<LLInventoryPanel>("Recent Items")->setSelectCallback(cb);
+	getChild<LLInventoryPanel>("Worn Items")->setSelectCallback(cb);
 }
 
 void LLPanelMainInventory::onSelectionChange(LLInventoryPanel *panel, const std::deque<LLFolderViewItem*>& items, BOOL user_action)

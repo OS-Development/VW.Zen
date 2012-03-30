@@ -1242,3 +1242,33 @@ LLInventoryRecentItemsPanel::LLInventoryRecentItemsPanel( const Params& params)
 	mInvFVBridgeBuilder = &RECENT_ITEMS_BUILDER;
 }
 
+void LLInventoryPanel::setWorn(BOOL sl)
+{
+	getFilter()->setFilterWorn(sl);
+}
+
+/************************************************************************/
+/* Worn Inventory Panel related class                                 */
+/************************************************************************/
+class LLInventoryWornItemsPanel;
+static LLDefaultChildRegistry::Register<LLInventoryWornItemsPanel> t_worn_inventory_panel("worn_inventory_panel");
+
+//static const LLWornInventoryBridgeBuilder WORN_ITEMS_BUILDER;
+static LLWornInventoryBridgeBuilder WORN_ITEMS_BUILDER; // <ND/> const makes GCC >= 4.6 very angry about not user defined default ctor.
+class LLInventoryWornItemsPanel : public LLInventoryPanel
+{
+public:
+	struct Params :	public LLInitParam::Block<Params, LLInventoryPanel::Params>
+	{};
+
+protected:
+	LLInventoryWornItemsPanel (const Params&);
+	friend class LLUICtrlFactory;
+};
+
+LLInventoryWornItemsPanel::LLInventoryWornItemsPanel( const Params& params)
+: LLInventoryPanel(params)
+{
+	// replace bridge builder to have necessary View bridges.
+	mInvFVBridgeBuilder = &WORN_ITEMS_BUILDER;
+}

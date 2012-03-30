@@ -41,6 +41,9 @@
 // linden library includes
 #include "lltrans.h"
 
+#include "llinventoryfunctions.h" // needed to query worn status
+#include "llappearancemgr.h" // needed to query whether we are in COF
+
 LLInventoryFilter::FilterOps::FilterOps() :
 	mFilterObjectTypes(0xffffffffffffffffULL),
 	mFilterCategoryTypes(0xffffffffffffffffULL),
@@ -205,6 +208,19 @@ BOOL LLInventoryFilter::checkAgainstFilterType(const LLFolderViewItem* item) con
 		{
 			return FALSE;
 		}
+	}
+	
+	////////////////////////////////////////////////////////////////////////////////
+	// FILTERTYPE_WORN
+	// Pass if this item is worn (hiding COF and Outfits folders)
+	if (filterTypes & FILTERTYPE_WORN)
+	{
+		if (!object) return FALSE;
+		LLUUID cat_id = object->getParentUUID();
+		const LLViewerInventoryCategory *cat = gInventory.getCategory(cat_id);
+		return !LLAppearanceMgr::instance().getIsInCOF(object_id)
+			&& (!cat || cat->getPreferredType() != LLFolderType::FT_OUTFIT)
+			&& get_is_item_worn(object_id);
 	}
 
 	////////////////////////////////////////////////////////////////////////////////
@@ -560,6 +576,12 @@ void LLInventoryFilter::setShowFolderState(EFolderShow state)
 			setModified();
 		}
 	}
+}
+
+void LLInventoryFilter::setFilterWorn(BOOL sl)
+{
+	setModified();
+	mFilterOps.mFilterTypes |= FILTERTYPE_WORN;
 }
 
 void LLInventoryFilter::setSortOrder(U32 order)

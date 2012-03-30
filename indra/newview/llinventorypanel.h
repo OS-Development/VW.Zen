@@ -248,6 +248,10 @@ private:
 	// UUID of category from which hierarchy should be built.  Set with the 
 	// "start_folder" xml property.  Default is LLUUID::null that means total Inventory hierarchy. 
 	LLUUID				mStartFolderID;
+	
+public:
+	void setWorn(BOOL sl);
+	
 };
 
 #endif // LL_LLINVENTORYPANEL_H
