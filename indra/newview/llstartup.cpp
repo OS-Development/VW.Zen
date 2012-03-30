@@ -935,10 +935,11 @@ bool idle_startup()
 		mLoginStatePastUI = true;
 
 		// save the credentials                                                                                        
-		std::string userid = "unknown";                                                                                
+		std::string userid = "unknown";
+		std::string gridnick = LLGridManager::getInstance()->getGridNick();		
 		if(gUserCredential.notNull())                                                                                  
 		{  
-			userid = gUserCredential->userID(); 
+			userid = gUserCredential->userID();
 		}
 		gSavedSettings.setBOOL("RememberPassword", gRememberPassword);                                                 
 		LL_INFOS("AppInit") << "Attempting login as: " << userid << LL_ENDL;                                           
@@ -946,7 +947,7 @@ bool idle_startup()
 		
 		// create necessary directories
 		// *FIX: these mkdir's should error check
-		gDirUtilp->setLindenUserDir(userid);
+		gDirUtilp->setLindenUserDir(userid,gridnick);
 		LLFile::mkdir(gDirUtilp->getLindenUserDir());
 
 		// Set PerAccountSettingsFile to the default value.
@@ -979,7 +980,7 @@ bool idle_startup()
 		{
 			gDirUtilp->setChatLogsDir(gSavedPerAccountSettings.getString("InstantMessageLogPath"));		
 		}
-		gDirUtilp->setPerAccountChatLogsDir(userid);  
+		gDirUtilp->setPerAccountChatLogsDir(userid,gridnick);  
 		
 		LLFile::mkdir(gDirUtilp->getChatLogsDir());
 		LLFile::mkdir(gDirUtilp->getPerAccountChatLogsDir());

@@ -580,7 +580,7 @@ std::string LLDir::getForbiddenFileChars()
 	return "\\/:*?\"<>|";
 }
 
-void LLDir::setLindenUserDir(const std::string &username)
+void LLDir::setLindenUserDir(const std::string &username, const std::string &gridnick)
 {
 	// if the username isn't set, that's bad
 	if (!username.empty())
@@ -593,6 +593,11 @@ void LLDir::setLindenUserDir(const std::string &username)
 		mLindenUserDir = getOSUserAppDir();
 		mLindenUserDir += mDirDelimiter;
 		mLindenUserDir += userlower;
+		if(gridnick != "agni" && gridnick != "aditi")
+		{
+			mLindenUserDir += "_";
+			mLindenUserDir += gridnick;
+		}
 	}
 	else
 	{
@@ -614,7 +619,7 @@ void LLDir::setChatLogsDir(const std::string &path)
 	}
 }
 
-void LLDir::setPerAccountChatLogsDir(const std::string &username)
+void LLDir::setPerAccountChatLogsDir(const std::string &username, const std::string &gridnick)
 {
 	// if both first and last aren't set, assume we're grabbing the cached dir
 	if (!username.empty())
@@ -627,6 +632,11 @@ void LLDir::setPerAccountChatLogsDir(const std::string &username)
 		mPerAccountChatLogsDir = getChatLogsDir();
 		mPerAccountChatLogsDir += mDirDelimiter;
 		mPerAccountChatLogsDir += userlower;
+		if(gridnick != "agni" && gridnick != "aditi")
+		{
+			mPerAccountChatLogsDir += "_";
+			mPerAccountChatLogsDir += gridnick;
+		}
 	}
 	else
 	{
