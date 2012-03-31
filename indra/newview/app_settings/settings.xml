@@ -8712,7 +8712,7 @@
     <key>Type</key>
     <string>U32</string>
     <key>Value</key>
-    <real>512</real>
+    <real>128</real>
   </map>
 
   <key>RenderSpecularResY</key>
@@ -8736,7 +8736,7 @@
     <key>Type</key>
     <string>F32</string>
     <key>Value</key>
-    <real>384</real>
+    <real>8</real>
   </map>
 
   <key>RenderDeferred</key>
