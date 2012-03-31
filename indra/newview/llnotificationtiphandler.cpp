@@ -27,6 +27,7 @@
 
 #include "llviewerprecompiledheaders.h" // must be first include
 
+#include "llagentdata.h"
 #include "llfloaterreg.h"
 #include "llnearbychat.h"
 #include "llnearbychatbar.h"
@@ -87,40 +88,42 @@ bool LLTipHandler::processNotification(const LLSD& notify)
 
 	if(notify["sigtype"].asString() == "add" || notify["sigtype"].asString() == "change")
 	{
-		// archive message in nearby chat
-		if (LLHandlerUtil::canLogToNearbyChat(notification))
+		bool fShowToast = true;
+		
+		// Don't log persisted notifications a second time
+		if (!notification->isPersisted())
 		{
-			LLHandlerUtil::logToNearbyChat(notification, CHAT_SOURCE_SYSTEM);
-
-			// don't show toast if Nearby Chat is opened
-			LLNearbyChat* nearby_chat = LLNearbyChat::getInstance();
-			LLNearbyChatBar* nearby_chat_bar = LLNearbyChatBar::getInstance();
-			if (!nearby_chat_bar->isMinimized() && nearby_chat_bar->getVisible() && nearby_chat->getVisible())
+			// archive message in nearby chat
+			if (LLHandlerUtil::canLogToNearbyChat(notification))
 			{
-				return false;
+				LLHandlerUtil::logToNearbyChat(notification, CHAT_SOURCE_SYSTEM);
+
+				// don't show toast if Nearby Chat is opened
+				LLNearbyChat* nearby_chat = LLNearbyChat::getInstance();
+				LLNearbyChatBar* nearby_chat_bar = LLNearbyChatBar::getInstance();
+				if (!nearby_chat_bar->isMinimized() && nearby_chat_bar->getVisible() && nearby_chat->getVisible())
+				{
+					fShowToast = false;
+				}
+			}
+			
+			const std::string name = notification->getSubstitutions()["NAME"];
+			LLUUID from_id = notification->getPayload()["from_id"];
+			
+			if (LLHandlerUtil::canLogToIM(notification))
+			{
+				LLHandlerUtil::logToIMP2P(notification);
+			}
+		
+			if (LLHandlerUtil::canSpawnIMSession(notification))
+			{
+				LLHandlerUtil::spawnIMSession(name, from_id);
 			}
 		}
-
-		std::string session_name = notification->getPayload()["SESSION_NAME"];
-		const std::string name = notification->getSubstitutions()["NAME"];
-		if (session_name.empty())
-		{
-			session_name = name;
-		}
-		LLUUID from_id = notification->getPayload()["from_id"];
-		if (LLHandlerUtil::canLogToIM(notification))
-		{
-			LLHandlerUtil::logToIM(IM_NOTHING_SPECIAL, session_name, name,
-					notification->getMessage(), from_id, from_id);
-		}
-
-		if (LLHandlerUtil::canSpawnIMSession(notification))
-		{
-			LLHandlerUtil::spawnIMSession(name, from_id);
-		}
-
+		
 		// don't spawn toast for inventory accepted/declined offers if respective IM window is open (EXT-5909)
-		if (!LLHandlerUtil::canSpawnToast(notification))
+		fShowToast &= LLHandlerUtil::canSpawnToast(notification);
+		if (!fShowToast)
 		{
 			return false;
 		}

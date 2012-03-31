@@ -114,8 +114,6 @@ const static std::string GRANTED_MODIFY_RIGHTS("GrantedModifyRights"),
 		REVOKED_MODIFY_RIGHTS("RevokedModifyRights"),
 		OBJECT_GIVE_ITEM("ObjectGiveItem"),
 		OBJECT_GIVE_ITEM_UNKNOWN_USER("ObjectGiveItemUnknownUser"),
-						PAYMENT_RECEIVED("PaymentReceived"),
-						PAYMENT_SENT("PaymentSent"),
 						ADD_FRIEND_WITH_MESSAGE("AddFriendWithMessage"),
 						USER_GIVE_ITEM("UserGiveItem"),
 						INVENTORY_ACCEPTED("InventoryAccepted"),
@@ -128,17 +126,15 @@ const static std::string GRANTED_MODIFY_RIGHTS("GrantedModifyRights"),
 						FRIEND_ONLINE("FriendOnline"), FRIEND_OFFLINE("FriendOffline"),
 						SERVER_OBJECT_MESSAGE("ServerObjectMessage"),
 						TELEPORT_OFFERED("TeleportOffered"),
-						TELEPORT_OFFER_SENT("TeleportOfferSent"),
 						IM_SYSTEM_MESSAGE_TIP("IMSystemMessageTip");
 
 
 // static
 bool LLHandlerUtil::canLogToIM(const LLNotificationPtr& notification)
 {
-	return GRANTED_MODIFY_RIGHTS == notification->getName()
+	return notification->canLogToIM(NULL != findIMFloater(notification))
+			|| GRANTED_MODIFY_RIGHTS == notification->getName()
 			|| REVOKED_MODIFY_RIGHTS == notification->getName()
-			|| PAYMENT_RECEIVED == notification->getName()
-			|| PAYMENT_SENT == notification->getName()
 			|| OFFER_FRIENDSHIP == notification->getName()
 			|| FRIENDSHIP_OFFERED == notification->getName()
 			|| FRIENDSHIP_ACCEPTED == notification->getName()
@@ -148,20 +144,19 @@ bool LLHandlerUtil::canLogToIM(const LLNotificationPtr& notification)
 			|| INVENTORY_ACCEPTED == notification->getName()
 			|| INVENTORY_DECLINED == notification->getName()
 			|| USER_GIVE_ITEM == notification->getName()
-			|| TELEPORT_OFFERED == notification->getName()
-			|| TELEPORT_OFFER_SENT == notification->getName()
 			|| IM_SYSTEM_MESSAGE_TIP == notification->getName();
 }
 
 // static
 bool LLHandlerUtil::canLogToNearbyChat(const LLNotificationPtr& notification)
 {
-	return notification->getType() == "notifytip"
-			&&  FRIEND_ONLINE != notification->getName()
+	return notification->canLogToNearbyChat()
+			|| (notification->getType() == "notifytip"
+			&& FRIEND_ONLINE != notification->getName()
 			&& FRIEND_OFFLINE != notification->getName()
 			&& INVENTORY_ACCEPTED != notification->getName()
 			&& INVENTORY_DECLINED != notification->getName()
-			&& IM_SYSTEM_MESSAGE_TIP != notification->getName();
+			&& IM_SYSTEM_MESSAGE_TIP != notification->getName());
 }
 
 // static
@@ -338,6 +333,12 @@ void LLHandlerUtil::logToIMP2P(const LLNotificationPtr& notification, bool to_fi
 	if (notification->getName() != OBJECT_GIVE_ITEM)
 	{
 		LLUUID from_id = notification->getPayload()["from_id"];
+		
+		// If the user triggered the notification, log it to the destination instead
+		if ( (gAgentID == from_id) && (notification->getPayload().has("dest_id")) )
+  		{
+			from_id = notification->getPayload()["dest_id"];
+		}
 
 		if (from_id.isNull())
 		{

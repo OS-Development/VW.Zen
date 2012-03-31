@@ -145,6 +145,11 @@ bool LLOfferHandler::processNotification(const LLSD& notify)
 					mNewNotificationSignal();
 				}
 			}
+			
+			if (LLHandlerUtil::canLogToNearbyChat(notification))
+			{
+				LLHandlerUtil::logToNearbyChat(notification, CHAT_SOURCE_SYSTEM);
+			}
 
 			if (LLHandlerUtil::canLogToIM(notification))
 			{

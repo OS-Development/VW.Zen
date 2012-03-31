@@ -166,6 +166,8 @@ void LLPersistentNotificationStorage::loadNotifications()
 		LLSD notification_params = *notification_it;
 		LLNotificationPtr notification(new LLNotification(notification_params));
 
+		notification->setPersisted(true);
+		
 		LLNotificationResponderPtr responder(LLResponderRegistry::
 			createResponder(notification_params["name"], notification_params["responder"]));
 		notification->setResponseFunctor(responder);

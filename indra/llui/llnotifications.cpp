@@ -395,9 +395,66 @@ void LLNotificationForm::setIgnored(bool ignored)
 	}
 }
 
+// static
+static U32 getLogTypeFromString(const std::string& strText)
+{
+	U32 nRet = 0;
+	if (std::string::npos != strText.find("chat"))
+		nRet |= LLNotificationTemplate::LOG_CHAT;
+
+	if (std::string::npos != strText.find("openim"))
+		nRet |= LLNotificationTemplate::LOG_IM_OPEN;
+	else if (std::string::npos != strText.find("im"))
+		nRet |= LLNotificationTemplate::LOG_IM;
+
+	return nRet;
+}
+
+bool LLNotificationTemplate::canLogToNearbyChat() const
+{
+	const LLControlVariable* pControl = LLUI::sSettingGroups["config"]->getControl("Log" + mName);
+	return (pControl) && (pControl->get().asInteger() & LOG_CHAT);
+}
+
+bool LLNotificationTemplate::canLogToIM(bool fOpenSession) const
+{
+	const LLControlVariable* pControl = LLUI::sSettingGroups["config"]->getControl("Log" + mName);
+	U32 nLogTo = (pControl) ? pControl->get().asInteger() : 0;
+	return (pControl) && ((nLogTo & LOG_IM) || ((nLogTo & LOG_IM_OPEN) && (fOpenSession)));
+}
+
+void LLNotificationTemplate::setLogToNearbyChat(bool fLog)
+{
+	LLControlVariable* pControl = LLUI::sSettingGroups["config"]->getControl("Log" + mName);
+	if (pControl)
+	{
+		U32 nLogTo = pControl->get().asInteger();
+		if (fLog)
+			nLogTo |= LOG_CHAT_MASK & mCanLogTo;
+		else
+			nLogTo &= ~LOG_CHAT_MASK;
+		pControl->set(convert_to_llsd(nLogTo));
+	}
+}
+
+void LLNotificationTemplate::setLogToIM(bool fLog)
+{
+	LLControlVariable* pControl = LLUI::sSettingGroups["config"]->getControl("Log" + mName);
+	if (pControl)
+	{
+		U32 nLogTo = pControl->get().asInteger();
+		if (fLog)
+			nLogTo |= LOG_IM_MASK & mCanLogTo;
+		else
+			nLogTo &= ~LOG_IM_MASK;
+		pControl->set(convert_to_llsd(nLogTo));
+	}
+}
+
 LLNotificationTemplate::LLNotificationTemplate(const LLNotificationTemplate::Params& p)
 :	mName(p.name),
 	mType(p.type),
+	mCanLogTo(getLogTypeFromString(p.can_logto)),
 	mMessage(p.value),
 	mLabel(p.label),
 	mIcon(p.icon),
@@ -411,6 +468,12 @@ LLNotificationTemplate::LLNotificationTemplate(const LLNotificationTemplate::Par
 	mPersist(p.persist),
 	mDefaultFunctor(p.functor.isProvided() ? p.functor() : p.name())
 {
+	U32 nLogTo = (p.logto.isProvided() ? getLogTypeFromString(p.logto) : mCanLogTo);
+	if (nLogTo)
+	{
+		LLUI::sSettingGroups["config"]->declareU32("Log" + mName, nLogTo, "Specifies where this notification will be logged to");
+	}
+	
 	if (p.sound.isProvided()
 		&& LLUI::sSettingGroups["config"]->controlExists(p.sound))
 	{
@@ -469,6 +532,7 @@ LLNotification::LLNotification(const LLNotification::Params& p) :
 	mPriority(p.priority),
 	mCancelled(false),
 	mIgnored(false),
+	mPersisted(false),
 	mResponderObj(NULL),
 	mIsReusable(false)
 {
@@ -503,6 +567,7 @@ LLNotification::LLNotification(const LLSD& sd) :
 	mRespondedTo(false),
 	mCancelled(false),
 	mIgnored(false),
+	mPersisted(false),
 	mResponderObj(NULL),
 	mIsReusable(false)
 { 
@@ -562,6 +627,7 @@ void LLNotification::updateFrom(LLNotificationPtr other)
 	mExpiresAt = other->mExpiresAt;
 	mCancelled = other->mCancelled;
 	mIgnored = other->mIgnored;
+	mPersisted = other->mPersisted;
 	mPriority = other->mPriority;
 	mForm = other->mForm;
 	mResponseFunctorName = other->mResponseFunctorName;
@@ -702,6 +768,15 @@ const std::string& LLNotification::getIcon() const
 	return mTemplatep->mIcon;
 }
 
+bool LLNotification::canLogToNearbyChat() const
+{
+	return mTemplatep->canLogToNearbyChat();
+}
+
+bool LLNotification::canLogToIM(bool fOpenSession) const
+{
+	return mTemplatep->canLogToIM(fOpenSession);
+}
 
 bool LLNotification::isPersistent() const
 {

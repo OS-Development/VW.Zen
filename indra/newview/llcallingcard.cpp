@@ -722,7 +722,10 @@ static void on_avatar_name_cache_notify(const LLUUID& agent_id,
 	// Popup a notify box with online status of this agent
 	// Use display name only because this user is your friend
 	LLSD args;
-	args["NAME"] = av_name.mDisplayName;
+	args["NAME_SLURL"] = LLSLURL("agent", agent_id, "about").getSLURLString();
+	
+	// Needed so it can be logged to nearby chat or IM
+	payload["from_id"] = agent_id;
 
 	LLNotificationPtr notification;
 	if (online)
@@ -738,11 +741,6 @@ static void on_avatar_name_cache_notify(const LLUUID& agent_id,
 		notification =
 			LLNotificationsUtil::add("FriendOffline", args, payload);
 	}
-
-	// If there's an open IM session with this agent, send a notification there too.
-	LLUUID session_id = LLIMMgr::computeSessionID(IM_NOTHING_SPECIAL, agent_id);
-	std::string notify_msg = notification->getMessage();
-	LLIMModel::instance().proccessOnlineOfflineNotification(session_id, notify_msg);
 }
 
 void LLAvatarTracker::formFriendship(const LLUUID& id)

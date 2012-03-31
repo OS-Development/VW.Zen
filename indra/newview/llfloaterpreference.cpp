@@ -111,6 +111,8 @@
 #include "lllogininstance.h"        // to check if logged in yet
 #include "llsdserialize.h"
 
+#include <boost/algorithm/string.hpp>
+
 const F32 MAX_USER_FAR_CLIP = 512.f;
 const F32 MIN_USER_FAR_CLIP = 64.f;
 const F32 BANDWIDTH_UPDATER_TIMEOUT = 0.5f;
@@ -353,6 +355,10 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.TranslationSettings",	boost::bind(&LLFloaterPreference::onClickTranslationSettings, this));
 	mCommitCallbackRegistrar.add("Pref.ResetColors",			boost::bind(&LLFloaterPreference::onClickResetColors, this));
 	mCommitCallbackRegistrar.add("Pref.AttachmentBytes",		boost::bind(&LLFloaterPreference::onAttachmentBytes, this));
+	mCommitCallbackRegistrar.add("Pref.InitLogNotificationChat",boost::bind(&LLFloaterPreference::onInitLogNotification, this, _1, _2, "chat"));
+	mCommitCallbackRegistrar.add("Pref.InitLogNotificationIM",	boost::bind(&LLFloaterPreference::onInitLogNotification, this, _1, _2, "im"));
+	mCommitCallbackRegistrar.add("Pref.LogNotificationChat",	boost::bind(&LLFloaterPreference::onToggleLogNotification, this, _1, _2, "chat"));
+	mCommitCallbackRegistrar.add("Pref.LogNotificationIM",		boost::bind(&LLFloaterPreference::onToggleLogNotification, this, _1, _2, "im"));
 	
 //	sSkin = gSavedSettings.getString("SkinCurrent");
 
@@ -1554,6 +1560,42 @@ void LLFloaterPreference::onClickResetColors()
 {
 	LLUIColorTable::instance().resetColorSettings();
 	LLNotificationsUtil::add("ResetColors");
+}
+
+void LLFloaterPreference::onInitLogNotification(LLUICtrl* pCtrl, const LLSD& sdParam, const char* pstrScope)
+{
+	std::vector<std::string> notifications;
+	boost::split(notifications, sdParam.asString(), boost::is_any_of(std::string(",")));
+
+	for (auto itNotif = notifications.cbegin(); itNotif != notifications.cend(); ++itNotif)
+	{
+		LLNotificationTemplatePtr templ = LLNotifications::instance().getTemplate(*itNotif);
+		if (*itNotif != templ->mName)
+			continue;
+
+		if (0 == strcmp(pstrScope, "chat"))
+			pCtrl->setValue(templ->canLogToNearbyChat());
+		else if (0 == strcmp(pstrScope, "im"))
+			pCtrl->setValue(templ->canLogToIM(true));
+	}
+}
+
+void LLFloaterPreference::onToggleLogNotification(LLUICtrl* pCtrl, const LLSD& sdParam, const char* pstrScope)
+{
+	std::vector<std::string> notifications;
+	boost::split(notifications, sdParam.asString(), boost::is_any_of(std::string(",")));
+
+	for (auto itNotif = notifications.cbegin(); itNotif != notifications.cend(); ++itNotif)
+	{
+		LLNotificationTemplatePtr templ = LLNotifications::instance().getTemplate(*itNotif);
+		if (*itNotif != templ->mName)
+			continue;
+
+		if (0 == strcmp(pstrScope, "chat"))
+			templ->setLogToNearbyChat(pCtrl->getValue().asBoolean());
+		else if (0 == strcmp(pstrScope, "im"))
+			templ->setLogToIM(pCtrl->getValue().asBoolean());
+	}
 }
 
 void LLFloaterPreference::onClickActionChange()

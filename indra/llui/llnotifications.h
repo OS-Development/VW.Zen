@@ -364,6 +364,7 @@ private:
 	bool mRespondedTo; 	// once the notification has been responded to, this becomes true
 	LLSD mResponse;
 	bool mIgnored;
+	bool mPersisted;	// true if this notification was loaded from persistent storage
 	ENotificationPriority mPriority;
 	LLNotificationFormPtr mForm;
 	void* mResponderObj; // TODO - refactor/remove this field
@@ -396,7 +397,7 @@ private:
 
 	// this is just for making it easy to look things up in a set organized by UUID -- DON'T USE IT
 	// for anything real!
- LLNotification(LLUUID uuid) : mId(uuid), mCancelled(false), mRespondedTo(false), mIgnored(false), mPriority(NOTIFICATION_PRIORITY_UNSPECIFIED), mTemporaryResponder(false) {}
+	LLNotification(LLUUID uuid) : mId(uuid), mCancelled(false), mRespondedTo(false), mIgnored(false), mPersisted(false), mPriority(NOTIFICATION_PRIORITY_UNSPECIFIED), mTemporaryResponder(false) {}
 
 	void cancel();
 
@@ -480,10 +481,23 @@ public:
 	{
 		return mIgnored;
 	}
+	
+	bool isPersisted() const
+	{
+		return mPersisted;
+	}
+	void setPersisted(bool fPersisted)
+	{
+		mPersisted = fPersisted;
+	}
 
 	const std::string& getName() const;
 
 	const std::string& getIcon() const;
+	
+	bool canLogToNearbyChat() const;
+	
+	bool canLogToIM(bool fOpenSession) const;
 
 	bool isPersistent() const;
 

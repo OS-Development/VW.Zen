@@ -90,9 +90,19 @@ bool LLScriptHandler::processNotification(const LLSD& notify)
 	
 	if(notify["sigtype"].asString() == "add")
 	{
-		if (LLHandlerUtil::canLogToIM(notification))
+		// Don't log persisted notifications a second time
+		if (!notification->isPersisted())
 		{
-			LLHandlerUtil::logToIMP2P(notification);
+			// Archive message in nearby chat if desired
+			if (LLHandlerUtil::canLogToNearbyChat(notification))
+			{
+				LLHandlerUtil::logToNearbyChat(notification, CHAT_SOURCE_SYSTEM);
+			}
+			// Archive message in instant message if desired
+			if (LLHandlerUtil::canLogToIM(notification))
+			{
+				LLHandlerUtil::logToIMP2P(notification);
+			}
 		}
 
 		if(SCRIPT_DIALOG == notification->getName() || SCRIPT_DIALOG_GROUP == notification->getName() || SCRIPT_LOAD_URL == notification->getName())

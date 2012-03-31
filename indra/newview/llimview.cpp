@@ -37,6 +37,7 @@
 #include "llbutton.h"
 #include "llhttpclient.h"
 #include "llsdutil_math.h"
+#include "llslurl.h"
 #include "llstring.h"
 #include "lltextutil.h"
 #include "lltrans.h"
@@ -800,14 +801,6 @@ bool LLIMModel::logToFile(const std::string& file_name, const std::string& from,
 	{
 		return false;
 	}
-}
-
-bool LLIMModel::proccessOnlineOfflineNotification(
-	const LLUUID& session_id, 
-	const std::string& utf8_text)
-{
-	// Add system message to history
-	return addMessage(session_id, SYSTEM_FROM, LLUUID::null, utf8_text);
 }
 
 bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
@@ -2624,6 +2617,8 @@ LLUUID LLIMMgr::addSession(
 	//Per Plan's suggestion commented "explicit offline status warning" out to make Dessie happier (see EXT-3609)
 	//*TODO After February 2010 remove this commented out line if no one will be missing that warning
 	//noteOfflineUsers(session_id, floater, ids);
+	
+	noteOfflineUsers(session_id, ids);
 
 	// Only warn for regular IMs - not group IMs
 	if( dialog == IM_NOTHING_SPECIAL )
@@ -2996,14 +2991,12 @@ void LLIMMgr::noteOfflineUsers(
 		{
 			info = at.getBuddyInfo(ids.get(i));
 			LLAvatarName av_name;
-			if (info
-				&& !info->isOnline()
-				&& LLAvatarNameCache::get(ids.get(i), &av_name))
+			if (info && !info->isOnline())
 			{
 				LLUIString offline = LLTrans::getString("offline_message");
 				// Use display name only because this user is your friend
-				offline.setArg("[NAME]", av_name.mDisplayName);
-				im_model.proccessOnlineOfflineNotification(session_id, offline);
+				offline.setArg("[NAME_SLURL]", LLSLURL("agent", ids.get(i), "about").getSLURLString());
+				im_model.addMessage(session_id, SYSTEM_FROM, LLUUID::null, offline);
 			}
 		}
 	}

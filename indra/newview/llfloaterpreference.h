@@ -151,6 +151,9 @@ public:
 	void onUpdateSliderText(LLUICtrl* ctrl, const LLSD& name);
 //	void fractionFromDecimal(F32 decimal_val, S32& numerator, S32& denominator);
 
+	void onInitLogNotification(LLUICtrl* pCtrl, const LLSD& sdParam, const char* pstrScope);
+	void onToggleLogNotification(LLUICtrl* pCtrl, const LLSD& sdParam, const char* pstrScope);
+	
 	void onCommitParcelMediaAutoPlayEnable();
 	void onCommitMediaEnabled();
 	void onCommitMusicEnabled();

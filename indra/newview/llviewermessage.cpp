@@ -5360,10 +5360,12 @@ static void process_money_balance_reply_extended(LLMessageSystem* msg)
 		}
 		final_args["MESSAGE"] = message;
 
-		// make notification loggable
-		payload["from_id"] = source_id;
 		notification = "PaymentReceived";
 	}
+	
+	// make notification loggable
+	payload["from_id"] = source_id;
+	payload["dest_id"] = dest_id;
 
 	// Despite using SLURLs, wait until the name is available before
 	// showing the notification, otherwise the UI layout is strange and
