@@ -2,17 +2,39 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>ShowIMInChatHistory</key>
+	<map>
+	  <key>Comment</key>
+	  <string>If true, IM will also be shown in the nearby chat history.</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>0</integer>
+	</map>
+	<key>LogIMInChatHistory</key>
+	<map>
+	  <key>Comment</key>
+	  <string>If true, IM will also be logged in the nearby chat history if logging nearby chat and showing IMs in nearby chat is enabled.</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>Boolean</string>
+	  <key>Value</key>
+	  <integer>0</integer>
+	</map>
 	<key>AnnounceIncomingIM</key>
-  <map>
-    <key>Comment</key>
-    <string>Opens the IM floater and announces an incoming IM as soon as somebody is starting to write an IM to you.</string>
-    <key>Persist</key>
-    <integer>1</integer>
-    <key>Type</key>
-    <string>Boolean</string>
-    <key>Value</key>
-    <integer>1</integer>
-  </map>
+	<map>
+      <key>Comment</key>
+      <string>Opens the IM floater and announces an incoming IM as soon as somebody is starting to write an IM to you.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+	</map>
 	<key>ShowFloaterCollapseButton</key>
     <map>
       <key>Comment</key>

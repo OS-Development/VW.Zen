@@ -328,7 +328,7 @@
      follows="left|top"
      layout="topleft"
      top_delta="0" 
-     left="130" 
+     left="110" 
   	 height="20"
 	 width="130"
 	 font="SansSerifSmall"
@@ -418,7 +418,7 @@
      control_name="LogInstantMessages"
      follows="left|top"
      height="16"
-     label="Log IMs"
+     label="Log IMs  (to file)"
      layout="topleft"
      left="50"
      top_pad="30"
@@ -434,7 +434,7 @@
      top_pad="5"
      name="show_im_history"
      width="150" />
-	<check_box
+	 <check_box
      control_name="AnnounceIncomingIM"
      follows="left|top"
      height="16"
@@ -444,7 +444,39 @@
      top_pad="5"
      name="announce_ims"
      width="150" />
-
+	 <check_box
+     control_name="ShowIMInChatHistory"
+     follows="left|top"
+     height="16"
+     label="Show IMs in Nearby Chat"
+     layout="topleft"
+     left="50"
+     top_pad="30"
+     name="show_im_in_chat_history"
+     width="150" />
+	 <check_box
+     enabled_control="LogNearbyChat"
+	 control_name="LogIMInChatHistory"
+     follows="left|top"
+     height="16"
+     label="Log IMs in Nearby Chat"
+     layout="topleft"
+     left="50"
+     top_pad="5"
+     name="requires_save_chat_logs"
+     width="150" />
+	<text
+     name="requires_save_label"
+     follows="left|top"
+     layout="topleft"
+     top_delta="0" 
+     left="230" 
+  	 height="20"
+	 width="200"
+	 font="SansSerifSmall"
+     text_color="Yellow">
+      (Requires Log Nearby Chat Enabled)
+      </text>
   
   </panel>
   
@@ -536,13 +568,13 @@
 			 width="350"/>
 			
 	<check_box
-	 control_name="NearbyChatFloaterWindow"
+	 control_name="LogNearbyChat"
 	 follows="left|top"
 	 height="20"
-	 label="Embed Nearby Chat in Conversations Floater"
+	 label="Log Nearby Chat  (to file)"
 	 layout="topleft"
 	 left="60"
-	 name="check_nearbychat_window"
+	 name="log_nearby_chat"
 	 top_pad="20"
 	 width="350"/>
 	 <check_box
@@ -553,6 +585,16 @@
 	 layout="topleft"
 	 left="60"
 	 name="show_blocked_chat"
+	 top_pad="0"
+	 width="350"/>
+	<check_box
+	 control_name="NearbyChatFloaterWindow"
+	 follows="left|top"
+	 height="20"
+	 label="Embed Nearby Chat in Conversations Floater"
+	 layout="topleft"
+	 left="60"
+	 name="check_nearbychat_window"
 	 top_pad="0"
 	 width="350"/>
 	<spinner

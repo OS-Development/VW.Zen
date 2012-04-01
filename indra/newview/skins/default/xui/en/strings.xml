@@ -4448,5 +4448,7 @@ Try enclosing path to the editor with double quotes.
   <string name="snapshot_quality_medium">Medium</string>
   <string name="snapshot_quality_high">High</string>
   <string name="snapshot_quality_very_high">Very High</string>
+  
+  <string name="IMPrefix">IM:</string>
 
   </strings>

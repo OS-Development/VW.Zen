@@ -284,7 +284,7 @@ public:
 			// flash on the screen
 			user_name->setValue( LLSD() );
 			LLAvatarNameCache::get(mAvatarID,
-				boost::bind(&LLChatHistoryHeader::onAvatarNameCache, this, _1, _2));
+				boost::bind(&LLChatHistoryHeader::onAvatarNameCache, this, _1, _2, chat.mChatType));
 		}
 		else if (chat.mChatStyle == CHAT_STYLE_HISTORY ||
 				 mSourceType == CHAT_SOURCE_AGENT)
@@ -298,6 +298,7 @@ public:
 			{
 				mFrom = chat.mFromName.substr(0, username_start);
 				user_name->setValue(mFrom);
+				LLAvatarNameCache::get(mAvatarID, boost::bind(&LLChatHistoryHeader::onAvatarNameCache, this, _1, _2, chat.mChatType));
 
 				if (gSavedSettings.getBOOL("NameTagShowUsernames"))
 				{
@@ -315,6 +316,7 @@ public:
 			else
 			{
 				mFrom = chat.mFromName;
+				if (chat.mChatType == CHAT_TYPE_IM) mFrom = LLTrans::getString("IMPrefix") + " " + mFrom;
 				user_name->setValue(mFrom);
 				updateMinUserNameWidth();
 			}
@@ -416,12 +418,13 @@ public:
 		}
 	}
 
-	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name)
+	void onAvatarNameCache(const LLUUID& agent_id, const LLAvatarName& av_name, EChatType chat_type)
 	{
 		mFrom = av_name.mDisplayName;
+		if (chat_type == CHAT_TYPE_IM) mFrom = LLTrans::getString("IMPrefix") + " " + mFrom;
 
 		LLTextBox* user_name = getChild<LLTextBox>("user_name");
-		user_name->setValue( LLSD(av_name.mDisplayName ) );
+		user_name->setValue( LLSD(mFrom) );
 		user_name->setToolTip( av_name.mUsername );
 
 		if (gSavedSettings.getBOOL("NameTagShowUsernames") && 
@@ -800,6 +803,12 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 				LLColor4 link_color = LLUIColorTable::instance().getColor("HTMLLinkColor");
 				link_params.color = link_color;
 				link_params.readonly_color = link_color;
+				
+				if (chat.mChatType == CHAT_TYPE_IM)
+				{
+					mEditor->appendText(LLTrans::getString("IMPrefix") + " ", false, link_params);
+				}
+
 				link_params.is_link = true;
 				link_params.link_href = url;
 
@@ -816,7 +825,14 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 			}
 			else
 			{
-				mEditor->appendText("<nolink>" + chat.mFromName + "</nolink>" + delimiter, false, style_params);
+				if (chat.mChatType == CHAT_TYPE_IM)
+				{	
+					mEditor->appendText(LLTrans::getString("IMPrefix") + " " + chat.mFromName + delimiter, false, style_params);
+				}
+				else
+				{
+					mEditor->appendText("<nolink>" + chat.mFromName + "</nolink>" + delimiter, false, style_params);
+				}
 			}
 		}
 	}
@@ -830,7 +846,10 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 		LLDate new_message_time = LLDate::now();
 
-		if (mLastFromName == chat.mFromName 
+		std::string tmp_from_name(chat.mFromName);
+		if (chat.mChatType == CHAT_TYPE_IM) tmp_from_name = LLTrans::getString("IMPrefix") + " " + tmp_from_name;
+
+		if (mLastFromName == tmp_from_name 
 			&& mLastFromID == chat.mFromID
 			&& mLastMessageTime.notNull() 
 			&& (new_message_time.secondsSinceEpoch() - mLastMessageTime.secondsSinceEpoch()) < 60.0
@@ -866,6 +885,7 @@ void LLChatHistory::appendMessage(const LLChat& chat, const LLSD &args, const LL
 
 		mEditor->appendWidget(p, widget_associated_text, false);
 		mLastFromName = chat.mFromName;
+		if (chat.mChatType == CHAT_TYPE_IM) mLastFromName = LLTrans::getString("IMPrefix") + " " + mLastFromName;
 		mLastFromID = chat.mFromID;
 		mLastMessageTime = new_message_time;
 		mIsLastMessageFromLog = message_from_log;
