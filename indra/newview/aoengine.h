@@ -174,8 +174,10 @@ class AOEngine
 		void saveState(const AOSet::AOState* state);
 
 		BOOL createAnimationLink(const AOSet* set,AOSet::AOState* state,const LLInventoryItem* item);
+		BOOL findForeignItems(const LLUUID& uuid) const;
 		void purgeFolder(const LLUUID& uuid) const;
 
+		void onToggleAOControl();
 		static void onNotecardLoadComplete(	LLVFS* vfs,const LLUUID& assetUUID,LLAssetType::EType type,
 												void* userdata,S32 status,LLExtStat extStatus);
 		void parseNotecard(const char* buffer);
