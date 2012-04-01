@@ -999,7 +999,15 @@ bool LLAppViewer::init()
 
 		}
 	}
-
+	
+#if LL_WINDOWS
+	if (gGLManager.mIsIntel && 
+		LLFeatureManager::getInstance()->getRecommendedValue("WindLightUseAtmosShaders") > 0 &&
+		gGLManager.mGLVersion <= 3.f)
+	{
+		LLNotificationsUtil::add("IntelOldDriver");
+	}
+#endif
 
 	// save the graphics card
 	gDebugInfo["GraphicsCard"] = LLFeatureManager::getInstance()->getGPUString();
