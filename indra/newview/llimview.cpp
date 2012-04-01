@@ -152,6 +152,11 @@ void toast_callback(const LLSD& msg){
 	{
 		return;
 	}
+	
+	if (msg["is_announcement"].asBoolean())
+	{
+		return;
+	}
 
 	LLAvatarNameCache::get(msg["from_id"].asUUID(),
 		boost::bind(&on_avatar_name_cache_toast,
@@ -765,7 +770,7 @@ void LLIMModel::getMessages(const LLUUID& session_id, std::list<LLSD>& messages,
 	sendNoUnreadMessages(session_id);
 }
 
-bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text) {
+bool LLIMModel::addToHistory(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, const std::string& utf8_text, BOOL is_announcement /* = FALSE */) {
 	
 	LLIMSession* session = findIMSession(session_id);
 
@@ -804,9 +809,9 @@ bool LLIMModel::logToFile(const std::string& file_name, const std::string& from,
 }
 
 bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
-						   const std::string& utf8_text, bool log2file /* = true */) { 
+						   const std::string& utf8_text, bool log2file /* = true */, BOOL is_announcement /* = FALSE */) { 
 
-	LLIMSession* session = addMessageSilently(session_id, from, from_id, utf8_text, log2file);
+	LLIMSession* session = addMessageSilently(session_id, from, from_id, utf8_text, log2file, is_announcement);
 	if (!session) return false;
 
 	//good place to add some1 to recent list
@@ -824,13 +829,14 @@ bool LLIMModel::addMessage(const LLUUID& session_id, const std::string& from, co
 	arg["from"] = from;
 	arg["from_id"] = from_id;
 	arg["time"] = LLLogChat::timestamp(false);
+	arg["is_announcement"] = is_announcement;
 	mNewMsgSignal(arg);
 
 	return true;
 }
 
 LLIMModel::LLIMSession* LLIMModel::addMessageSilently(const LLUUID& session_id, const std::string& from, const LLUUID& from_id, 
-													 const std::string& utf8_text, bool log2file /* = true */)
+													 const std::string& utf8_text, bool log2file /* = true */, BOOL is_announcement /* = FALSE */)
 {
 	LLIMSession* session = findIMSession(session_id);
 
@@ -847,8 +853,8 @@ LLIMModel::LLIMSession* LLIMModel::addMessageSilently(const LLUUID& session_id, 
 		from_name = SYSTEM_FROM;
 	}
 
-	addToHistory(session_id, from_name, from_id, utf8_text);
-	if (log2file)
+	addToHistory(session_id, from_name, from_id, utf8_text, is_announcement);
+	if (log2file && !is_announcement)
 	{
 		logToFile(getHistoryFileName(session_id), from_name, from_id, utf8_text);
 	}
@@ -2393,7 +2399,8 @@ void LLIMMgr::addMessage(
 	U32 parent_estate_id,
 	const LLUUID& region_id,
 	const LLVector3& position,
-	bool link_name) // If this is true, then we insert the name and link it to a profile
+	bool link_name, // If this is true, then we insert the name and link it to a profile
+	BOOL is_announcement)
 {
 	LLUUID other_participant_id = target_id;
 	LLUUID new_session_id = session_id;
@@ -2453,7 +2460,7 @@ void LLIMMgr::addMessage(
 
 	if (!LLMuteList::getInstance()->isMuted(other_participant_id, LLMute::flagTextChat))
 	{
-		LLIMModel::instance().addMessage(new_session_id, from, other_participant_id, msg);
+		LLIMModel::instance().addMessage(new_session_id, from, other_participant_id, msg, true, is_announcement);
 	}
 }
 
@@ -3043,6 +3050,28 @@ void LLIMMgr::processIMTypingStop(const LLIMInfo* im_info)
 void LLIMMgr::processIMTypingCore(const LLIMInfo* im_info, BOOL typing)
 {
 	LLUUID session_id = computeSessionID(im_info->mIMType, im_info->mFromID);
+	
+	static LLCachedControl<bool> announceIncomingIM(gSavedSettings, "AnnounceIncomingIM");
+	if (typing && !gIMMgr->hasSession(session_id) && announceIncomingIM)
+	{
+		LLStringUtil::format_map_t args;
+		args["[NAME]"] = im_info->mName;
+		
+		gIMMgr->addMessage(
+			session_id,
+			im_info->mFromID,
+			LLStringUtil::null, // Pass null value so no name gets prepended
+			LLTrans::getString("IM_announce_incoming", args),
+			im_info->mName,
+			IM_NOTHING_SPECIAL,
+			im_info->mParentEstateID,
+			im_info->mRegionID,
+			im_info->mPosition,
+			false, // <-- Wow! This parameter is never handled!!!
+			TRUE
+			);
+	}
+	
 	LLIMFloater* im_floater = LLIMFloater::findInstance(session_id);
 	if ( im_floater )
 	{

@@ -434,6 +434,16 @@
      top_pad="5"
      name="show_im_history"
      width="150" />
+	<check_box
+     control_name="AnnounceIncomingIM"
+     follows="left|top"
+     height="16"
+     label="Announce Incoming IMs"
+     layout="topleft"
+     left="50"
+     top_pad="5"
+     name="announce_ims"
+     width="150" />
 
   
   </panel>
