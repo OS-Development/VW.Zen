@@ -1700,7 +1700,8 @@ class LLAdvancedToggleShowLookAt : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		LLHUDEffectLookAt::sDebugLookAt = !(LLHUDEffectLookAt::sDebugLookAt);
+		bool value = !gSavedPerAccountSettings.getBOOL("DebugLookAt");
+		gSavedPerAccountSettings.setBOOL("DebugLookAt",value);
 		return true;
 	}
 };
@@ -1709,7 +1710,7 @@ class LLAdvancedCheckShowLookAt : public view_listener_t
 {
 	bool handleEvent(const LLSD& userdata)
 	{
-		bool new_value = LLHUDEffectLookAt::sDebugLookAt;
+		bool new_value = gSavedPerAccountSettings.getBOOL("DebugLookAt");
 		return new_value;
 	}
 };
@@ -1739,6 +1740,50 @@ class LLAdvancedCheckShowPointAt : public view_listener_t
 	}
 };
 
+
+///////////////////// 
+// PRIVATE LOOK AT // 
+///////////////////// 
+
+class LLAdvancedTogglePrivateLookPointAt : public view_listener_t 
+{ 
+	bool handleEvent(const LLSD& userdata) 
+	{ 
+		std::string command = userdata.asString(); 
+		if ("Look" == command) 
+		{ 
+			bool new_value = !gSavedSettings.getBOOL("PrivateLookAtTarget"); 
+			gSavedSettings.setBOOL("PrivateLookAtTarget", new_value); 
+		} 
+		else if ("Point" == command) 
+		{ 
+			bool new_value = !gSavedSettings.getBOOL("PrivatePointAtTarget"); 
+			gSavedSettings.setBOOL("PrivatePointAtTarget", new_value); 
+		} 
+	return true; 
+	} 
+}; 
+
+class LLAdvancedCheckPrivateLookPointAt : public view_listener_t 
+{ 
+	bool handleEvent(const LLSD& userdata) 
+	{ 
+		std::string command = userdata["data"].asString(); 
+		if ("Look" == command) 
+		{ 
+			bool new_value = gSavedSettings.getBOOL("PrivateLookAtTarget"); 
+			std::string control_name = userdata["control"].asString(); 
+			gMenuHolder->findControl(control_name)->setValue(new_value); 
+		} 
+		else if ("Point" == command) 
+		{ 
+			bool new_value = gSavedSettings.getBOOL("PrivatePointAtTarget"); 
+			std::string control_name = userdata["control"].asString(); 
+			gMenuHolder->findControl(control_name)->setValue(new_value); 
+		} 
+	return true; 
+	} 
+};
 
 
 /////////////////////////
@@ -8426,6 +8471,8 @@ void initialize_menus()
 	view_listener_t::addMenu(new LLAdvancedCheckShowLookAt(), "Advanced.CheckShowLookAt");
 	view_listener_t::addMenu(new LLAdvancedToggleShowPointAt(), "Advanced.ToggleShowPointAt");
 	view_listener_t::addMenu(new LLAdvancedCheckShowPointAt(), "Advanced.CheckShowPointAt");
+	view_listener_t::addMenu(new LLAdvancedTogglePrivateLookPointAt(), "Advanced.TogglePrivateLookPointAt");
+	view_listener_t::addMenu(new LLAdvancedCheckPrivateLookPointAt(), "Advanced.CheckPrivateLookPointAt");
 	view_listener_t::addMenu(new LLAdvancedToggleDebugJointUpdates(), "Advanced.ToggleDebugJointUpdates");
 	view_listener_t::addMenu(new LLAdvancedCheckDebugJointUpdates(), "Advanced.CheckDebugJointUpdates");
 	view_listener_t::addMenu(new LLAdvancedToggleDisableLOD(), "Advanced.ToggleDisableLOD");

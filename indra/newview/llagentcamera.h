@@ -234,6 +234,8 @@ public:
 public:
 	LLPointer<LLHUDEffectLookAt> mLookAt;
 	LLPointer<LLHUDEffectPointAt> mPointAt;
+	
+	LLViewerObject* mPointAtObject;
 
 	//--------------------------------------------------------------------
 	// Third person

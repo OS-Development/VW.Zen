@@ -173,7 +173,8 @@ LLAgentCamera::LLAgentCamera() :
 	mPanLeftKey(0.f),
 	mPanRightKey(0.f),
 	mPanInKey(0.f),
-	mPanOutKey(0.f)
+	mPanOutKey(0.f),
+	mPointAtObject(NULL)
 {
 	mFollowCam.setMaxCameraDistantFromSubject( MAX_CAMERA_DISTANCE_FROM_AGENT );
 
@@ -910,7 +911,8 @@ void LLAgentCamera::cameraZoomIn(const F32 fraction)
 	F32 current_distance = (F32)camera_offset_unit.normalize();
 	F32 new_distance = current_distance * fraction;
 
-	if (!gSavedSettings.getBOOL("DisableMinZoomDist"))
+	static LLCachedControl<bool> disable_minconstraints(gSavedSettings,"DisableMinZoomDist");
+	if (!disable_minconstraints)
 	{
 		if (mFocusObject)
 		{
@@ -2596,7 +2598,17 @@ void LLAgentCamera::setFocusOnAvatar(BOOL focus_on_avatar, BOOL animate)
 
 BOOL LLAgentCamera::setLookAt(ELookAtType target_type, LLViewerObject *object, LLVector3 position)
 {
-	if(object && object->isAttachment())
+	static LLCachedControl<bool> isLocalPrivate(gSavedSettings, "PrivateLocalLookAtTarget", false);
+	
+	// set to absolutely nothing if local lookats are disabled.
+	if(isLocalPrivate)
+	{
+			position.clearVec();
+			target_type = LOOKAT_TARGET_NONE;
+			object = gAgentAvatarp;
+	}
+	
+	else if(object && object->isAttachment())
 	{
 		LLViewerObject* parent = object;
 		while(parent)
@@ -2610,6 +2622,7 @@ BOOL LLAgentCamera::setLookAt(ELookAtType target_type, LLViewerObject *object, L
 			parent = (LLViewerObject*)parent->getParent();
 		}
 	}
+	
 	if(!mLookAt || mLookAt->isDead())
 	{
 		mLookAt = (LLHUDEffectLookAt *)LLHUDManager::getInstance()->createViewerEffect(LLHUDObject::LL_HUD_EFFECT_LOOKAT);
@@ -2703,8 +2716,12 @@ void LLAgentCamera::lookAtLastChat()
 
 BOOL LLAgentCamera::setPointAt(EPointAtType target_type, LLViewerObject *object, LLVector3 position)
 {
+	mPointAtObject = object;
+	
 	// disallow pointing at attachments and avatars
-	if (object && (object->isAttachment() || object->isAvatar()))
+	//this is the editing arm motion
+	static LLCachedControl<bool> private_pointat(gSavedSettings, "PrivatePointAtTarget", false);
+	if (object && (object->isAttachment() || object->isAvatar() || private_pointat))
 	{
 		return FALSE;
 	}

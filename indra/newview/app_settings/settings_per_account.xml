@@ -1,5 +1,27 @@
 <llsd>
     <map>
+	<key>DebugLookAt</key>
+        <map>
+        <key>Comment</key>
+            <string>Show Debug LookAt targets</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>Boolean</string>
+        <key>Value</key>
+            <integer>0</integer>
+        </map>
+    <key>DebugLookAtHideOwn</key>
+        <map>
+        <key>Comment</key>
+            <string>Don't show own LookAt target with DebugLookAt</string>
+        <key>Persist</key>
+            <integer>1</integer>
+        <key>Type</key>
+            <string>Boolean</string>
+        <key>Value</key>
+            <integer>1</integer>
+        </map>
 	<key>UseAO</key>
 	<map>
 	  <key>Comment</key>
@@ -181,7 +203,7 @@
         <key>Type</key>
             <string>Boolean</string>
         <key>Value</key>
-            <integer>1</integer>
+            <integer>0</integer>
         </map>
     <key>VoiceEffectDefault</key>
     <map>

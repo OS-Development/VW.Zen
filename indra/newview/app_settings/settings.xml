@@ -2,6 +2,50 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>DebugLookAtShowNames</key>
+	<map>
+	  <key>Comment</key>
+	  <string>Show names with DebugLookAt. 0) None, 1) "Display Name (user.name)", 2) "Display Name", 3) Legacy "First Last", 4) "user.name"</string>
+	  <key>Persist</key>
+	  <integer>1</integer>
+	  <key>Type</key>
+	  <string>U32</string>
+	  <key>Value</key>
+	  <integer>1</integer>
+	</map>
+	<key>PrivateLookAtTarget</key>
+	<map>
+      <key>Comment</key>
+      <string>If true, viewer shows simulated look-at behavior to others.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+	</map>
+	<key>PrivateLocalLookAtTarget</key>
+	<map>
+      <key>Comment</key>
+      <string>If true, your avatar's lookat target will not affect your local display. Head/Eye movement that normally would follow a lookat target will not be shown to you.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+	</map>
+	<key>PrivatePointAtTarget</key>
+	<map>
+      <key>Comment</key>
+      <string>If true, viewer won't show the editing arm motion.</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+	  </map>
 	<key>ShowIMInChatHistory</key>
 	<map>
 	  <key>Comment</key>
