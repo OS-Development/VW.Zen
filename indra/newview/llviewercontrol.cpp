@@ -75,7 +75,11 @@
 #include "llpaneloutfitsinventory.h"
 #include "llpanellogin.h"
 #include "llpaneltopinfobar.h"
+#include "llspellcheck.h"
 #include "lldrawpoolavatar.h"
+
+// Third party library includes
+#include <boost/algorithm/string.hpp>
 
 #ifdef TOGGLE_HACKED_GODLIKE_VIEWER
 BOOL 				gHackGodmode = FALSE;
@@ -519,6 +523,25 @@ bool handleForceShowGrid(const LLSD& newvalue)
 	return true;
 }
 
+bool handleSpellCheckChanged()
+{
+	static LLCachedControl<bool> spellCheck(gSavedSettings, "SpellCheck");
+	if (spellCheck)
+	{
+		std::list<std::string> dict_list;
+		boost::split(dict_list, gSavedSettings.getString("SpellCheckDictionary"), boost::is_any_of(std::string(",")));
+		if (!dict_list.empty())
+		{
+			LLSpellChecker::setUseSpellCheck(dict_list.front());
+			dict_list.pop_front();
+			LLSpellChecker::instance().setSecondaryDictionaries(dict_list);
+			return true;
+		}
+	}
+	LLSpellChecker::setUseSpellCheck(LLStringUtil::null);
+	return true;
+}
+
 bool toggle_agent_pause(const LLSD& newvalue)
 {
 	if ( newvalue.asBoolean() )
@@ -715,6 +738,8 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("ShowObjectRenderingCost")->getSignal()->connect(boost::bind(&toggle_show_object_render_cost, _2));
 	gSavedSettings.getControl("ForceShowGrid")->getSignal()->connect(boost::bind(&handleForceShowGrid, _2));
 	gSavedSettings.getControl("RenderTransparentWater")->getSignal()->connect(boost::bind(&handleRenderTransparentWaterChanged, _2));
+	gSavedSettings.getControl("SpellCheck")->getSignal()->connect(boost::bind(&handleSpellCheckChanged));
+	gSavedSettings.getControl("SpellCheckDictionary")->getSignal()->connect(boost::bind(&handleSpellCheckChanged));
 	gSavedSettings.getControl("NearbyChatFloaterBarType")->getSignal()->connect(boost::bind(&LLNearbyChatBar::processFloaterTypeChanged));
 	gSavedSettings.getControl("NearbyChatFloaterWindow")->getSignal()->connect(boost::bind(&LLNearbyChatBar::processFloaterTypeChanged));
 }

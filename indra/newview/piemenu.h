@@ -68,7 +68,7 @@ class PieMenu : public LLContextMenu
 		void draw();
 
 		// showing/hiding the menu
-		void show(S32 x,S32 y);
+		void show(S32 x,S32 y, LLView* spawning_view = NULL);
 		void hide();
 
 		// our item list type definition
@@ -80,6 +80,10 @@ class PieMenu : public LLContextMenu
 
 		// appends a sub pie menu to the current pie
 		BOOL appendContextSubMenu(PieMenu* menu);
+		
+		LLHandle<PieMenu> getHandle() { return getDerivedHandle<PieMenu>(); }
+		LLView*	getSpawningView() const		{ return mSpawningViewHandle.get(); }
+		void	setSpawningView(LLHandle<LLView> spawning_view) { mSpawningViewHandle = spawning_view; }
 
 		// we never rearrange our menu
 		void needsArrange() {};
@@ -105,6 +109,7 @@ class PieMenu : public LLContextMenu
 		S32 mCenterY;
 		// this is TRUE when the first mouseclick came to display the menu, used for borderless menu
 		BOOL mFirstClick;
+		LLHandle<LLView>			mSpawningViewHandle;
 };
 
 #endif // PIEMENU_H

@@ -141,6 +141,12 @@
          layout="topleft"
          help_topic="preferences_skins_tab"
          name="skins" />
+		 <panel
+         class="panel_preference"
+         filename="panel_preferences_spellcheck.xml"
+         label="Spell Check"
+         layout="topleft"
+         name="spell_check" />
     </tab_container>
 
 </floater>

@@ -810,6 +810,7 @@ bool idle_startup()
 		{
 			display_startup();
 			initialize_edit_menu();
+			initialize_spellcheck_menu();
 			display_startup();
 			init_menus();
 			display_startup();

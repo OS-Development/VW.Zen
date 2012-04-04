@@ -40,6 +40,7 @@ class LLSelectNode;
 class PieMenu;
 
 void initialize_edit_menu();
+void initialize_spellcheck_menu();
 void init_menus();
 void cleanup_menus();
 

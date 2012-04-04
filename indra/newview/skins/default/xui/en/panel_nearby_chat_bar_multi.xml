@@ -33,6 +33,7 @@
      layout="topleft"
      max_length="1024"
      name="chat_editor"
+	 spellcheck="true"
      top="0"
      use_ellipses="false"
      width="268"
