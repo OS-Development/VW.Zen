@@ -31,6 +31,7 @@
 
 #include "llviewerfloaterreg.h"
 #include "fsareasearch.h"
+#include "lggautocorrectfloater.h"
 #include "llcompilequeue.h"
 #include "llcallfloater.h"
 #include "llfasttimerview.h"
@@ -170,6 +171,7 @@ void LLViewerFloaterReg::registerFloaters()
 
 	LLFloaterAboutUtil::registerFloater();
 	LLFloaterReg::add("fast_timers", "floater_fast_timers.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFastTimerView>);
+	LLFloaterReg::add("autocorrect", "floater_autocorrect.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LGGAutoCorrectFloater>);
 	LLFloaterReg::add("about_land", "floater_about_land.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterLand>);
 	LLFloaterReg::add("appearance", "floater_my_appearance.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSidePanelContainer>);
 	LLFloaterReg::add("area_search", "floater_fs_area_search.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<FSAreaSearch>);

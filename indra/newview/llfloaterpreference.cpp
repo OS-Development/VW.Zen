@@ -112,6 +112,8 @@
 #include "lllogininstance.h"        // to check if logged in yet
 #include "llsdserialize.h"
 
+#include "lggautocorrectfloater.h"
+
 #include <boost/algorithm/string.hpp>
 
 const F32 MAX_USER_FAR_CLIP = 512.f;
@@ -360,7 +362,7 @@ LLFloaterPreference::LLFloaterPreference(const LLSD& key)
 	mCommitCallbackRegistrar.add("Pref.InitLogNotificationIM",	boost::bind(&LLFloaterPreference::onInitLogNotification, this, _1, _2, "im"));
 	mCommitCallbackRegistrar.add("Pref.LogNotificationChat",	boost::bind(&LLFloaterPreference::onToggleLogNotification, this, _1, _2, "chat"));
 	mCommitCallbackRegistrar.add("Pref.LogNotificationIM",		boost::bind(&LLFloaterPreference::onToggleLogNotification, this, _1, _2, "im"));
-	
+	mCommitCallbackRegistrar.add("Pref.ShowAC", 				boost::bind(&LGGAutoCorrectFloater::showFloater));
 //	sSkin = gSavedSettings.getString("SkinCurrent");
 
 	mCommitCallbackRegistrar.add("Pref.ClickActionChange",				boost::bind(&LLFloaterPreference::onClickActionChange, this));

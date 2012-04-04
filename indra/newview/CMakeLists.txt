@@ -82,6 +82,8 @@ set(viewer_SOURCE_FILES
 	fsareasearch.cpp
 	groupchatlistener.cpp
 	streamtitledisplay.cpp
+	lggautocorrect.cpp
+	lggautocorrectfloater.cpp
 	llnearbychatbarmulti.cpp
     llaccountingcostmanager.cpp
     llagent.cpp
@@ -649,6 +651,8 @@ set(viewer_HEADER_FILES
 	fsareasearch.h
 	groupchatlistener.h
 	streamtitledisplay.h
+	lggautocorrect.h
+	lggautocorrectfloater.h
 	llnearbychatbarbase.h
 	llnearbychatbarmulti.h
     llaccountingcostmanager.h
@@ -1441,6 +1445,7 @@ set(viewer_APPSETTINGS_FILES
     app_settings/mid_graphics.xml
 	app_settings/grids.fallback.xml
     app_settings/settings.xml
+	app_settings/settings_autocorrect.xml
     app_settings/settings_crash_behavior.xml
     app_settings/settings_files.xml
     app_settings/settings_per_account.xml

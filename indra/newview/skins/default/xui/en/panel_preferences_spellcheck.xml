@@ -59,10 +59,10 @@
      follows="top|left"
      height="12"
      layout="topleft"
-     left="80"
+     left="55"
      length="1"
      name="text_spellcheck_available"
-     top_pad="10"
+     top_pad="15"
      type="string"
      width="175">
         Available
@@ -83,7 +83,7 @@
      follows="top|left"
      height="155"
      layout="topleft"
-     left="80"
+     left="55"
      multi_select="true"
      name="list_spellcheck_available"
      sort_column="0"
@@ -124,5 +124,27 @@
      sort_ascending="true" 
      top_pad="-105"
      width="175"/>
-
+	<check_box
+	 top_pad="30"
+	 left="30"
+	 height="16"
+	 width="140"
+	 follows="left|top"
+	 layout="topleft"
+	 label="Enable Auto Correct"
+	 control_name="EnableAutoCorrect"
+	 name="lgg_ac_enable"
+	 tool_tip="You must have this check box enabled to use any of these settings, it will search your writable text entry, and replace any of the search entries with their replacement"/>
+	<button
+	 enabled_control="EnableAutoCorrect"
+	 follows="top|left"
+	 height="20"
+	 layout="topleft"
+	 top_pad="-20"
+	 left_pad="5"
+	 name="lgg_ac_showgui"
+	 commit_callback.function="Pref.ShowAC"
+	 label="Auto Correct Settings"
+	 width="150">
+    </button>
 </panel>
