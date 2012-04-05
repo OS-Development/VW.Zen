@@ -1713,6 +1713,8 @@ void LLFloater::setTornOff(bool torn_off)
 	}
 	else if (!torn_off)						// Attach to parent.
 	{
+		mTornOff = false;
+		
 		LLMultiFloater* new_host = (LLMultiFloater*)mLastHostHandle.get();
 		if (new_host)
 		{
@@ -1724,7 +1726,6 @@ void LLFloater::setTornOff(bool torn_off)
 			// make sure host is visible
 			new_host->openFloater(new_host->getKey());
 		}
-		mTornOff = false;
 	}
 	updateTitleButtons();
 

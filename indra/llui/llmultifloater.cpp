@@ -304,6 +304,8 @@ void LLMultiFloater::removeFloater(LLFloater* floaterp)
 	floaterp->setCanDrag(TRUE);
 	floaterp->setHost(NULL);
 	floaterp->applyRectControl();
+	
+	floaterp->setFollowsNone();
 
 	updateResizeLimits();
 

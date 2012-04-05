@@ -152,8 +152,9 @@ bool LLHandlerUtil::canLogToNearbyChat(const LLNotificationPtr& notification)
 {
 	return notification->canLogToNearbyChat()
 			|| (notification->getType() == "notifytip"
-			&& FRIEND_ONLINE != notification->getName()
-			&& FRIEND_OFFLINE != notification->getName()
+			&& ( ((gSavedSettings.getBOOL("ChatOnlineNotificationToNearbyChat")) && 
+			((FRIEND_ONLINE == notification->getName()) || (FRIEND_OFFLINE == notification->getName()))) ||
+			((FRIEND_ONLINE != notification->getName()) && (FRIEND_OFFLINE != notification->getName())) )
 			&& INVENTORY_ACCEPTED != notification->getName()
 			&& INVENTORY_DECLINED != notification->getName()
 			&& IM_SYSTEM_MESSAGE_TIP != notification->getName());

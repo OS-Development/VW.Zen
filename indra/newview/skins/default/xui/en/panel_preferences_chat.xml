@@ -435,7 +435,8 @@
      name="announce_ims"
      width="150" />
 	 <check_box
-     control_name="ShowIMInChatHistory"
+     enabled_control="LogNearbyChat"
+	 control_name="ShowIMInChatHistory"
      follows="left|top"
      height="16"
      label="Show IMs in Nearby Chat"
@@ -444,18 +445,7 @@
      top_pad="30"
      name="show_im_in_chat_history"
      width="150" />
-	 <check_box
-     enabled_control="LogNearbyChat"
-	 control_name="LogIMInChatHistory"
-     follows="left|top"
-     height="16"
-     label="Save IMs in Nearby Chat"
-     layout="topleft"
-     left="50"
-     top_pad="5"
-     name="requires_save_chat_logs"
-     width="150" />
-	<text
+	 <text
      name="requires_save_label"
      follows="left|top"
      layout="topleft"
@@ -467,6 +457,18 @@
      text_color="Yellow">
       (Requires Save Nearby Chat Enabled)
       </text>
+	 <check_box
+     enabled_control="ShowIMInChatHistory"
+	 control_name="LogIMInChatHistory"
+     follows="left|top"
+     height="16"
+     label="Save IMs in Nearby Chat"
+     layout="topleft"
+     left="70"
+     top_pad="2"
+     name="requires_save_chat_logs"
+     width="150" />
+
   
   </panel>
   
