@@ -5042,7 +5042,7 @@ Topic: [SUBJECT], Message: [MESSAGE]
    logto="openim"
    type="notifytip">
     <tag>friendship</tag>
-[NAME] is Online
+[NAME_SLURL] is Online
   </notification>
 
   <notification
@@ -5052,7 +5052,7 @@ Topic: [SUBJECT], Message: [MESSAGE]
    logto="openim"
    type="notifytip">
     <tag>friendship</tag>
-[NAME] is Offline
+[NAME_SLURL] is Offline
   </notification>
 
   <notification
