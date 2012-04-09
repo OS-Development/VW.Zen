@@ -314,7 +314,7 @@ static bool handleChatPersistTimeChanged(const LLSD& newvalue)
 {
 	if(gConsole)
 	{
-		gConsole->setLinePersistTime((F32) newvalue.asReal());
+		gConsole->setLinePersistTime((F32) newvalue.asInteger());
 	}
 	return true;
 }
@@ -645,7 +645,7 @@ void settings_setup_listeners()
 	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLIMFloater::processChatHistoryStyleUpdate, _2));
 	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLNearbyChat::processChatHistoryStyleUpdate, _2));
 	gSavedSettings.getControl("ChatFontSize")->getSignal()->connect(boost::bind(&LLViewerChat::signalChatFontChanged));
-	gSavedSettings.getControl("ChatPersistTime")->getSignal()->connect(boost::bind(&handleChatPersistTimeChanged, _2));
+	gSavedSettings.getControl("NearbyToastLifeTime")->getSignal()->connect(boost::bind(&handleChatPersistTimeChanged, _2));
 	gSavedSettings.getControl("ConsoleMaxLines")->getSignal()->connect(boost::bind(&handleConsoleMaxLinesChanged, _2));
 	gSavedSettings.getControl("UploadBakedTexOld")->getSignal()->connect(boost::bind(&handleUploadBakedTexOldChanged, _2));
 	gSavedSettings.getControl("UseOcclusion")->getSignal()->connect(boost::bind(&handleUseOcclusionChanged, _2));

@@ -49,10 +49,15 @@ public:
 		Optional<U32>	max_lines;
 		Optional<F32>	persist_time;
 		Optional<S32>	font_size_index;
+		Optional<bool>	parse_urls; // If lines should be parsed for URLs
+		Optional<std::string> background_image; // Configurable background for different console types
+		
 		Params()
 		:	max_lines("max_lines", LLUI::sSettingGroups["config"]->getS32("ConsoleMaxLines")),
 			persist_time("persist_time", 0.f), // forever
-			font_size_index("font_size_index")
+			font_size_index("font_size_index"),
+			parse_urls("parse_urls", false), // If lines should be parsed for URLs
+			background_image("background_image", "transparent") // Configurable background for different console types
 		{
 			changeDefault(mouse_opaque, false);
 		}
@@ -97,10 +102,15 @@ public:
 	{
 		public:
 			line_color_segments_t mLineColorSegments;
+			// Added styleflags member for fontstyle customization
+			LLFontGL::StyleFlags mStyleFlags;
 	};
 	
 	typedef std::list<Line> lines_t;
 	typedef std::list<ParagraphColorSegment> paragraph_color_segments_t;
+	
+	std::deque<LLColor4> mLineColors;
+	std::deque<LLFontGL::StyleFlags> mLineStyle;
 	
 	//A paragraph is a processed element containing the entire text of the
 	//message (used for recalculating positions on screen resize)
@@ -110,9 +120,9 @@ public:
 	class Paragraph
 	{
 		public:
-			Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width);
+			Paragraph (LLWString str, const LLColor4 &color, F32 add_time, const LLFontGL* font, F32 screen_width, LLFontGL::StyleFlags styleflags);
 			void makeParagraphColorSegments ( const LLColor4 &color);
-			void updateLines ( F32 screen_width,  const LLFontGL* font, bool force_resize=false );
+			void updateLines ( F32 screen_width,  const LLFontGL* font, LLFontGL::StyleFlags styleflags, bool force_resize=false );
 		public:
 			LLWString mParagraphText;	//The entire text of the paragraph
 			paragraph_color_segments_t	mParagraphColorSegments;
@@ -139,6 +149,14 @@ public:
 	
 	// Overrides
 	/*virtual*/ void	draw();
+	
+	void addConsoleLine(const std::string& utf8line, const LLColor4 &color, LLFontGL::StyleFlags styleflags = LLFontGL::NORMAL);
+	void addConsoleLine(const LLWString& wline, const LLColor4 &color, LLFontGL::StyleFlags styleflags = LLFontGL::NORMAL);
+	void clear();
+	
+protected:
+	void removeExtraLines();
+	
 private:
 	void		update();
 
@@ -147,6 +165,8 @@ private:
 	const LLFontGL*	mFont;
 	S32			mConsoleWidth;
 	S32			mConsoleHeight;
+	bool		mParseUrls; // If lines should be parsed for URLs
+	std::string	mBackgroundImage; // Configurable background for different console types
 
 };
 

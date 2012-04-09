@@ -55,6 +55,9 @@
 #include "llmenugl.h"
 #include "llmultifloater.h"
 #include "llnearbychatbarmulti.h"
+#include "llconsole.h"
+#include "llnearbychathandler.h"
+#include "llchannelmanager.h"
 
 #include "llresizehandle.h"
 
@@ -95,6 +98,25 @@ mExpandedHeight(COLLAPSED_HEIGHT + EXPANDED_HEIGHT),
 {
 	mFactoryMap["panel_chat_bar_single"] = LLCallbackMap(createChatBarSingle, NULL);
 	mFactoryMap["panel_chat_bar_multi"] = LLCallbackMap(createChatBarMulti, NULL);
+}
+
+void LLNearbyChatBar::updateUseNearbyChatConsole(const LLSD &data)
+{
+	UseNearbyChatConsole = data.asBoolean();
+
+	if (UseNearbyChatConsole)
+	{
+		LLNotificationsUI::LLScreenChannelBase* chat_channel = LLNotificationsUI::LLChannelManager::getInstance()->findChannelByID(LLUUID(gSavedSettings.getString("NearByChatChannelUUID")));
+		if(chat_channel)
+		{
+			chat_channel->removeToastsFromChannel();
+		}
+		gConsole->setVisible(!getVisible());
+	}
+	else
+	{
+		gConsole->setVisible(FALSE);		
+	}
 }
 
 //virtual
@@ -176,6 +198,9 @@ BOOL LLNearbyChatBar::postBuild()
 
 		onTearOff(LLSD(isTornOff()));
 		setTearOffCallback(boost::bind(&LLNearbyChatBar::onTearOff, this, _2));
+		
+		UseNearbyChatConsole = gSavedSettings.getBOOL("UseNearbyChatConsole");
+		gSavedSettings.getControl("UseNearbyChatConsole")->getSignal()->connect(boost::bind(&LLNearbyChatBar::updateUseNearbyChatConsole, this, _2));
 	}
 
 	return TRUE;
