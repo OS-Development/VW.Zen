@@ -23,15 +23,26 @@
  * Linden Research, Inc., 945 Battery Street, San Francisco, CA  94111  USA
  * $/LicenseInfo$
  */
+ #define LL_FMOD
 
 extern "C"
 {
+#ifdef LL_FMODEX
+	void FSOUND_Sound_Init(void);
+#endif
+#ifdef LL_FMOD
 	void FSOUND_Init(void);
+#endif
 }
 
 void* fmodwrapper(void)
 {
 	// When building the fmodwrapper library, the linker doesn't seem to want to bring in libfmod.a unless I explicitly
 	// reference at least one symbol in the library.  This seemed like the simplest way.
+#ifdef LL_FMODEX
+	return (void*)&FSOUND_Sound_Init;
+#endif
+#ifdef LL_FMOD
 	return (void*)&FSOUND_Init;
+#endif
 }

@@ -10,7 +10,13 @@ include(DirectX)
 include(OpenSSL)
 include(DragDrop)
 include(EXPAT)
-include(FMOD)
+if (FMODEX)
+  include(FMODEX)
+  set(FMOD OFF)
+endif (FMODEX)
+if (NOT FMODEX)
+  include(FMOD)
+endif (NOT FMODEX)
 include(OPENAL)
 include(FindOpenGL)
 include(JsonCpp)
@@ -44,6 +50,14 @@ include(LLLogin)
 include(GLOD)
 include(CMakeCopyIfDifferent)
 
+if(FMODEX)
+  include_directories(${FMODEX_INCLUDE_DIR})
+endif(FMODEX)
+
+if(FMOD)
+  include_directories(${FMOD_INCLUDE_DIR})
+endif(FMOD)
+
 include_directories(
     ${DBUSGLIB_INCLUDE_DIRS}
     ${JSONCPP_INCLUDE_DIRS}
@@ -52,7 +66,6 @@ include_directories(
     ${LLCHARACTER_INCLUDE_DIRS}
     ${LLCOMMON_INCLUDE_DIRS}
     ${LLCONVEXDECOMP_INCLUDE_DIRS}
-    ${FMOD_INCLUDE_DIR}
     ${LLIMAGE_INCLUDE_DIRS}
     ${LLKDU_INCLUDE_DIRS}
     ${LLINVENTORY_INCLUDE_DIRS}
@@ -1496,13 +1509,23 @@ if (OPENAL)
   set(LLSTARTUP_COMPILE_FLAGS "${LLSTARTUP_COMPILE_FLAGS} -DLL_OPENAL")
 endif (OPENAL)
 
-if (FMOD)
-  set(LLSTARTUP_COMPILE_FLAGS "${LLSTARTUP_COMPILE_FLAGS} -DLL_FMOD")
+if (FMOD OR FMODEX)
+  if (FMODEX)
+    set(LLSTARTUP_COMPILE_FLAGS "${LLSTARTUP_COMPILE_FLAGS} -DLL_FMODEX")
+  endif (FMODEX)
+  if (FMOD)
+    set(LLSTARTUP_COMPILE_FLAGS "${LLSTARTUP_COMPILE_FLAGS} -DLL_FMOD")
+  endif (FMOD)
 
   if (DARWIN)
     set(fmodwrapper_SOURCE_FILES fmodwrapper.cpp)
     add_library(fmodwrapper SHARED ${fmodwrapper_SOURCE_FILES})
-    set(fmodwrapper_needed_LIBRARIES ${FMOD_LIBRARY} ${CARBON_LIBRARY})
+    if (FMODEX)
+      set(fmodwrapper_needed_LIBRARIES ${FMODEX_LIBRARY} ${CARBON_LIBRARY})
+    endif (FMODEX)
+    if (FMOD)
+      set(fmodwrapper_needed_LIBRARIES ${FMOD_LIBRARY} ${CARBON_LIBRARY})
+    endif (FMOD)
     set_target_properties(
       fmodwrapper
       PROPERTIES
@@ -1513,10 +1536,15 @@ if (FMOD)
     set(FMODWRAPPER_LIBRARY fmodwrapper)
     target_link_libraries(fmodwrapper ${fmodwrapper_needed_LIBRARIES})
   else (DARWIN)
-    # fmodwrapper unnecessary on linux or windows
-    set(FMODWRAPPER_LIBRARY ${FMOD_LIBRARY})
+    # fmodwrapper unnecessary on linux or windows, for fmod and fmodex
+    if (FMODEX)
+       set(FMODWRAPPER_LIBRARY ${FMODEX_LIBRARY})
+    endif (FMODEX)
+    if (FMOD)
+       set(FMODWRAPPER_LIBRARY ${FMOD_LIBRARY})
+    endif (FMOD)
   endif (DARWIN)
-endif (FMOD)
+endif (FMOD OR FMODEX)
 
 set_source_files_properties(llstartup.cpp PROPERTIES COMPILE_FLAGS "${LLSTARTUP_COMPILE_FLAGS}")
 
@@ -1540,11 +1568,16 @@ set(PACKAGE ON CACHE BOOL
     "Add a package target that builds an installer package.")
 
 if (WINDOWS)
+
+if (FMODEX)
+  set(EXTRA_LINKER_FLAGS "/DELAYLOAD:fmodex.dll")
+endif (FMODEX)
+
     set_target_properties(${VIEWER_BINARY_NAME}
         PROPERTIES
         # *TODO -reenable this once we get server usage sorted out
         #LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /INCLUDE:\"__tcmalloc\""
-        LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /INCLUDE:__tcmalloc"
+        LINK_FLAGS "/debug /NODEFAULTLIB:LIBCMT /SUBSYSTEM:WINDOWS /INCLUDE:__tcmalloc ${EXTRA_LINKER_FLAGS}"
         LINK_FLAGS_DEBUG "/NODEFAULTLIB:\"LIBCMT;LIBCMTD;MSVCRT\" /INCREMENTAL:NO"
         LINK_FLAGS_RELEASE ""
         )
@@ -1592,9 +1625,6 @@ if (WINDOWS)
       ${SHARED_LIB_STAGING_DIR}/Release/openjpeg.dll
       ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/openjpeg.dll
       ${SHARED_LIB_STAGING_DIR}/Debug/openjpegd.dll
-      ${SHARED_LIB_STAGING_DIR}/Release/fmod.dll
-      ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/fmod.dll
-      ${SHARED_LIB_STAGING_DIR}/Debug/fmod.dll
       ${SHARED_LIB_STAGING_DIR}/Release/msvcr100.dll
       ${SHARED_LIB_STAGING_DIR}/Release/msvcp100.dll
       ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/msvcr100.dll
@@ -1657,6 +1687,21 @@ if (WINDOWS)
       windows-crash-logger
       windows-updater
       )
+	  
+	if (FMODEX)
+      list(APPEND COPY_INPUT_DEPENDENCIES
+           ${SHARED_LIB_STAGING_DIR}/Release/fmodex.dll
+           ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/fmodex.dll
+           ${SHARED_LIB_STAGING_DIR}/Debug/fmodexL.dll
+          )
+    endif (FMODEX)
+    if (FMOD)
+      list(APPEND COPY_INPUT_DEPENDENCIES
+           ${SHARED_LIB_STAGING_DIR}/Release/fmod.dll
+           ${SHARED_LIB_STAGING_DIR}/RelWithDebInfo/fmod.dll
+           ${SHARED_LIB_STAGING_DIR}/Debug/fmod.dll
+          )
+    endif (FMOD)
 
     add_custom_command(
       OUTPUT  ${CMAKE_CFG_INTDIR}/copy_touched.bat
@@ -1859,8 +1904,6 @@ if (LINUX)
         ${COPY_INPUT_DEPENDENCIES}
       )
 
-  if (PACKAGE)
-  endif (PACKAGE)
   add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/.${product}.copy_touched
     COMMAND ${PYTHON_EXECUTABLE}
@@ -1904,7 +1947,7 @@ if (DARWIN)
     MACOSX_BUNDLE_BUNDLE_NAME "Second Life"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "asdf"
     MACOSX_BUNDLE_BUNDLE_VERSION "asdf"
-    MACOSX_BUNDLE_COPYRIGHT "copyright linden lab 2007 - localize me and run me through a legal wringer"
+    MACOSX_BUNDLE_COPYRIGHT "Copyright Sovereign Engineer"
     )
 
   add_custom_command(

@@ -379,6 +379,12 @@ class WindowsManifest(ViewerManifest):
             except:
                 print "Skipping fmod.dll"
 
+            # Get fmodex dll, continue if missing
+            try:
+                self.path("fmodex.dll")
+            except:
+                print "Skipping fmodex.dll"
+
             # For textures
             if self.args['configuration'].lower() == 'debug':
                 self.path("openjpegd.dll")

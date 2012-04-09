@@ -483,6 +483,30 @@
           </map>
         </map>
       </map>
+	  <key>fmodex</key>
+      <map>
+        <key>license</key>
+        <string>fmodex</string>
+        <key>license_file</key>
+        <string>LICENSES/fmodex.txt</string>
+        <key>name</key>
+        <string>fmodex</string>
+        <key>platforms</key>
+        <map>
+          <key>windows</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>70bcdecdf5bc7ca70646618815619684</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/3p-fmod/fmodex-4.40.03-windows-20120314.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>windows</string>
+          </map>
+        </map>
+      </map>
       <key>fontconfig</key>
       <map>
         <key>license</key>
@@ -2510,7 +2534,7 @@
                   <string>-DUNATTENDED:BOOL=ON</string>
                   <string>-DINSTALL_PROPRIETARY=FALSE</string>
                   <string>-DUSE_KDU=FALSE</string>
-                  <string>-DFMOD=FALSE</string>
+                  <string>-DFMODEX=TRUE</string>
                 </array>
               </map>
               <key>name</key>

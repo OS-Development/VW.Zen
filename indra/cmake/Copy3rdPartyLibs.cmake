@@ -66,6 +66,11 @@ if(WINDOWS)
       set(debug_files ${debug_files} fmod.dll)
       set(release_files ${release_files} fmod.dll)
     endif (FMOD)
+	
+	if (FMODEX)
+      set(debug_files ${debug_files} fmodexL.dll)
+      set(release_files ${release_files} fmodex.dll)
+    endif (FMODEX)
 
 #*******************************
 # Copy MS C runtime dlls, required for packaging.
