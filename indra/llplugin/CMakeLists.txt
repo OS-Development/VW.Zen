@@ -3,6 +3,7 @@
 project(llplugin)
 
 include(00-Common)
+include(Boost)
 include(CURL)
 include(LLCommon)
 include(LLImage)

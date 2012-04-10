@@ -30,8 +30,12 @@
 
 #include "linden_common.h"
 #include "media_plugin_base.h"
-
-
+#if USE_BOOST_EXTENSION
+  #include "boost/extension/extension.hpp"
+#endif
+#if LL_WINDOWS
+  #include <windows.h>
+#endif
 // TODO: Make sure that the only symbol exported from this library is LLPluginInitEntryPoint
 ////////////////////////////////////////////////////////////////////////////////
 /// Media plugin constructor.
@@ -166,8 +170,10 @@ void MediaPluginBase::sendStatus()
 	
 	sendMessage(message);
 }
-
-
+// BOOST_EXTENSION_EXPORT_DECL is the same as LLSYMEXPORT for windows
+// but doesn't work on linux  
+// because BOOST_EXTENSION_EXPORT_DECL doesn't #define LLSYMEXPORT __attribute__ ((visibility("default")))
+//
 #if LL_WINDOWS
 # define LLSYMEXPORT __declspec(dllexport)
 #elif LL_LINUX

@@ -17,6 +17,7 @@ if (STANDALONE)
 
 else (STANDALONE)
   use_prebuilt_binary(boost)
+  use_prebuilt_binary(boost-extension)
   set(Boost_INCLUDE_DIRS ${LIBS_PREBUILT_DIR}/include)
 
   if (WINDOWS)
@@ -67,3 +68,12 @@ else (STANDALONE)
 	set(BOOST_WAVE_LIBRARY boost_wave)
   endif (WINDOWS)
 endif (STANDALONE)
+if (LINUX OR WINDOWS) # probably it also works on mac
+  set(BOOST_EXTENSION ON CACHE BOOL "Enable Boost.Extension")
+endif (LINUX OR WINDOWS)
+if (BOOST_EXTENSION)
+    #tell cmake
+    set(USE_BOOST_EXTENSION  ON CACHE BOOL "Use Boost.Extension")
+    #tell preprocessor
+    add_definitions( -DUSE_BOOST_EXTENSION=1)
+endif (BOOST_EXTENSION)
