@@ -44,7 +44,7 @@
 #include "llcallbacklist.h"
 #include "llviewerregion.h"
 #include "llviewernetwork.h"		// for gGridChoice
-#include "llbase64.h"
+#include "base64.h"
 #include "llviewercontrol.h"
 #include "llappviewer.h"	// for gDisconnected, gDisableVoice
 
@@ -66,7 +66,6 @@
 
 #include "stringize.h"
 
-// for base64 decoding
 #include "apr_base64.h"
 
 #define USE_SESSION_GROUPS 0
@@ -5008,7 +5007,11 @@ std::string LLVivoxVoiceClient::nameFromID(const LLUUID &uuid)
 	// Base64 encode and replace the pieces of base64 that are less compatible 
 	// with e-mail local-parts.
 	// See RFC-4648 "Base 64 Encoding with URL and Filename Safe Alphabet"
-	result += LLBase64::encode(uuid.mData, UUID_BYTES);
+	std::string encoded;
+	Base64::encode(UUID_BYTES, uuid.mData , encoded);
+	result += encoded;
+llwarns << "uuid encode " << uuid << " encoded " << encoded<< llendl;
+
 	LLStringUtil::replaceChar(result, '+', '-');
 	LLStringUtil::replaceChar(result, '/', '_');
 	
@@ -5046,12 +5049,15 @@ bool LLVivoxVoiceClient::IDFromName(const std::string inName, LLUUID &uuid)
 		LLStringUtil::replaceChar(temp, '-', '+');
 		LLStringUtil::replaceChar(temp, '_', '/');
 
-		U8 rawuuid[UUID_BYTES + 1]; 
-		int len = apr_base64_decode_binary(rawuuid, temp.c_str() + 1);
-		if(len == UUID_BYTES)
+		temp.erase(temp.begin());// leading 'x'
+
+		std::vector<unsigned char> rawuuid;
+		Base64::decode(temp, rawuuid);
+		if(rawuuid.size() == UUID_BYTES)
 		{
 			// The decode succeeded.  Stuff the bits into the result's UUID
-			memcpy(uuid.mData, rawuuid, UUID_BYTES);
+			//rawuuid.erase(rawuuid.begin());// value of leading "x"
+			memcpy(uuid.mData, rawuuid.data(), UUID_BYTES);
 			result = true;
 		}
 	} 

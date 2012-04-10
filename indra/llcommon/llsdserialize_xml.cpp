@@ -30,7 +30,7 @@
 #include <iostream>
 #include <deque>
 
-#include "apr_base64.h"
+#include "base64.h"
 #include <boost/regex.hpp>
 
 extern "C"
@@ -182,24 +182,17 @@ S32 LLSDXMLFormatter::format_impl(const LLSD& data, std::ostream& ostr, U32 opti
 
 	case LLSD::TypeBinary:
 	{
-		LLSD::Binary buffer = data.asBinary();
+		std::vector<unsigned char> buffer = data.asBinary();
 		if(buffer.empty())
 		{
 			ostr << pre << "<binary />" << post;
 		}
 		else
 		{
-			// *FIX: memory inefficient.
-			// *TODO: convert to use LLBase64
 			ostr << pre << "<binary encoding=\"base64\">";
-			int b64_buffer_length = apr_base64_encode_len(buffer.size());
-			char* b64_buffer = new char[b64_buffer_length];
-			b64_buffer_length = apr_base64_encode_binary(
-				b64_buffer,
-				&buffer[0],
-				buffer.size());
-			ostr.write(b64_buffer, b64_buffer_length - 1);
-			delete[] b64_buffer;
+			std::string encoded;
+			Base64::encode(buffer, encoded);
+			ostr << encoded;
 			ostr << "</binary>" << post;
 		}
 		break;
@@ -774,11 +767,9 @@ void LLSDXMLParser::Impl::endElementHandler(const XML_Char* name)
 			boost::regex r;
 			r.assign("\\s");
 			std::string stripped = boost::regex_replace(mCurrentContent, r, "");
-			S32 len = apr_base64_decode_len(stripped.c_str());
-			std::vector<U8> data;
-			data.resize(len);
-			len = apr_base64_decode_binary(&data[0], stripped.c_str());
-			data.resize(len);
+			
+			std::vector<unsigned char> data;
+			Base64::decode(stripped,data);
 			value = data;
 			break;
 		}
