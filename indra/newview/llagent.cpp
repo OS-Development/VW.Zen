@@ -124,6 +124,8 @@ const F32 LLAgent::MIN_AFK_TIME = 10.0f;
 
 const F32 LLAgent::TYPING_TIMEOUT_SECS = 5.f;
 
+BOOL LLAgent::ForceFly;
+
 std::map<std::string, std::string> LLAgent::sTeleportErrorMessages;
 std::map<std::string, std::string> LLAgent::sTeleportProgressMessages;
 
@@ -331,6 +333,19 @@ LLAgent::LLAgent() :
 	mMoveTimer.stop();
 }
 
+void LLAgent::updateForceFly(const LLSD &data)
+{
+	ForceFly = data.asBoolean();
+	if (ForceFly == TRUE) 
+	{
+		llinfos << "AO: Enabling Fly Override" << llendl;
+		LLSD args;
+    			args["MESSAGE"] = 
+    			llformat("Caution: Use the Fly Override responsibily! Using the Fly Override without the land owner's permission may result in your avatar being banned from the parcel you are flying." );
+    			LLNotificationsUtil::add("GenericAlert", args);
+	}
+}
+
 // Requires gSavedSettings to be initialized.
 //-----------------------------------------------------------------------------
 // init()
@@ -355,6 +370,9 @@ void LLAgent::init()
 
 		LLUICtrl::EnableCallbackRegistry::currentRegistrar().add("Agent.CheckAO", boost::bind(&LLAgent::CheckAO, _2));
         LLUICtrl::CommitCallbackRegistry::currentRegistrar().add("Agent.ToggleAO", boost::bind(&LLAgent::ToggleAO, _2));
+		
+	ForceFly = gSavedSettings.getBOOL("AlwaysFly");
+	gSavedSettings.getControl("AlwaysFly")->getSignal()->connect(boost::bind(&LLAgent::updateForceFly, this, _2));
 
 	
 	mInitialized = TRUE;
@@ -586,6 +604,8 @@ void LLAgent::movePitch(F32 mag)
 BOOL LLAgent::canFly()
 {
 	if (isGodlike()) return TRUE;
+	
+	if(ForceFly) return TRUE;
 
 	LLViewerRegion* regionp = getRegion();
 	if (regionp && regionp->getBlockFly()) return FALSE;

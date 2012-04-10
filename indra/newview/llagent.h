@@ -417,6 +417,9 @@ private:
 	BOOL 			mbFlagsDirty;
 	BOOL 			mbFlagsNeedReset;				// ! HACK ! For preventing incorrect flags sent when crossing region boundaries
 	
+	static BOOL ForceFly;
+	void updateForceFly(const LLSD &data);
+	
 	//--------------------------------------------------------------------
 	// Animations
 	//--------------------------------------------------------------------
