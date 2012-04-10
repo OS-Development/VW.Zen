@@ -27,7 +27,7 @@
 #ifndef LL_LLDIRITERATOR_H
 #define LL_LLDIRITERATOR_H
 
-#include "linden_common.h"
+#include <string>
 
 /**
  * Class LLDirIterator

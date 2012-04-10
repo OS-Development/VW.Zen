@@ -8,11 +8,13 @@ include(UnixInstall)
 
 include_directories(
     ${LLCOMMON_INCLUDE_DIRS}
+	lldiriterator
     )
+
+add_subdirectory(lldiriterator)
 
 set(llvfs_SOURCE_FILES
     lldir.cpp
-    lldiriterator.cpp
     lllfsthread.cpp
     llpidlock.cpp
     llvfile.cpp
@@ -25,7 +27,6 @@ set(llvfs_HEADER_FILES
 
     lldir.h
     lldirguard.h
-    lldiriterator.h
     lllfsthread.h
     llpidlock.h
     llvfile.h
@@ -62,13 +63,8 @@ list(APPEND llvfs_SOURCE_FILES ${llvfs_HEADER_FILES})
 
 add_library (llvfs ${llvfs_SOURCE_FILES})
 
-set(vfs_BOOST_LIBRARIES
-    ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_SYSTEM_LIBRARY}
-    )
-
 target_link_libraries(llvfs
-    ${vfs_BOOST_LIBRARIES}
+    lldiriterator
     )
 
 if (DARWIN)
@@ -79,22 +75,22 @@ endif (DARWIN)
 
 
 # Add tests
-if (LL_TESTS)
-    include(LLAddBuildTest)
-    # UNIT TESTS
-    SET(llvfs_TEST_SOURCE_FILES
-    lldiriterator.cpp
-    )
-
-    set_source_files_properties(lldiriterator.cpp
-    PROPERTIES
-    LL_TEST_ADDITIONAL_LIBRARIES "${vfs_BOOST_LIBRARIES}"
-    )
-    LL_ADD_PROJECT_UNIT_TESTS(llvfs "${llvfs_TEST_SOURCE_FILES}")
-
-    # INTEGRATION TESTS
-    set(test_libs llmath llcommon llvfs ${LLCOMMON_LIBRARIES} ${WINDOWS_LIBRARIES})
-
-    # TODO: Some of these need refactoring to be proper Unit tests rather than Integration tests.
-    LL_ADD_INTEGRATION_TEST(lldir "" "${test_libs}")
-endif (LL_TESTS)
+#if (LL_TESTS)
+#    include(LLAddBuildTest)
+#    # UNIT TESTS
+#    SET(llvfs_TEST_SOURCE_FILES
+#    lldiriterator.cpp
+#    )
+#
+#    set_source_files_properties(lldiriterator.cpp
+#    PROPERTIES
+#    LL_TEST_ADDITIONAL_LIBRARIES "${vfs_BOOST_LIBRARIES}"
+#    )
+#    LL_ADD_PROJECT_UNIT_TESTS(llvfs "${llvfs_TEST_SOURCE_FILES}")
+#
+#    # INTEGRATION TESTS
+#    set(test_libs llmath llcommon llvfs ${LLCOMMON_LIBRARIES} ${WINDOWS_LIBRARIES})
+#
+#    # TODO: Some of these need refactoring to be proper Unit tests rather than Integration tests.
+#    LL_ADD_INTEGRATION_TEST(lldir "" "${test_libs}")
+#endif (LL_TESTS)
