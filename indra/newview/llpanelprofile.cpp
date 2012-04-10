@@ -36,6 +36,7 @@
 #include "lltabcontainer.h"
 #include "llviewercontrol.h"
 #include "llviewernetwork.h"
+#include "lllogininstance.h"
 
 static const std::string PANEL_PICKS = "panel_picks";
 
@@ -51,13 +52,9 @@ std::string getProfileURL(const std::string& agent_name)
 	{
 		url = gSavedSettings.getString("WebProfileNonProductionURL");
 	}
-	else 
+	else if (LLLoginInstance::getInstance()->hasResponse("profile-server-url"))
 	{
-		//OpenSimFIXME: get from grid - but how?
-		// possibilities: 	* grid_info  (profiles accessible outside the grid)
-		// 			* login message (profiles only within the grid)
-		//			* capability (better for decentaliced environment)
-		url = gSavedSettings.getString("WebProfileNonProductionURL");
+		url = LLLoginInstance::getInstance()->getResponse("profile-server-url").asString();
 	}
 
 	LLSD subs;

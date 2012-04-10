@@ -183,6 +183,14 @@ void LLLoginInstance::constructAuthParams(LLPointer<LLCredential> user_credentia
 		requested_options.append("god-connect");
 	}
 	
+	//TODO: make this more flexible
+	if (LLGridManager::getInstance()->isInOpenSim())
+	{
+		requested_options.append("max_groups");
+		requested_options.append("profile-server-url");
+		requested_options.append("web-profile-url");
+	}
+	
 	// (re)initialize the request params with creds.
 	LLSD request_params = user_credential->getLoginParams();
 
