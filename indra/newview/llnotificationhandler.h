@@ -35,7 +35,6 @@
 #include "llchat.h"
 #include "llinstantmessage.h"
 #include "llnotificationptr.h"
-#include "llavatarname.h"
 
 class LLIMFloater;
 
@@ -53,8 +52,7 @@ typedef enum e_notification_type
 	NT_NEARBYCHAT, 
 	NT_ALERT,
 	NT_ALERTMODAL,
-	NT_OFFER,
-	NT_MONEYCHAT
+	NT_OFFER
 } ENotificationType;
 
 /**
@@ -156,14 +154,10 @@ public:
 
 	// base interface functions
 	virtual bool processNotification(const LLSD& notify);
-	void updateLogImToChatConsole(const LLSD &data);
 
 protected:
 	virtual void onDeleteToast(LLToast* toast);
 	virtual void initChannel();
-	void onAvatarNameLookup(const LLUUID& agent_id, const LLAvatarName& av_name, const std::string& message_str);
-
-	BOOL LogImToChatConsole;
 };
 
 /**

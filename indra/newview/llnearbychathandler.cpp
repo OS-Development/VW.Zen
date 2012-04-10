@@ -26,7 +26,6 @@
 
 #include "llviewerprecompiledheaders.h"
 
-#include "llagent.h"
 #include "llagentdata.h" // for gAgentID
 #include "llnearbychathandler.h"
 
@@ -44,10 +43,6 @@
 #include "llnearbychatbar.h"
 #include "llrootview.h"
 #include "lllayoutstack.h"
-
-#include "llavatarnamecache.h"
-#include "llconsole.h"
-#include "lltrans.h"
 
 //add LLNearbyChatHandler to LLNotificationsUI namespace
 using namespace LLNotificationsUI;
@@ -465,19 +460,12 @@ LLNearbyChatHandler::LLNearbyChatHandler(e_notification_type type, const LLSD& i
 	channel->setCreatePanelCallback(callback);
 
 	mChannel = LLChannelManager::getInstance()->addChannel(channel);
-	
-	UseNearbyChatConsole = gSavedSettings.getBOOL("UseNearbyChatConsole");
-	gSavedSettings.getControl("UseNearbyChatConsole")->getSignal()->connect(boost::bind(&LLNearbyChatHandler::updateUseNearbyChatConsole, this, _2));
 }
 
 LLNearbyChatHandler::~LLNearbyChatHandler()
 {
 }
 
-void LLNearbyChatHandler::updateUseNearbyChatConsole(const LLSD &data)
-{
-	UseNearbyChatConsole = data.asBoolean();
-}
 
 void LLNearbyChatHandler::initChannel()
 {
@@ -495,8 +483,6 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 
 	if(chat_msg.mText.empty())
 		return;//don't process empty messages
-		
-	LLChat& tmp_chat = const_cast<LLChat&>(chat_msg);
 
 	LLFloater* chat_bar = LLFloaterReg::getInstance("chat_bar");
 
@@ -553,15 +539,6 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 	}
 
 	nearby_chat->addMessage(chat_msg, true, args);
-	
-	if ((tmp_chat.mChatStyle == CHAT_STYLE_IRC) &&
-		!UseNearbyChatConsole)
-	{
-		if(!tmp_chat.mFromName.empty())
-			tmp_chat.mText = tmp_chat.mFromName + tmp_chat.mText.substr(3);
-		else
-			tmp_chat.mText = tmp_chat.mText.substr(3);
-	}
 
 	if(chat_msg.mSourceType == CHAT_SOURCE_AGENT 
 		&& chat_msg.mFromID.notNull() 
@@ -577,187 +554,67 @@ void LLNearbyChatHandler::processChat(const LLChat& chat_msg,
 
 	// Send event on to LLEventStream
 	sChatWatcher->post(notification);
-	
-	static LLCachedControl<bool> useChatBubbles(gSavedSettings, "UseChatBubbles");
 
-	if( ( nearby_chat->getVisible() && !UseNearbyChatConsole) // If nearby chat not visible but we use the console, proceed!
+
+	if( !chat_bar->isMinimized()
+		&& nearby_chat->isInVisibleChain() 
 		|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT
-			&& useChatBubbles )
+			&& gSavedSettings.getBOOL("UseChatBubbles") )
+		|| chat_msg.mMuted 
 		|| !mChannel->getShowToasts() ) // to prevent toasts in Busy mode
 		return;//no need in toast if chat is visible or if bubble chat is enabled
 
-	if (UseNearbyChatConsole)
+	// arrange a channel on a screen
+	if(!mChannel->getVisible())
 	{
-		// Don't write to console if avatar chat and user wants
-		// bubble chat or if the user is busy.
-		if ( (chat_msg.mSourceType == CHAT_SOURCE_AGENT && useChatBubbles)
-			|| gAgent.getBusy() )
-			return;
+		initChannel();
+	}
 
-		std::string consoleChat;
-		
-		if (chat_msg.mSourceType == CHAT_SOURCE_AGENT) 
+	/*
+	//comment all this due to EXT-4432
+	..may clean up after some time...
+
+	//only messages from AGENTS
+	if(CHAT_SOURCE_OBJECT == chat_msg.mSourceType)
+	{
+		if(chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
+			return;//ok for now we don't skip messeges from object, so skip only debug messages
+	}
+	*/
+
+	LLNearbyChatScreenChannel* channel = dynamic_cast<LLNearbyChatScreenChannel*>(mChannel);
+
+	if(channel)
+	{
+		// Handle IRC styled messages.
+		std::string toast_msg;
+		if (chat_msg.mChatStyle == CHAT_STYLE_IRC)
 		{
-			LLAvatarNameCache::get(chat_msg.mFromID, boost::bind(&LLNearbyChatHandler::onAvatarNameLookup, this, _1, _2, chat_msg));
-		}
-		else if (chat_msg.mSourceType == CHAT_SOURCE_OBJECT)
-		{
-			std::string senderName(chat_msg.mFromName);
-			std::string prefix = chat_msg.mText.substr(0, 4);
-			LLStringUtil::toLower(prefix);
-
-			//IRC styled /me messages.
-			bool irc_me = prefix == "/me " || prefix == "/me'";
-
-			// Delimiter after a name in header copy/past and in plain text mode
-			std::string delimiter = ": ";
-			std::string shout = LLTrans::getString("shout");
-			std::string whisper = LLTrans::getString("whisper");
-			if (chat_msg.mChatType == CHAT_TYPE_SHOUT || 
-				chat_msg.mChatType == CHAT_TYPE_WHISPER ||
-				chat_msg.mText.compare(0, shout.length(), shout) == 0 ||
-				chat_msg.mText.compare(0, whisper.length(), whisper) == 0)
+			if (!chat_msg.mFromName.empty())
 			{
-				delimiter = " ";
+				toast_msg += chat_msg.mFromName;
 			}
-
-			// Don't add any delimiter after name in irc styled messages
-			if (irc_me || chat_msg.mChatStyle == CHAT_STYLE_IRC)
-			{
-				delimiter = LLStringUtil::null;
-			}
-
-			std::string message = irc_me ? chat_msg.mText.substr(3) : chat_msg.mText;
-			consoleChat = senderName + delimiter + message;
-			LLColor4 chatcolor;
-			LLViewerChat::getChatColor(chat_msg, chatcolor);
-			gConsole->addConsoleLine(consoleChat, chatcolor);
+			toast_msg += chat_msg.mText.substr(3);
 		}
 		else
 		{
-			if (chat_msg.mSourceType == CHAT_SOURCE_SYSTEM &&
-				args["type"].asInteger() == LLNotificationsUI::NT_MONEYCHAT)
-			{
-				consoleChat = args["console_message"].asString();
-			}
-			else
-			{
-				consoleChat = chat_msg.mText;
-			}
-
-			LLColor4 chatcolor;
-			LLViewerChat::getChatColor(chat_msg, chatcolor);
-			gConsole->addConsoleLine(consoleChat, chatcolor);
-			gConsole->setVisible(!nearby_chat->getVisible());
-		}
-	}
-	else
-	{
-		// Toasts mode...
-		
-		if( nearby_chat->getVisible()	// ## Zi - Post merge fixup ##
-			|| ( chat_msg.mSourceType == CHAT_SOURCE_AGENT
-				&& useChatBubbles )
-			|| !mChannel->getShowToasts() ) // to prevent toasts in Busy mode
-			return;//no need in toast if chat is visible or if bubble chat is enabled
-
-		// arrange a channel on a screen
-		if(!mChannel->getVisible())
-		{
-			initChannel();
+			toast_msg = chat_msg.mText;
 		}
 
-		/*
-		//comment all this due to EXT-4432
-		..may clean up after some time...
-
-		//only messages from AGENTS
-		if(CHAT_SOURCE_OBJECT == chat_msg.mSourceType)
-		{
-			if(chat_msg.mChatType == CHAT_TYPE_DEBUG_MSG)
-				return;//ok for now we don't skip messeges from object, so skip only debug messages
-		}
-		*/
-
+		// Add a nearby chat toast.
 		LLUUID id;
 		id.generate();
-
-		LLNearbyChatScreenChannel* channel = dynamic_cast<LLNearbyChatScreenChannel*>(mChannel);
+		notification["id"] = id;
+		std::string r_color_name = "White";
+		F32 r_color_alpha = 1.0f; 
+		LLViewerChat::getChatColor( chat_msg, r_color_name, r_color_alpha);
 		
-		if(channel)
-		{
-			//LLSD notification;
-			notification["id"] = id;
-			notification["message"] = chat_msg.mText;
-			//notification["from"] = chat_msg.mFromName;
-			//notification["from_id"] = chat_msg.mFromID;
-			//notification["time"] = chat_msg.mTime;
-			//notification["source"] = (S32)chat_msg.mSourceType;
-			//notification["chat_type"] = (S32)chat_msg.mChatType;
-			//notification["chat_style"] = (S32)chat_msg.mChatStyle;
-			
-			std::string r_color_name = "White";
-			F32 r_color_alpha = 1.0f; 
-			LLViewerChat::getChatColor( chat_msg, r_color_name, r_color_alpha);
-			
-			notification["text_color"] = r_color_name;
-			notification["color_alpha"] = r_color_alpha;
-			notification["font_size"] = (S32)LLViewerChat::getChatFontSize() ;
-			channel->addNotification(notification);	
-		}
+		notification["text_color"] = r_color_name;
+		notification["color_alpha"] = r_color_alpha;
+		notification["font_size"] = (S32)LLViewerChat::getChatFontSize() ;
+		notification["message"] = toast_msg;
+		channel->addNotification(notification);	
 	}
-}
-
-void LLNearbyChatHandler::onAvatarNameLookup(const LLUUID& agent_id, const LLAvatarName& av_name, const LLChat& chat_msg)
-{
-	std::string consoleChat;
-	std::string senderName(chat_msg.mFromName);
-	std::string prefix = chat_msg.mText.substr(0, 4);
-	LLStringUtil::toLower(prefix);
-
-	//IRC styled /me messages.
-	bool irc_me = prefix == "/me " || prefix == "/me'";
-
-	// Delimiter after a name in header copy/past and in plain text mode
-	std::string delimiter = ": ";
-	std::string shout = LLTrans::getString("shout");
-	std::string whisper = LLTrans::getString("whisper");
-	if (chat_msg.mChatType == CHAT_TYPE_SHOUT || 
-		chat_msg.mChatType == CHAT_TYPE_WHISPER ||
-		chat_msg.mText.compare(0, shout.length(), shout) == 0 ||
-		chat_msg.mText.compare(0, whisper.length(), whisper) == 0)
-	{
-		delimiter = " ";
-	}
-
-	// Don't add any delimiter after name in irc styled messages
-	if (irc_me || chat_msg.mChatStyle == CHAT_STYLE_IRC)
-	{
-		delimiter = LLStringUtil::null;
-	}
-
-	std::string message = irc_me ? chat_msg.mText.substr(3) : chat_msg.mText;
-
-	// Get the display name of the sender if required
-	static LLCachedControl<bool> nameTagShowUsernames(gSavedSettings, "NameTagShowUsernames");
-	static LLCachedControl<bool> useDisplayNames(gSavedSettings, "UseDisplayNames");
-	
-	if (nameTagShowUsernames && useDisplayNames)
-	{
-		senderName = av_name.getCompleteName();
-	}
-	else if (useDisplayNames)
-	{
-		senderName = av_name.mDisplayName;
-	}
-	
-	consoleChat = senderName + delimiter + message;
-	LLColor4 chatcolor;
-	LLViewerChat::getChatColor(chat_msg, chatcolor);
-	gConsole->addConsoleLine(consoleChat, chatcolor);
-	LLNearbyChat* nearby_chat = LLFloaterReg::getTypedInstance<LLNearbyChat>("nearby_chat", LLSD());
-	if( nearby_chat )
-		gConsole->setVisible(!nearby_chat->getVisible());
 }
 
 void LLNearbyChatHandler::onDeleteToast(LLToast* toast)

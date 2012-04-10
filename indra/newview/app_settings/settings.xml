@@ -13,39 +13,6 @@
     <key>Value</key>
     <integer>0</integer>
   </map>
-	<key>UseNearbyChatConsole</key>
-	<map>
-      <key>Comment</key>
-      <string>Display popup chat embedded into the read-only world console (v1-style) instead of overlayed floaters (v2-style)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>1</integer>
-    </map>
-	<key>LogImToChatConsole</key>
-    <map>
-      <key>Comment</key>
-      <string>Defines if (group) IM notifications should be sent to the nearby chat console (v1-style) or toasts (v2-style).</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-	<key>ConsoleClassicDrawMode</key>
-	<map>
-      <key>Comment</key>
-      <string>Enables classic console draw mode (single background block over all lines with width of the longest line)</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-	</map>
 	<key>EnableFMODExProfiler</key>
     <map>
       <key>Comment</key>

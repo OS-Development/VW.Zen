@@ -28,8 +28,6 @@
 #define LL_LLNEARBYCHATHANDLER_H
 
 #include "llnotificationhandler.h"
-#include "llavatarname.h"
-#include "llchat.h"
 
 class LLEventPump;
 
@@ -44,15 +42,11 @@ public:
 
 
 	virtual void processChat(const LLChat& chat_msg, const LLSD &args);
-	void updateUseNearbyChatConsole(const LLSD &data);
 
 protected:
 	virtual void onDeleteToast(LLToast* toast);
 	virtual void initChannel();
-	void onAvatarNameLookup(const LLUUID& agent_id, const LLAvatarName& av_name, const LLChat& chat_msg);
 
-	BOOL UseNearbyChatConsole;
-	
 	static boost::scoped_ptr<LLEventPump> sChatWatcher;
 };
 
