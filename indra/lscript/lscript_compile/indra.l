@@ -731,6 +731,49 @@ extern "C" { int yyerror(const char *fmt, ...); }
 "KFM_CMD_STOP"		{ count(); yylval.ival = LSL_KFM_CMD_STOP; return(INTEGER_CONSTANT); }
 "KFM_CMD_PAUSE"		{ count(); yylval.ival = LSL_KFM_CMD_PAUSE; return(INTEGER_CONSTANT); }
 
+"PROFILE_SCRIPT_NONE"                { count(); yylval.ival = LSL_PROFILE_SCRIPT_NONE; return(INTEGER_CONSTANT); }
+"PROFILE_SCRIPT_MEMORY"              { count(); yylval.ival = LSL_PROFILE_SCRIPT_MEMORY; return(INTEGER_CONSTANT); }
+
+"CONTENT_TYPE_TEXT"                  { count(); yylval.ival = LSL_CONTENT_TYPE_TEXT; return(INTEGER_CONSTANT); }
+"CONTENT_TYPE_HTML"                  { count(); yylval.ival = LSL_CONTENT_TYPE_HTML; return(INTEGER_CONSTANT); }
+
+"RCERR_UNKNOWN"                      { count(); yylval.ival = LSL_RCERR_UNKNOWN; return(INTEGER_CONSTANT); }
+"RCERR_SIM_PERF_LOW"                 { count(); yylval.ival = LSL_RCERR_SIM_PERF_LOW; return(INTEGER_CONSTANT); }
+"RCERR_CAST_TIME_EXCEEDED"           { count(); yylval.ival = LSL_RCERR_CAST_TIME_EXCEEDED; return(INTEGER_CONSTANT); }
+
+"RC_REJECT_TYPES"                    { count(); yylval.ival = LSL_RC_REJECT_TYPES; return(INTEGER_CONSTANT); }
+"RC_DETECT_PHANTOM"                  { count(); yylval.ival = LSL_RC_DETECT_PHANTOM; return(INTEGER_CONSTANT); }
+"RC_DATA_FLAGS"                      { count(); yylval.ival = LSL_RC_DATA_FLAGS; return(INTEGER_CONSTANT); }
+"RC_MAX_HITS"                        { count(); yylval.ival = LSL_RC_MAX_HITS; return(INTEGER_CONSTANT); }
+
+"RC_REJECT_AGENTS"                   { count(); yylval.ival = LSL_RC_REJECT_AGENTS; return(INTEGER_CONSTANT); }
+"RC_REJECT_PHYSICAL"                 { count(); yylval.ival = LSL_RC_REJECT_PHYSICAL; return(INTEGER_CONSTANT); }
+"RC_REJECT_NONPHYSICAL"              { count(); yylval.ival = LSL_RC_REJECT_NONPHYSICAL; return(INTEGER_CONSTANT); }
+"RC_REJECT_LAND"                     { count(); yylval.ival = LSL_RC_REJECT_LAND; return(INTEGER_CONSTANT); }
+
+"RC_GET_NORMAL"                      { count(); yylval.ival = LSL_RC_GET_NORMAL; return(INTEGER_CONSTANT); }
+"RC_GET_ROOT_KEY"                    { count(); yylval.ival = LSL_RC_GET_ROOT_KEY; return(INTEGER_CONSTANT); }
+"RC_GET_LINK_NUM"                    { count(); yylval.ival = LSL_RC_GET_LINK_NUM; return(INTEGER_CONSTANT); }
+
+"ESTATE_ACCESS_ALLOWED_AGENT_ADD"    { count(); yylval.ival = LSL_ESTATE_ACCESS_ALLOWED_AGENT_ADD; return(INTEGER_CONSTANT); }
+"ESTATE_ACCESS_ALLOWED_AGENT_REMOVE" { count(); yylval.ival = LSL_ESTATE_ACCESS_ALLOWED_AGENT_REMOVE; return(INTEGER_CONSTANT); }
+"ESTATE_ACCESS_ALLOWED_GROUP_ADD"    { count(); yylval.ival = LSL_ESTATE_ACCESS_ALLOWED_GROUP_ADD; return(INTEGER_CONSTANT); }
+"ESTATE_ACCESS_ALLOWED_GROUP_REMOVE" { count(); yylval.ival = LSL_ESTATE_ACCESS_ALLOWED_GROUP_REMOVE; return(INTEGER_CONSTANT); }
+"ESTATE_ACCESS_BANNED_AGENT_ADD"     { count(); yylval.ival = LSL_ESTATE_ACCESS_BANNED_AGENT_ADD; return(INTEGER_CONSTANT); }
+"ESTATE_ACCESS_BANNED_AGENT_REMOVE"  { count(); yylval.ival = LSL_ESTATE_ACCESS_BANNED_AGENT_REMOVE; return(INTEGER_CONSTANT); }
+
+"KFM_COMMAND"		{ count(); yylval.ival = LSL_KFM_COMMAND; return(INTEGER_CONSTANT); }
+"KFM_MODE"			{ count(); yylval.ival = LSL_KFM_MODE; return(INTEGER_CONSTANT); }
+"KFM_DATA"			{ count(); yylval.ival = LSL_KFM_DATA; return(INTEGER_CONSTANT); }
+"KFM_FORWARD"		{ count(); yylval.ival = LSL_KFM_FORWARD; return(INTEGER_CONSTANT); }
+"KFM_LOOP"			{ count(); yylval.ival = LSL_KFM_LOOP; return(INTEGER_CONSTANT); }
+"KFM_PING_PONG"		{ count(); yylval.ival = LSL_KFM_PING_PONG; return(INTEGER_CONSTANT); }
+"KFM_REVERSE"		{ count(); yylval.ival = LSL_KFM_REVERSE; return(INTEGER_CONSTANT); }
+"KFM_ROTATION"		{ count(); yylval.ival = LSL_KFM_ROTATION; return(INTEGER_CONSTANT); }
+"KFM_TRANSLATION"	{ count(); yylval.ival = LSL_KFM_TRANSLATION; return(INTEGER_CONSTANT); }
+"KFM_CMD_PLAY"		{ count(); yylval.ival = LSL_KFM_CMD_PLAY; return(INTEGER_CONSTANT); }
+"KFM_CMD_STOP"		{ count(); yylval.ival = LSL_KFM_CMD_STOP; return(INTEGER_CONSTANT); }
+"KFM_CMD_PAUSE"		{ count(); yylval.ival = LSL_KFM_CMD_PAUSE; return(INTEGER_CONSTANT); }
 {L}({L}|{N})*		{ count(); yylval.sval = new char[strlen(yytext) + 1]; strcpy(yylval.sval, yytext); return(IDENTIFIER); }
 
 {N}+{E}					{ count(); yylval.fval = (F32)atof(yytext); return(FP_CONSTANT); }
