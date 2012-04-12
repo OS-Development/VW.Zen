@@ -29,9 +29,13 @@
 #include "llviewerprecompiledheaders.h"
 #include "lluictrlfactory.h"
 
-/* boost */
+/* boost: will not compile unless equivalent is undef'd, beware. */
+#ifdef equivalent
+#undef equivalent
+#endif 
+
+#define BOOST_FILESYSTEM_VERSION 2
 #include <boost/filesystem.hpp>
-/* in case of unexpected crashes - check if someone defined 'equivalent' and undef it before the above header. */
 
 /* own class header */
 #include "llfloaterlocalbitmap.h"
