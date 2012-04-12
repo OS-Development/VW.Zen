@@ -76,7 +76,7 @@
 #include <sstream>
 #include <iterator>
 #include <xmlrpc-epi/xmlrpc.h>
-#include "apr_base64.h"
+#include "base64.h"
 
 #include "llbuffer.h"
 #include "llbufferstream.h"
@@ -263,18 +263,12 @@ void LLFilterSD2XMLRPC::streamOut(std::ostream& ostr, const LLSD& sd)
 		// this is pretty inefficient, but we'll deal with that
 		// problem when it becomes one.
 		ostr << "<base64>";
-		LLSD::Binary buffer = sd.asBinary();
+		std::vector<unsigned char> buffer = sd.asBinary();
 		if(!buffer.empty())
 		{
-			// *TODO: convert to LLBase64
-			int b64_buffer_length = apr_base64_encode_len(buffer.size());
-			char* b64_buffer = new char[b64_buffer_length];
-			b64_buffer_length = apr_base64_encode_binary(
-				b64_buffer,
-				&buffer[0],
-				buffer.size());
-			ostr.write(b64_buffer, b64_buffer_length - 1);
-			delete[] b64_buffer;
+			std::string encoded;
+			Base64::encode(buffer, encoded);
+			ostr << encoded;
 		}
 		ostr << "</base64>";
 		break;
