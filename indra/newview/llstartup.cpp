@@ -885,21 +885,6 @@ bool idle_startup()
 		// Push our window frontmost
 		gViewerWindow->getWindow()->show();
 		display_startup();
-		
-		if(!gSavedSettings.getString("IsRelogSession").empty())
-		{
-			std::string cookie = gSavedSettings.getString("IsRelogSession");
-			llstat file_stat;
-			std::string c = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, cookie);
-			c.append(".relogcookie");
-			// do we have a session cookie?
-			if(!LLFile::stat(c, &file_stat))
-			{
-				// eat it!
-				LLFile::remove(c);
-				LL_DEBUGS("Relog") << "Omnomnom! Relog succeeded!" << llendl;
-			}
-		}
 
 		// DEV-16927.  The following code removes errant keystrokes that happen while the window is being 
 		// first made visible.
@@ -1116,6 +1101,8 @@ bool idle_startup()
 		// This call to LLLoginInstance::connect() starts the 
 		// authentication process.
 		login->connect(gUserCredential);
+		
+		LLGridManager::getInstance()->saveGridList();
 
 		LLStartUp::setStartupState( STATE_LOGIN_CURL_UNSTUCK );
 		return FALSE;
@@ -3585,8 +3572,6 @@ bool process_login_success_response()
 	{
 		LL_DEBUGS("OS_SETTINGS") << "no web-profile-url in login response" << llendl;
 	}
-	
-	LLGridManager::getInstance()->saveGridList();
 
 	bool success = false;
 	// JC: gesture loading done below, when we have an asset system

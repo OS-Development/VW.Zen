@@ -2543,12 +2543,10 @@ bool LLAppViewer::initConfiguration()
 	LLStringUtil::format_map_t args;
 	args["[APP_NAME]"] = LLGridManager::getInstance()->getGridLabel();
 	args["[CURRENT_GRID]"] = LLGridManager::getInstance()->getGridLabel();
-	splash_msg = gSavedSettings.getString("IsRelogSession").empty()? 
-		LLTrans::getString("StartupLoading", args) : "Let's do the grid-hop again!";
+	splash_msg = LLTrans::getString("StartupLoading", args);
 	LLSplashScreen::show();
 	LLSplashScreen::update(splash_msg);
 
-	LL_DEBUGS("Relog") << "Relog sessioncookie: " << gSavedSettings.getString("IsRelogSession") << llendl;
 	//LLVolumeMgr::initClass();
 	LLVolumeMgr* volume_manager = new LLVolumeMgr();
 	volume_manager->useMutex();	// LLApp and LLMutex magic must be manually enabled
@@ -2592,11 +2590,14 @@ bool LLAppViewer::initConfiguration()
 		LLStartUp::setStartSLURL(LLSLURL(gSavedSettings.getString("LoginLocation")));
 	}
 
-	// Check for another instance of the app running
-	mSecondInstance = anotherInstanceRunning();
-
-	if (!gSavedSettings.getBOOL("AllowMultipleViewers") && gSavedSettings.getString("IsRelogSession").empty())
+	if (!gSavedSettings.getBOOL("AllowMultipleViewers"))
 	{
+	    //
+	    // Check for another instance of the app running
+	    //
+
+		mSecondInstance = anotherInstanceRunning();
+		
 		if (mSecondInstance)
 		{
 			std::ostringstream msg;
@@ -2614,7 +2615,9 @@ bool LLAppViewer::initConfiguration()
     }
 	else
 	{
-		if (mSecondInstance && gSavedSettings.getString("IsRelogSession").empty())
+		mSecondInstance = anotherInstanceRunning();
+		
+		if (mSecondInstance)
 		{
 			// This is the second instance of SL. Turn off voice support,
 			// but make sure the setting is *not* persisted.
@@ -2629,12 +2632,12 @@ bool LLAppViewer::initConfiguration()
 		initMarkerFile();
         
         if(!mSecondInstance)
-		{
-			checkForCrash();
-		}
+        {
+            checkForCrash();
+        }
 	}
 
-	// need to do this here - need to have initialized global settings first
+   	// need to do this here - need to have initialized global settings first
 	std::string nextLoginLocation = gSavedSettings.getString( "NextLoginLocation" );
 	if ( !nextLoginLocation.empty() )
 	{
@@ -2867,7 +2870,7 @@ void LLAppViewer::writeSystemInfo()
 
 	// The user is not logged on yet, but record the current grid choice login url
 	// which may have been the intended grid. This can b
-	gDebugInfo["GridName"] = LLGridManager::getInstance()->getGridNick();
+	gDebugInfo["GridName"] = LLGridManager::getInstance()->getGridLabel();
 
 	// *FIX:Mani - move this down in llappviewerwin32
 #ifdef LL_WINDOWS
@@ -3134,7 +3137,7 @@ void LLAppViewer::initMarkerFile()
 	std::string llerror_marker_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, LLERROR_MARKER_FILE_NAME);
 	std::string error_marker_file = gDirUtilp->getExpandedFilename(LL_PATH_LOGS, ERROR_MARKER_FILE_NAME);
 
-	if (gSavedSettings.getString("IsRelogSession").empty() && !anotherInstanceRunning() && LLAPRFile::isExist(  mMarkerFileName, NULL, LL_APR_RB))
+	if (LLAPRFile::isExist(mMarkerFileName, NULL, LL_APR_RB) && !anotherInstanceRunning())
 	{
 		gLastExecEvent = LAST_EXEC_FROZE;
 		LL_INFOS("MarkerFile") << "Exec marker found: program froze on previous execution" << LL_ENDL;
@@ -3452,7 +3455,7 @@ U32 LLAppViewer::getObjectCacheVersion()
 bool LLAppViewer::initCache()
 {
 	mPurgeCache = false;
-	BOOL read_only = mSecondInstance ||  !gSavedSettings.getString("IsRelogSession").empty();
+	BOOL read_only = mSecondInstance ? TRUE : FALSE;
 	LLAppViewer::getTextureCache()->setReadOnly(read_only) ;
 	LLVOCache::getInstance()->setReadOnly(read_only);
 

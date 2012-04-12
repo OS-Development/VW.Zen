@@ -541,7 +541,7 @@ void LLMediaCtrl::clearCache()
 //
 void LLMediaCtrl::navigateTo( std::string url_in, std::string mime_type)
 {
-	// don't browse to anything that starts with secondlife:// or hop://
+	// don't browse to anything that starts with secondlife:// or hg://
 	LLSLURL is_slurl(url_in);
 	if(LLSLURL::INVALID != is_slurl.getType())
 	{
@@ -591,13 +591,9 @@ void LLMediaCtrl::navigateToLocalPage( const std::string& subdir, const std::str
 	}
 	if (ensureMediaSourceExists())
 	{
-#if LL_WINDOWS
-		std::replace(expanded_filename.begin(), expanded_filename.end(), '\\', '/');
-#endif
-		std::string uri = "file:///" + expanded_filename;
-		mCurrentNavUrl = uri;
+		mCurrentNavUrl = expanded_filename;
 		mMediaSource->setSize(mTextureWidth, mTextureHeight);
-		mMediaSource->navigateTo(uri, "text/html");
+		mMediaSource->navigateTo(expanded_filename, "text/html", false);
 	}
 
 }

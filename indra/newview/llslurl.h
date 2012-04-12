@@ -35,7 +35,7 @@
 class LLSLURL
 {
 public:
-	static const char* HOP_SCHEME;
+	static const char* HG_SCHEME;
 	static const char* SLURL_HTTPS_SCHEME;
 	static const char* SLURL_HTTP_SCHEME;
 	static const char* SLURL_SL_SCHEME;
@@ -70,8 +70,7 @@ public:
 	LLSLURL(const std::string& grid, const std::string& region, const LLVector3d& global_position);
 	LLSLURL(const std::string& region, const LLVector3d& global_position);
 	LLSLURL(const std::string& command, const LLUUID&id, const std::string& verb);
-	LLSLURL(const LLSD& path_array, bool from_app);
-	
+
 	SLURL_TYPE getType() const { return mType; }
 	
 	std::string getTypeHumanReadable() { return getTypeHumanReadable(mType); }
@@ -83,7 +82,6 @@ public:
 	std::string getGrid() const { return mGrid; }
 	std::string getRegion() const { return mRegion; }
 	LLVector3   getPosition() const { return mPosition; }
-	bool        getHypergrid() const { return mHypergrid; }
 	std::string getAppCmd() const { return mAppCmd; }
 	std::string getAppQuery() const { return mAppQuery; }
 	LLSD        getAppQueryMap() const { return mAppQueryMap; }
@@ -109,7 +107,6 @@ protected:
 	std::string mGrid;  // reference to grid manager grid
 	std::string mRegion;
 	LLVector3  mPosition;
-	bool mHypergrid;
 };
 
 #endif // LLSLURL_H

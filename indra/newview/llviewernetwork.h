@@ -125,7 +125,6 @@ public:
 	// this was getGridInfo - renamed to avoid ambiguity with the OpenSim grid_info
 	void getGridData(const std::string& grid, LLSD &grid_info);
 	void getGridData(LLSD &grid_info) { getGridData(mGrid, grid_info); }
-	void setGridData(const LLSD &grid_info) { mGridList[mGrid]=grid_info; }
 	
 	// current grid management
 
@@ -135,11 +134,7 @@ public:
 	void setGridChoice(const std::string& grid);
 	
 	
-	//get the grid label e.g. "Second Life"
-	std::string getGridLabel() { return mGridList[mGrid][GRID_LABEL_VALUE]; }
-	//get the grid nick e.g. "agni"
-	std::string getGridNick() { return mGridList[mGrid][GRID_NICK_VALUE]; }
-	//get the grid e.g. "util.agni.lindenlab.com"	
+	std::string getGridLabel() { return mGridList[mGrid][GRID_LABEL_VALUE]; } 	
 	std::string getGrid() const { return mGrid; }
 	void getLoginURIs(std::vector<std::string>& uris);
 	std::string getHelperURI();
@@ -147,8 +142,7 @@ public:
 	std::string getGridLoginID() { return mGridList[mGrid][GRID_ID_VALUE]; }	
 	std::string getLoginPage(const std::string& grid) { return mGridList[grid][GRID_LOGIN_PAGE_VALUE]; }
 	void        getLoginIdentifierTypes(LLSD& idTypes) { idTypes = mGridList[mGrid][GRID_LOGIN_IDENTIFIER_TYPES]; }
-	
-	std::string trimHypergrid(const std::string& trim);
+	std::string getGridNick() { return mGridList[mGrid][GRID_NICK_VALUE]; }
 	
 	// build a slurl for the given region within the selected grid
 	std::string getSLURLBase(const std::string& grid);
@@ -158,8 +152,6 @@ public:
 	std::string getAppSLURLBase() { return getAppSLURLBase(mGrid); }	
 	std::string getGridByLabel( const std::string &grid_label, bool case_sensitive = false);
 
-	bool isHyperGrid(const std::string& grid) { return mGridList[grid].has("HG"); }
-	
 	std::string getGridByProbing( const std::string &probe_for, bool case_sensitive = false);
 	std::string getGridByGridNick( const std::string &grid_nick, bool case_sensitive = false);
 	std::string getGridByHostName( const std::string &host_name, bool case_sensitive = false);

@@ -1971,7 +1971,6 @@ void LLViewerWindow::initWorldUI()
 		destinations->setErrorPageURL(gSavedSettings.getString("GenericErrorPageURL"));
 		std::string url = gSavedSettings.getString("DestinationGuideURL");
 		url = LLWeb::expandURLSubstitutions(url, LLSD());
-		LL_DEBUGS("WebApi") << "DestinationGuideURL \"" << url << "\"" << LL_ENDL;
 		destinations->navigateTo(url, "text/html");
 	}
 	LLMediaCtrl* avatar_picker = LLFloaterReg::getInstance("avatar")->findChild<LLMediaCtrl>("avatar_picker_contents");
@@ -1980,7 +1979,6 @@ void LLViewerWindow::initWorldUI()
 		avatar_picker->setErrorPageURL(gSavedSettings.getString("GenericErrorPageURL"));
 		std::string url = gSavedSettings.getString("AvatarPickerURL");
 		url = LLWeb::expandURLSubstitutions(url, LLSD());
-		LL_DEBUGS("WebApi") << "AvatarPickerURL \"" << url << "\"" << LL_ENDL;
 		avatar_picker->navigateTo(url, "text/html");
 	}
 }
