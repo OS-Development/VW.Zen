@@ -1778,6 +1778,49 @@ void LLViewerWindow::initBase()
 
 	// Create global views
 
+//	// Create the floater view at the start so that other views can add children to it. 
+//	// (But wait to add it as a child of the root view so that it will be in front of the 
+//	// other views.)
+//	MainPanel* main_view = new MainPanel();
+//	main_view->buildFromFile("main_view.xml");
+//	main_view->setShape(full_window);
+//	getRootView()->addChild(main_view);
+//
+//	// placeholder widget that controls where "world" is rendered
+//	mWorldViewPlaceholder = main_view->getChildView("world_view_rect")->getHandle();
+//	mPopupView = main_view->getChild<LLPopupView>("popup_holder");
+//	mHintHolder = main_view->getChild<LLView>("hint_holder")->getHandle();
+//	mLoginPanelHolder = main_view->getChild<LLView>("login_panel_holder")->getHandle();
+//
+//	// Create the toolbar view
+//	// Get a pointer to the toolbar view holder
+//	LLPanel* panel_holder = main_view->getChild<LLPanel>("toolbar_view_holder");
+//	// Load the toolbar view from file 
+//	gToolBarView = LLUICtrlFactory::getInstance()->createFromFile<LLToolBarView>("panel_toolbar_view.xml", panel_holder, LLDefaultChildRegistry::instance());
+//	gToolBarView->setShape(panel_holder->getLocalRect());
+//	// Hide the toolbars for the moment: we'll make them visible after logging in world (see LLViewerWindow::initWorldUI())
+//	gToolBarView->setVisible(FALSE);
+//
+//	// Constrain floaters to inside the menu and status bar regions.
+//	gFloaterView = main_view->getChild<LLFloaterView>("Floater View");
+//	gFloaterView->setFloaterSnapView(main_view->getChild<LLView>("floater_snap_region")->getHandle());
+//	gSnapshotFloaterView = main_view->getChild<LLSnapshotFloaterView>("Snapshot Floater View");
+	
+
+	// Console
+	llassert( !gConsole );
+	LLConsole::Params cp;
+	cp.name("console");
+	cp.max_lines(gSavedSettings.getS32("ConsoleBufferSize"));
+	cp.rect(getChatConsoleRect());
+	cp.parse_urls(true); // Enable URL parsing for the chat console
+	cp.background_image("Rounded_Square"); // Configurable background for different console types
+	cp.persist_time((F32)gSavedSettings.getS32("NearbyToastLifeTime"));
+	cp.font_size_index(gSavedSettings.getS32("ChatFontSize"));
+	cp.follows.flags(FOLLOWS_LEFT | FOLLOWS_RIGHT | FOLLOWS_BOTTOM);
+	gConsole = LLUICtrlFactory::create<LLConsole>(cp);
+	getRootView()->addChild(gConsole);
+	
 	// Create the floater view at the start so that other views can add children to it. 
 	// (But wait to add it as a child of the root view so that it will be in front of the 
 	// other views.)
@@ -1785,6 +1828,14 @@ void LLViewerWindow::initBase()
 	main_view->buildFromFile("main_view.xml");
 	main_view->setShape(full_window);
 	getRootView()->addChild(main_view);
+
+	// Moved this from the end of this function up here, so all context menus
+	// created right after this get the correct parent assigned.
+	gMenuHolder = getRootView()->getChild<LLViewerMenuHolderGL>("Menu Holder");
+	LLMenuGL::sMenuContainer = gMenuHolder;
+
+	// Set up edit menu here to get the spellcheck callbacks assigned before anyone uses them 
+	initialize_edit_menu();
 
 	// placeholder widget that controls where "world" is rendered
 	mWorldViewPlaceholder = main_view->getChildView("world_view_rect")->getHandle();
@@ -1805,19 +1856,6 @@ void LLViewerWindow::initBase()
 	gFloaterView = main_view->getChild<LLFloaterView>("Floater View");
 	gFloaterView->setFloaterSnapView(main_view->getChild<LLView>("floater_snap_region")->getHandle());
 	gSnapshotFloaterView = main_view->getChild<LLSnapshotFloaterView>("Snapshot Floater View");
-	
-
-	// Console
-	llassert( !gConsole );
-	LLConsole::Params cp;
-	cp.name("console");
-	cp.max_lines(gSavedSettings.getS32("ConsoleBufferSize"));
-	cp.rect(getChatConsoleRect());
-	cp.persist_time(gSavedSettings.getF32("ChatPersistTime"));
-	cp.font_size_index(gSavedSettings.getS32("ChatFontSize"));
-	cp.follows.flags(FOLLOWS_LEFT | FOLLOWS_RIGHT | FOLLOWS_BOTTOM);
-	gConsole = LLUICtrlFactory::create<LLConsole>(cp);
-	getRootView()->addChild(gConsole);
 
 	// optionally forward warnings to chat console/chat floater
 	// for qa runs and dev builds
@@ -1842,10 +1880,6 @@ void LLViewerWindow::initBase()
 	mProgressView = getRootView()->findChild<LLProgressView>("progress_view");
 	setShowProgress(FALSE);
 	setProgressCancelButtonVisible(FALSE);
-
-	gMenuHolder = getRootView()->getChild<LLViewerMenuHolderGL>("Menu Holder");
-
-	LLMenuGL::sMenuContainer = gMenuHolder;
 
 }
 

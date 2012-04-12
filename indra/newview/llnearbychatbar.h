@@ -93,6 +93,8 @@ public:
 	void enableTranslationCheckbox(BOOL enable);
 
 	/*virtual*/ BOOL canClose();
+	
+	void updateUseNearbyChatConsole(const LLSD &data);
 
 
 protected:
@@ -118,6 +120,10 @@ protected:
 
 	S32 mExpandedHeight;
 	S32 mExpandedHeightMin;
+	
+private:
+	BOOL UseNearbyChatConsole;	
+	
 };
 
 #endif
