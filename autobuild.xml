@@ -210,40 +210,16 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>037476bdee5c462f48ad5bd88cadd327</string>
+              <string>dfc2e2ffde269566647f5fccab72946a</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.48.0-libs-windows-20120330.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.45.0-windows-20110905.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
           </map>
         </map>
       </map>
-	  <key>boost-headers</key>
-      <map>
-        <key>license</key>
-        <string>boost</string>
-        <key>license_file</key>
-        <string>LICENSES/boost.txt</string>
-        <key>name</key>
-        <string>boost-headers</string>
-        <key>platforms</key>
-        <map>
-          <key>common</key>
-          <map>
-            <key>archive</key>
-            <map>
-              <key>hash</key>
-              <string>e3547703e14532ff44e4098b3f3fec2a</string>
-              <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.48.0-headers-common-20120330.tar.bz2</string>
-            </map>
-            <key>name</key>
-            <string>common</string>
-          </map>
-        </map>
-      </map>
-      <key>boost-extension</key>
+	  <key>boost-extension</key>
       <map>
         <key>license</key>
         <string>boost</string>

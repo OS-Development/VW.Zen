@@ -25,18 +25,6 @@
  */
 
 #include "lldiriterator.h"
-#include "llerror.h"
-
-/* Use version 3 of the Boost filesystem library.
- * 
- * The following #define has to come before <boost/filesystem.hpp> is
- * included. Boost versions 1.44 through 1.47 will supply both V2 and
- * V3 of the Boost filesystem library API. For the versions defaulting
- * to V2 (1.44 and 1.45), the following #define forces the V3 API. From
- * Boost version 1.46 on, V3 will be the default and the #define will
- * not be needed anymore. (Though keeping it shouldn't hurt.)
- */
-#define BOOST_FILESYSTEM_VERSION 3
 
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
@@ -71,7 +59,7 @@ LLDirIterator::Impl::Impl(const std::string &dirname, const std::string &mask)
 	{
 		is_dir = fs::is_directory(dir_path);
 	}
-	catch (fs::filesystem_error& e)
+	catch (fs::basic_filesystem_error<fs::path>& e)
 	{
 		llwarns << e.what() << llendl;
 		return;
@@ -88,7 +76,7 @@ LLDirIterator::Impl::Impl(const std::string &dirname, const std::string &mask)
 	{
 		mIter = fs::directory_iterator(dir_path);
 	}
-	catch (fs::filesystem_error& e)
+	catch (fs::basic_filesystem_error<fs::path>& e)
 	{
 		llwarns << e.what() << llendl;
 		return;
@@ -133,7 +121,7 @@ bool LLDirIterator::Impl::next(std::string &fname)
 	while (mIter != end_itr && !found)
 	{
 		boost::smatch match;
-		std::string const name = mIter->path().filename().generic_string();
+		std::string name = mIter->path().filename();
 		if (found = boost::regex_match(name, match, mFilterExp))
 		{
 			fname = name;
