@@ -29,11 +29,9 @@
 #define LL_LLPLUGININSTANCE_H
 
 #include "llstring.h"
+#include "llapr.h"
 
-#if !USE_BOOST_EXTENSION
-  #include "llapr.h"
-  #include "apr_dso.h"
-#endif
+#include "apr_dso.h"
 
 /**
  * @brief LLPluginInstanceMessageListener receives messages sent from the plugin loader shell to the plugin.
@@ -89,9 +87,9 @@ public:
 private:
 	static void staticReceiveMessage(const char *message_string, void **user_data);
 	void receiveMessage(const char *message_string);
-#if !USE_BOOST_EXTENSION
+
 	apr_dso_handle_t *mDSOHandle;
-#endif	
+	
 	void *mPluginUserData;
 	sendMessageFunction mPluginSendMessageFunction;
 	
