@@ -45,9 +45,9 @@ static std::string getMarketplaceDomain()
 {
 	std::string domain = "secondlife.com";
 	
-	if (!LLGridManager::getInstance()->isInSLMain())
+	if (LLGridManager::getInstance()->isInSLBeta())
 	{
-		const std::string& grid_label = LLGridManager::getInstance()->getGridLabel();
+		const std::string& grid_label = LLGridManager::getInstance()->getGridNick();
 		const std::string& grid_label_lower = utf8str_tolower(grid_label);
 		
 		if (grid_label_lower == "damballah")

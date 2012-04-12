@@ -92,6 +92,8 @@ private:
 	void addFavoritesToStartLocation();
 	void addUsersWithFavoritesToUsername();
 	static void onClickConnect(void*);
+	static void onClickAddGrid(void*);
+	static void onClickSelectGrid(void*);
 	static void onClickDownload(void*);
 	static void onClickNewAccount(void*);
 	static void onClickVersion(void*);
@@ -121,7 +123,7 @@ private:
 
 	static LLPanelLogin* sInstance;
 	static BOOL		sCapslockDidNotification;
-	
+	BOOL			mHtmlAvailable;
 	int mGridEntries;
 	std::string mLoginPage;
 };

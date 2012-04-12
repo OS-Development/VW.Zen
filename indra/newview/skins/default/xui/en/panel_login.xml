@@ -266,6 +266,31 @@ label="&lt;type.custom.loginuri.org&gt;"
 name="Typeloginuri" 
 value="" />
 </combo_box>
+<button
+follows="left|bottom"
+height="20"
+is_toggle="true"
+image_unselected="PushButton_Off"
+image_selected="PushButton_On_Selected"
+label="New Grids"
+label_color="White"
+layout="topleft"
+top_pad="0"
+name="select_grids_btn"
+width="109"
+tab_stop="false" />
+<button
+  follows="left|bottom"
+  height="20"
+  image_unselected="PushButton_Off"
+  image_selected="PushButton_On"
+  image_overlay="Refresh_Off"
+  label=" "
+  layout="topleft"
+  left_pad="1"
+  name="add_grid_btn"
+  top_delta="0"
+  width="20" />
 </layout_panel>
 <layout_panel
 tab_stop="false"

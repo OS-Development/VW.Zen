@@ -41,6 +41,7 @@ include(LScript)
 include(Linking)
 include(NDOF)
 include(GooglePerfTools)
+include(Teapot)
 include(TemplateCheck)
 include(UI)
 include(UnixInstall)
@@ -82,6 +83,7 @@ include_directories(
     ${LSCRIPT_INCLUDE_DIRS}
     ${LSCRIPT_INCLUDE_DIRS}/lscript_compile
     ${LLLOGIN_INCLUDE_DIRS}
+	${TEAPOT_INCLUDE_DIRS}
     ${LIBS_PREBUILT_DIR}/include/collada
 	${LIBS_PREBUILD_DIR}/include/hunspell
     ${OPENAL_LIB_INCLUDE_DIRS}
@@ -92,6 +94,7 @@ set(viewer_SOURCE_FILES
     ao.cpp
 	aoengine.cpp
 	aoset.cpp
+	floaterhop.cpp
 	fsareasearch.cpp
 	groupchatlistener.cpp
 	streamtitledisplay.cpp
@@ -661,6 +664,7 @@ set(viewer_HEADER_FILES
 	ao.h
 	aoengine.h
 	aoset.h
+	floaterhop.h
 	fsareasearch.h
 	groupchatlistener.h
 	streamtitledisplay.h
@@ -1825,6 +1829,7 @@ target_link_libraries(${VIEWER_BINARY_NAME}
     ${LSCRIPT_LIBRARIES}
     ${LLMATH_LIBRARIES}
     ${LLCOMMON_LIBRARIES}
+	${TEAPOT_LIBRARIES}
     ${NDOF_LIBRARY}
 	${HUNSPELL_LIBRARY}
     ${viewer_LIBRARIES}

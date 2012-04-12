@@ -30,14 +30,14 @@
         <key>register</key>
             <string>http://night4-life.net/register</string>
         <key>slurl_base</key>
-            <string>hg://night4-life.net/</string>
+            <string>hop://night4-life.net/</string>
 		</map>
-	<key>localhost:9100</key>
+	<key>127.0.0.1:9100</key>
         <map>
         <key>LastModified</key>
             <date>2012-04-09T12:00:00Z</date>
         <key>grid_login_id</key>
-            <string>localhost:9100</string>
+            <string>127.0.0.1:9100</string>
         <key>gridname</key>
             <string>Sim-on-a-Stick</string>
         <key>gridnick</key>
@@ -51,12 +51,12 @@
             <string>http://127.0.0.1:9100/wifi/welcome.html</string>
         <key>loginuri</key>
             <array>
-                <string>http://localhost:9100</string>
+                <string>http://127.0.0.1:9100</string>
             </array>
         <key>name</key>
-            <string>localhost:9100</string>
+            <string>127.0.0.1:9100</string>
         <key>slurl_base</key>
-            <string>hg://localhost/</string>
+            <string>hop://127.0.0.1/</string>
         </map>
 	<key>avination.net/</key>
         <map>
@@ -88,7 +88,7 @@
         <key>register</key>
             <string>https://www.avination.com/account.php</string>
         <key>slurl_base</key>
-            <string>hg://avination.net/</string>
+            <string>hop://avination.net/</string>
 		</map>
 	<key>francogrid.org</key>
         <map>
@@ -120,7 +120,7 @@
         <key>register</key>
             <string>http:/francogrid.org/user/register</string>
         <key>slurl_base</key>
-            <string>hg://francogrid.org/</string>
+            <string>hop://francogrid.org/</string>
         </map>
 	<key>ufsgrid.com:8002</key>
         <map>
@@ -152,7 +152,7 @@
         <key>register</key>
             <string>http://www.ufsgrid.com/register</string>
         <key>slurl_base</key>
-            <string>hg://ufsgrid.com/</string>
+            <string>hop://ufsgrid.com/</string>
         </map>
 	<key>oneworldgrid.co.uk:8002</key>
         <map>
@@ -184,7 +184,7 @@
         <key>register</key>
             <string>http://oneworldgrid.co.uk:8002/wifi/user/account</string>
         <key>slurl_base</key>
-            <string>hg://oneworldgrid.co.uk/</string>
+            <string>hop://oneworldgrid.co.uk/</string>
         </map>
 	<key>islandoasisgrid.biz:8002</key>
         <map>
@@ -216,7 +216,7 @@
         <key>register</key>
             <string>http://www.islandoasis.biz/Verification.aspx</string>
         <key>slurl_base</key>
-            <string>hg://islandoasisgrid.biz/</string>
+            <string>hop://islandoasisgrid.biz/</string>
         </map>
 	<key>GayNations.org:8002</key>
         <map>
@@ -248,7 +248,7 @@
         <key>register</key>
             <string>http://GayNations.org/register.php</string>
         <key>slurl_base</key>
-            <string>hg://GayNations.org/</string>
+            <string>hop://GayNations.org/</string>
         </map>
 	<key>anskygrid.ca:8002</key>
         <map>
@@ -280,7 +280,7 @@
         <key>register</key>
             <string>http://www.anskygrid.ca/index.php?page=register</string>
         <key>slurl_base</key>
-            <string>hg://anskygrid.ca/</string>
+            <string>hop://anskygrid.ca/</string>
         </map>
 	<key>gridnirvana.net:8002</key>
         <map>
@@ -312,7 +312,7 @@
         <key>register</key>
             <string>http://gridnirvana.net:8002/wifi/user/account/</string>
         <key>slurl_base</key>
-            <string>hg://gridnirvana.net/</string>
+            <string>hop://gridnirvana.net/</string>
         </map>
 	<key>tertiarygrid.com:8002</key>
         <map>
@@ -344,7 +344,7 @@
         <key>register</key>
             <string>http://tertiarygrid.com/register.php</string>
         <key>slurl_base</key>
-            <string>hg://tertiarygrid.com/</string>
+            <string>hop://tertiarygrid.com/</string>
         </map>
 	<key>vwc.selfip.net:8002</key>
         <map>
@@ -376,7 +376,7 @@
         <key>register</key>
             <string>http://www.vwc.selfip.net:8002/wifi/user/account/</string>
         <key>slurl_base</key>
-            <string>hg://vwc.selfip.net/</string>
+            <string>hop://vwc.selfip.net/</string>
         </map>
 	<key>newworldgrid.com:8002</key>
         <map>
@@ -408,7 +408,7 @@
         <key>register</key>
             <string>http://www.newworldgrid.com/register</string>
         <key>slurl_base</key>
-            <string>hg://grid.newworldgrid.com/</string>
+            <string>hop://grid.newworldgrid.com/</string>
         </map>
 	<key>fleepgrid.com:8002</key>
         <map>
@@ -440,7 +440,7 @@
         <key>register</key>
             <string>http://fleepgrid.com:8002/wifi/user/account</string>
         <key>slurl_base</key>
-            <string>hg://fleepgrid.com/</string>
+            <string>hop://fleepgrid.com/</string>
         </map>
     <key>craft-world.org:8002</key>
         <map>
@@ -472,7 +472,7 @@
         <key>register</key>
             <string>http://craft-world.org:8002/wifi/user/account</string>
         <key>slurl_base</key>
-            <string>hg://craft-world.org/</string>
+            <string>hop://craft-world.org/</string>
         </map>
     <key>grid.3rdrockgrid.com:8002</key>
         <map>
@@ -508,7 +508,7 @@
         <key>register</key>
             <string>http://3rdrockgrid.com/</string>
         <key>slurl_base</key>
-            <string>hg://grid.3rdrockgrid.com/</string>
+            <string>hop://grid.3rdrockgrid.com/</string>
         </map>
     <key>grid01.from-ne.com:8002</key>
         <map>
@@ -538,7 +538,7 @@
         <key>name</key>
             <string>grid01.from-ne.com:8002</string>
         <key>slurl_base</key>
-            <string>hg://grid01.from-ne.com/</string>
+            <string>hop://grid01.from-ne.com/</string>
         </map>
     <key>inworldz.com:8002</key>
         <map>
@@ -574,18 +574,18 @@
         <key>register</key>
             <string>http://inworldz.com/register.php</string>
         <key>slurl_base</key>
-            <string>hg://inworldz.com/</string>
+            <string>hop://inworldz.com/</string>
         </map>
-    <key>localhost:9000</key>
+    <key>127.0.0.1:9000</key>
         <map>
         <key>LastModified</key>
             <date>2012-04-09T12:00:00Z</date>
         <key>grid_login_id</key>
-            <string>localhost:9000</string>
+            <string>127.0.0.1:9000</string>
         <key>gridname</key>
-            <string>localhost</string>
+            <string>127.0.0.1</string>
         <key>gridnick</key>
-            <string>localhost</string>
+            <string>127.0.0.1</string>
         <key>login_identifier_types</key>
             <array>
                 <string>agent</string>
@@ -595,12 +595,12 @@
             <undef />
         <key>loginuri</key>
             <array>
-                <string>http://localhost:9000</string>
+                <string>http://127.0.0.1:9000</string>
             </array>
         <key>name</key>
-            <string>localhost:9000</string>
+            <string>127.0.0.1:9000</string>
         <key>slurl_base</key>
-            <string>hg://localhost/</string>
+            <string>hop://127.0.0.1/</string>
         </map>
     <key>osgrid.org</key>
         <map>
@@ -636,7 +636,7 @@
         <key>register</key>
             <string>http://www.osgrid.org/index.php/auth/register</string>
         <key>slurl_base</key>
-            <string>hg://osgrid.org/</string>
+            <string>hop://osgrid.org/</string>
         </map>
     <key>reactiongrid.com:8008</key>
         <map>
@@ -672,7 +672,7 @@
         <key>register</key>
             <string>http://reactiongrid.com/Register.aspx</string>
         <key>slurl_base</key>
-            <string>hg://reactiongrid.com/</string>
+            <string>hop://reactiongrid.com/</string>
         </map>
     <key>util.aditi.lindenlab.com</key>
         <map>
@@ -681,7 +681,7 @@
         <key>app_slurl_base</key>
             <string>secondlife:///app</string>
         <key>gridname</key>
-            <string>Aditi</string>
+            <string>Second Life Beta</string>
         <key>gridnick</key>
             <string>aditi</string>
         <key>helperuri</key>
@@ -712,7 +712,7 @@
         <key>favorite</key>
             <integer>1</integer>
         <key>gridname</key>
-            <string>Agni</string>
+            <string>Second Life</string>
         <key>gridnick</key>
             <string>agni</string>
         <key>helperuri</key>

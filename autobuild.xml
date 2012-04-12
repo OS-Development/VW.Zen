@@ -1350,9 +1350,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>270db8568a0c4bab266d98e1a820aec4</string>
+              <string>74d44526aa9aea1fa33e50c01abfa9f3</string>
               <key>url</key>
-              <string>http://automated-builds-secondlife-com.s3.amazonaws.com/hg/repo/3p-llqtwebkit/rev/245988/arch/CYGWIN/installer/llqtwebkit-4.7.1-windows-20111201.tar.bz2</string>
+              <string>file:///D:/CompileSL/BuildTools/qtwebkit/llqtwebkit-4.8.0-windows-20120317.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1825,6 +1825,30 @@
               <string>5181d1a8f2516928ac064d72acf164a4</string>
               <key>url</key>
               <string>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/xmlrpc_epi-0.54.1-windows-20110224.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>windows</string>
+          </map>
+        </map>
+      </map>
+	  <key>zen-qt</key>
+      <map>
+        <key>license</key>
+        <string>lgpl</string>
+        <key>license_file</key>
+        <string>LICENSES/qt.txt</string>
+        <key>name</key>
+        <string>zen-qt</string>
+        <key>platforms</key>
+        <map>
+          <key>windows</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>13da172213a19a60e12a93eeed70d756</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/qtwebkit/qt-4.8.0-windows-20120317.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>

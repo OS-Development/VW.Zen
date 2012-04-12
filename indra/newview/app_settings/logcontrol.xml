@@ -43,11 +43,17 @@
 					<key>tags</key>
 						<array>
 						
+						
+						<!-- OpenSim related-->
 						<string>OS_SETTINGS</string>
 						<string>GridManager</string>
 						<string>SLURL</string>
 							<!-- sample entry for debugging a specific item	-->
 <!--						<string>Voice</string>		-->
+
+						<!-- Login -->	
+						<!--<string>PanelLogin</string>-->
+
 						</array>
 				</map>
 			</array>

@@ -7218,7 +7218,9 @@ class LLToggleHowTo : public view_listener_t
 	{
 		LLFloaterWebContent::Params p;
 		std::string url = gSavedSettings.getString("HowToHelpURL");
-		p.url = LLWeb::expandURLSubstitutions(url, LLSD());
+		std::string url_expanded = LLWeb::expandURLSubstitutions(url, LLSD());
+		LL_DEBUGS("WebApi") << "HowToHelpURL \"" << url_expanded << "\"" << LL_ENDL;
+		p.url = url_expanded;
 		p.show_chrome = false;
 		p.target = "__help_how_to";
 		p.show_page_title = false;

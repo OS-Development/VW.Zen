@@ -136,10 +136,12 @@ public:
 		}
 		
 		// support the secondlife:///app/worldmap/{LOCATION}/{COORDS} SLapp
-		const std::string region_name = LLURI::unescape(params[0].asString());
-		S32 x = (params.size() > 1) ? params[1].asInteger() : 128;
-		S32 y = (params.size() > 2) ? params[2].asInteger() : 128;
-		S32 z = (params.size() > 3) ? params[3].asInteger() : 0;
+		LLSLURL dest(params, true);
+		const std::string region_name = dest.getRegion();
+		LLVector3 pos = dest.getPosition();
+		S32 x = pos[VX];
+		S32 y = pos[VY];
+		S32 z = pos[VZ];
 		
 		LLFloaterWorldMap::getInstance()->trackURL(region_name, x, y, z);
 		LLFloaterReg::showInstance("world_map", "center");

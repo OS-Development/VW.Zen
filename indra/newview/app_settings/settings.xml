@@ -2,6 +2,67 @@
 <llsd xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:noNamespaceSchemaLocation="llsd.xsd">
 <map>
+	<key>IsRelogSession</key>
+  <map>
+    <key>Comment</key>
+    <string>*THIS IS UNDER DEVELOPENT AND WILL CHANGE WITHOUT NOTICE*
+            The session is started from another instance as a quasi relog.</string>
+    <key>Persist</key>
+    <integer>0</integer>
+    <key>Type</key>
+    <string>String</string>
+    <key>Value</key>
+    <string/>
+  </map>
+	<key>HopKeepOldSessionAlive</key>
+  <map>
+    <key>Comment</key>
+    <string>Keep old session alive when gridhopping</string>
+    <key>Persist</key>
+    <integer>0</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>0</integer>
+  </map>
+	<key>HopAutoLogin</key>
+  <map>
+    <key>Comment</key>
+    <string>Autologin last user when gridhopping</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Boolean</string>
+    <key>Value</key>
+    <integer>1</integer>
+  </map>
+	<key>GridSelectorURI</key>
+  <map>
+    <key>Comment</key>
+    <string>URL that provides grid hop:// uris (adjust size: GridSelectorRect)</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>String</string>
+    <key>Value</key>
+    <string>https://bitbucket.org/Zena_Juran/zendataxml/downloads/New%20Grids.html</string>
+  </map>
+	<key>GridSelectorRect</key>
+  <map>
+    <key>Comment</key>
+    <string>Rectangle for grid selector</string>
+    <key>Persist</key>
+    <integer>1</integer>
+    <key>Type</key>
+    <string>Rect</string>
+    <key>Value</key>
+    <array>
+      <integer>0</integer>
+      <integer>430</integer>
+      <integer>280</integer>
+      <integer>0</integer>
+    </array>
+  </map>
 	<key>AlwaysFly</key>
   <map>
     <key>Comment</key>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<floater
+  legacy_header_height="18"
+  can_resize="false"
+  can_minimize="false" 
+  height="775"
+  layout="topleft"
+  min_height="360"
+  left="10"
+  top="50" 
+  min_width="335"
+  name="floater_select_grid"
+  help_topic="select_grid"
+  single_instance="true"
+  save_rect="true"
+  title="Find New Grids"
+  width="780"
+  filename="floater_web_content.xml"/>
