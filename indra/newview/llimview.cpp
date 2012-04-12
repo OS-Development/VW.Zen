@@ -148,7 +148,7 @@ void toast_callback(const LLSD& msg){
 
 	// Skip toasting if we have open window of IM with this session id
 	LLIMFloater* open_im_floater = LLIMFloater::findInstance(msg["session_id"]);
-	if (open_im_floater && open_im_floater->getVisible() && !gSavedSettings.getBOOL("LogImToChatConsole"))
+	if (open_im_floater && open_im_floater->getVisible())
 	{
 		return;
 	}
