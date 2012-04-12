@@ -25,7 +25,6 @@ include_directories(
 #     ${LLCOMMON_LIBRARIES})
 
 set(llcommon_SOURCE_FILES
-    base64.cpp
     imageids.cpp
     indra_constants.cpp
     llallocator.cpp
@@ -35,6 +34,7 @@ set(llcommon_SOURCE_FILES
     llassettype.cpp
     llavatarname.cpp
     llbase32.cpp
+    llbase64.cpp
     llcommon.cpp
     llcommonutils.cpp
     llcoros.cpp
@@ -108,8 +108,7 @@ set(llcommon_SOURCE_FILES
 set(llcommon_HEADER_FILES
     CMakeLists.txt
 
-    base64.h
-	bitpack.h
+    bitpack.h
     ctype_workaround.h
     doublelinkedlist.h
     imageids.h
@@ -127,6 +126,7 @@ set(llcommon_HEADER_FILES
     llassoclist.h
     llavatarconstants.h
     llbase32.h
+    llbase64.h
     llboost.h
     llchat.h
     llclickaction.h

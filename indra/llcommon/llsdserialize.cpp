@@ -32,7 +32,7 @@
 #include "llstreamtools.h" // for fullread
 
 #include <iostream>
-#include "base64.h"
+#include "apr_base64.h"
 
 #ifdef LL_STANDALONE
 # include <zlib.h>
@@ -40,12 +40,8 @@
 # include "zlib/zlib.h"  // for davep's dirty little zip functions
 #endif
 
-// htonl & ntohl
 #if !LL_WINDOWS
-#include <netinet/in.h>
-#else
-#include <winsock2.h>
-#define strncasecmp  strnicmp
+#include <netinet/in.h> // htonl & ntohl
 #endif
 
 #include "lldate.h"
@@ -807,10 +803,14 @@ bool LLSDNotationParser::parseBinary(std::istream& istr, LLSD& data) const
 		get(istr, *(coded_stream.rdbuf()), '\"');
 		c = get(istr);
 		std::string encoded(coded_stream.str());
-		
-		std::vector<unsigned char> value;
-		Base64::decode(encoded, value);
-		
+		S32 len = apr_base64_decode_len(encoded.c_str());
+		std::vector<U8> value;
+		if(len)
+		{
+			value.resize(len);
+			len = apr_base64_decode_binary(&value[0], encoded.c_str());
+			value.resize(len);
+		}
 		data = value;
 	}
 	else if(0 == strncmp("b16", buf, 3))
