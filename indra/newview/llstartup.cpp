@@ -3554,25 +3554,7 @@ bool process_login_success_response()
 		LL_INFOS("LLStartup") << "using gMaxAgentGroups default: "
 							  << gMaxAgentGroups << LL_ENDL;
 	}
-	
-	if(response.has("profile-server-url"))
-	{
-		LL_DEBUGS("OS_SETTINGS") << "profile-server-url" << response["profile-server-url"] << llendl;
-	}
-	else if (LLGridManager::getInstance()->isInOpenSim())
-	{
-		LL_DEBUGS("OS_SETTINGS") << "no profile-server-url in login response" << llendl;	
-	}
-
-	if(response.has("web-profile-url"))
-	{
-		LL_DEBUGS("OS_SETTINGS") << "web-profile-url" << response["web-profile-url"] << llendl;
-	}
-	else if (LLGridManager::getInstance()->isInOpenSim())
-	{
-		LL_DEBUGS("OS_SETTINGS") << "no web-profile-url in login response" << llendl;
-	}
-
+		
 	bool success = false;
 	// JC: gesture loading done below, when we have an asset system
 	// in place.  Don't delete/clear gUserCredentials until then.

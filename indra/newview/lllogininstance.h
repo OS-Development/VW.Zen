@@ -56,8 +56,6 @@ public:
 	const std::string& getLoginState() { return mLoginState; }
 	LLSD getResponse(const std::string& key) { return getResponse()[key]; }
 	LLSD getResponse();
-	
-	bool hasResponse(const std::string& key) { return mResponseData.has(key); }
 
 	// Only valid when authSuccess == true.
 	const F64 getLastTransferRateBPS() { return mTransferRate; }
