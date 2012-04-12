@@ -30,7 +30,13 @@
 
 #include "llplugininstance.h"
 
-#include "llapr.h"
+#if USE_BOOST_EXTENSION
+  #include "boost/extension/shared_library.hpp"
+  #include "boost/function.hpp"
+#else
+  //HIPPOS
+  #include "llapr.h"
+#endif
 
 #if LL_WINDOWS
 #include "direct.h"	// needed for _chdir()
@@ -52,7 +58,9 @@ const char *LLPluginInstance::PLUGIN_INIT_FUNCTION_NAME = "LLPluginInitEntryPoin
  * @param[in] owner Plugin instance. TODO:DOC is this a good description of what "owner" is?
  */
 LLPluginInstance::LLPluginInstance(LLPluginInstanceMessageListener *owner) :
+#if !USE_BOOST_EXTENSION
 	mDSOHandle(NULL),
+#endif
 	mPluginUserData(NULL),
 	mPluginSendMessageFunction(NULL)
 {
@@ -64,11 +72,13 @@ LLPluginInstance::LLPluginInstance(LLPluginInstanceMessageListener *owner) :
  */
 LLPluginInstance::~LLPluginInstance()
 {
+#if !USE_BOOST_EXTENSION
 	if(mDSOHandle != NULL)
 	{
 		apr_dso_unload(mDSOHandle);
 		mDSOHandle = NULL;
 	}
+#endif
 }
 
 /** 
@@ -77,6 +87,51 @@ LLPluginInstance::~LLPluginInstance()
  * @param[in] plugin_file Name of plugin dll/dylib/so. TODO:DOC is this correct? see .h
  * @return 0 if successful, APR error code or error code from the plugin's init function on failure.
  */
+ #if USE_BOOST_EXTENSION
+int LLPluginInstance::load(const std::string& plugin_dir, std::string &plugin_file)
+{
+	if ( plugin_dir.length() )
+	{
+#if LL_WINDOWS
+		// VWR-21275:
+		// *SOME* Windows systems fail to load the Qt plugins if the current working
+		// directory is not the same as the directory with the Qt DLLs in.
+		// This should not cause any run time issues since we are changing the cwd for the
+		// plugin shell process and not the viewer.
+		// Changing back to the previous directory is not necessary since the plugin shell
+		// quits once the plugin exits.
+		//KOKUA TODO: verify if that is also true using BOOST_EXTENSION
+		_chdir( plugin_dir.c_str() );	
+#endif
+	};
+
+	boost::extensions::shared_library plugin_lib(plugin_file);
+
+	if (!plugin_lib.open()) 
+	{
+		llwarns << "Failed to open " << plugin_file << llendl;
+		return 1;
+	}
+
+	boost::function<int (sendMessageFunction, void*, sendMessageFunction*, void **)> 
+	 			init_function(plugin_lib.get<int, 
+					sendMessageFunction, 
+					void*, sendMessageFunction *,
+					void **>(PLUGIN_INIT_FUNCTION_NAME));
+
+	if(!init_function)
+	{
+		llwarns << "Failed to init " << plugin_file << llendl;
+		return 1;
+	}
+
+	int result = init_function (staticReceiveMessage, 
+					(void*)this, 
+					&mPluginSendMessageFunction,
+					&mPluginUserData);
+	return result;
+}
+#else //USE_BOOST_EXTENSION
 int LLPluginInstance::load(const std::string& plugin_dir, std::string &plugin_file)
 {
 	pluginInitFunction init_function = NULL;
@@ -131,6 +186,8 @@ int LLPluginInstance::load(const std::string& plugin_dir, std::string &plugin_fi
 	
 	return (int)result;
 }
+
+#endif //USE_BOOST_EXTENSION
 
 /** 
  * Sends a message to the plugin.

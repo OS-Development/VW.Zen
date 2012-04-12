@@ -12,6 +12,7 @@ include(LLWindow)
 include(Linking)
 include(PluginAPI)
 include(FindOpenGL)
+include(Boost)
 
 include_directories(
     ${LLPLUGIN_INCLUDE_DIRS}
@@ -20,6 +21,7 @@ include_directories(
     ${LLIMAGE_INCLUDE_DIRS}
     ${LLRENDER_INCLUDE_DIRS}
     ${LLWINDOW_INCLUDE_DIRS}
+	${Boost_INCLUDE_DIRS}
 )
 
 

@@ -63,6 +63,7 @@
 #endif
 
 #if USE_APR_SHARED_MEMORY 
+	HIPPOS
 	#include "llapr.h"
 	#include "apr_shm.h"
 #elif USE_SHM_OPEN_SHARED_MEMORY

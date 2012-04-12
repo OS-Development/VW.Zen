@@ -219,6 +219,30 @@
           </map>
         </map>
       </map>
+	  <key>boost-extension</key>
+      <map>
+        <key>license</key>
+        <string>boost</string>
+        <key>license_file</key>
+        <string>LICENSES/boost.txt</string>
+        <key>name</key>
+        <string>boost-extension</string>
+        <key>platforms</key>
+        <map>
+          <key>common</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>1aaf3c7360a9f7ec56cd419cced0f24a</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-extension-reflection-common-20120124.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>common</string>
+          </map>
+        </map>
+      </map>
       <key>colladadom</key>
       <map>
         <key>license</key>

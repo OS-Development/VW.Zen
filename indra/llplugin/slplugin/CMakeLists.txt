@@ -1,6 +1,7 @@
 project(SLPlugin)
 
 include(00-Common)
+include(Boost)
 include(LLCommon)
 include(LLPlugin)
 include(Linking)
@@ -53,12 +54,22 @@ set_target_properties(SLPlugin
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/slplugin_info.plist
   )
 
-target_link_libraries(SLPlugin
-  ${LLPLUGIN_LIBRARIES}
-  ${LLMESSAGE_LIBRARIES}
-  ${LLCOMMON_LIBRARIES}
-  ${PLUGIN_API_WINDOWS_LIBRARIES}
-)
+set (SLPlugin_link_libraries  ${LLPLUGIN_LIBRARIES}
+                              ${LLMESSAGE_LIBRARIES}
+                              ${LLCOMMON_LIBRARIES}
+                              ${PLUGIN_API_WINDOWS_LIBRARIES}
+    )
+
+if(USE_BOOST_EXTENSION)
+  message("using BOOST_EXTENSION DSO loading for plugins")
+  if(LINUX)#probably mac too
+    list(APPEND SLPlugin_link_libraries dl )
+  endif(LINUX)
+else(USE_BOOST_EXTENSION)
+  message("using APR DSO loading for plugins")
+endif(USE_BOOST_EXTENSION)
+
+target_link_libraries(SLPlugin ${SLPlugin_link_libraries} )
 
 add_dependencies(SLPlugin
   ${LLPLUGIN_LIBRARIES}
