@@ -138,6 +138,12 @@
 #include "llnearbychatbar.h"
 #include "ao.h"
 #include "particleeditor.h"
+// NaCl - Asset blacklister
+#include "NACLfloaterblacklist.h"
+// NaCl End
+// NaCl - Sound explorer
+#include "NACLfloaterexploresounds.h"
+// NaCl End
 
 // *NOTE: Please add files in alphabetical order to keep merges easy.
 
@@ -174,6 +180,12 @@ void LLViewerFloaterReg::registerFloaters()
 	LLFloaterReg::add("autocorrect", "floater_autocorrect.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LGGAutoCorrectFloater>);
 	LLFloaterReg::add("about_land", "floater_about_land.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterLand>);
 	LLFloaterReg::add("appearance", "floater_my_appearance.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterSidePanelContainer>);
+	// NaCl - Asset blacklister
+	LLFloaterReg::add("blacklist", "floater_NACL_blacklist.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<NACLFloaterBlacklist>);
+	// NaCl End
+	// NaC - Sound explorer
+	LLFloaterReg::add("sound_explorer", "floater_NACL_explore_sounds.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<NACLFloaterExploreSounds>);
+	// NaCl End
 	LLFloaterReg::add("area_search", "floater_fs_area_search.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<FSAreaSearch>);
 	LLFloaterReg::add("auction", "floater_auction.xml", (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterAuction>);
 	LLFloaterReg::add("avatar", "floater_avatar.xml",  (LLFloaterBuildFunc)&LLFloaterReg::build<LLFloaterAvatar>);

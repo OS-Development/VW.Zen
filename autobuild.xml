@@ -267,6 +267,102 @@
           </map>
         </map>
       </map>
+	  <key>boost-headers</key>
+      <map>
+        <key>license</key>
+        <string>boost</string>
+        <key>license_file</key>
+        <string>LICENSES/boost.txt</string>
+        <key>name</key>
+        <string>boost-headers</string>
+        <key>platforms</key>
+        <map>
+          <key>common</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>e3547703e14532ff44e4098b3f3fec2a</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.48.0-headers-common-20120330.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>common</string>
+          </map>
+        </map>
+      </map>
+      <key>boost-extension</key>
+      <map>
+        <key>license</key>
+        <string>boost</string>
+        <key>license_file</key>
+        <string>LICENSES/boost.txt</string>
+        <key>name</key>
+        <string>boost-extension</string>
+        <key>platforms</key>
+        <map>
+          <key>common</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>1aaf3c7360a9f7ec56cd419cced0f24a</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-extension-reflection-common-20120124.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>common</string>
+          </map>
+        </map>
+      </map>
+	  <key>boost-headers</key>
+      <map>
+        <key>license</key>
+        <string>boost</string>
+        <key>license_file</key>
+        <string>LICENSES/boost.txt</string>
+        <key>name</key>
+        <string>boost-headers</string>
+        <key>platforms</key>
+        <map>
+          <key>common</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>e3547703e14532ff44e4098b3f3fec2a</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-1.48.0-headers-common-20120330.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>common</string>
+          </map>
+        </map>
+      </map>
+      <key>boost-extension</key>
+      <map>
+        <key>license</key>
+        <string>boost</string>
+        <key>license_file</key>
+        <string>LICENSES/boost.txt</string>
+        <key>name</key>
+        <string>boost-extension</string>
+        <key>platforms</key>
+        <map>
+          <key>common</key>
+          <map>
+            <key>archive</key>
+            <map>
+              <key>hash</key>
+              <string>1aaf3c7360a9f7ec56cd419cced0f24a</string>
+              <key>url</key>
+              <string>file:///D:/CompileSL/BuildTools/Boost/boost-extension-reflection-common-20120124.tar.bz2</string>
+            </map>
+            <key>name</key>
+            <string>common</string>
+          </map>
+        </map>
+      </map>
       <key>colladadom</key>
       <map>
         <key>license</key>
@@ -522,9 +618,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e0fc52a3fe301cfafdbec8a934f34290</string>
+              <string>630122ddf5a0cfb3e53495fe57f2ecf3</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/3p-fmod/fmod-3.75-windows-20110910.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/fmod-3.75-windows-20111104.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -548,7 +644,7 @@
               <key>hash</key>
               <string>70bcdecdf5bc7ca70646618815619684</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/3p-fmod/fmodex-4.40.03-windows-20120314.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/fmodex-4.40.03-windows-20120314.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1110,9 +1206,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>a30d1d536f407cb51422627a65dde570</string>
+              <string>b72c3ad0478178285990f06f795ac110</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/Hunspell/libhunspell-1.3.2-windows-20120325.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/libhunspell-1.3.2-windows-20120313.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1304,7 +1400,7 @@
               <key>hash</key>
               <string>8d57f7240eff068cd69071cbb9294831</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/HACD/NACL/nd_hacdconvexdecomposition-windows-20111213.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/nd_hacdconvexdecomposition-windows-20111213.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1608,7 +1704,7 @@
               <key>hash</key>
               <string>ac05037a20ca35fe61d8030c6bcbbdc0</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/OpenJpeg/Kirstens/kv-windows-S21J-2.0.6-20111211.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/kv-windows-S21J-2.0.6-20111211.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1714,9 +1810,9 @@
             <key>archive</key>
             <map>
               <key>hash</key>
-              <string>e25529ef3ec4566fc667480d50af8992</string>
+              <string>462aa3dc1a9fcf7d87bb58a4bc84f52d</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/SLVoice/vivox-SLVoice-2.1.3010.6270zen-Release-Win32.tar.bz2</string>
+              <string>http://phoenixviewer.com/app/packages/vivox-2.1.3010.6270fs-windows-20090309.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1752,7 +1848,7 @@
               <key>hash</key>
               <string>dc36af5b4d93b1f1d797dcf9e83ed4bc</string>
               <key>url</key>
-              <string>file:///D:/CompileSL/BuildTools/Google/google_perftools-1.8-windows-20111205.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/google_perftools-1.8-windows-20111205.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
