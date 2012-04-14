@@ -548,7 +548,7 @@
               <key>hash</key>
               <string>70bcdecdf5bc7ca70646618815619684</string>
               <key>url</key>
-              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/fmodex-4.40.03-windows-20120314.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/fmodex-4.40.03-windows-20120314.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
@@ -1112,7 +1112,7 @@
               <key>hash</key>
               <string>b72c3ad0478178285990f06f795ac110</string>
               <key>url</key>
-              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/libhunspell-1.3.2-windows-20120313.tar.bz2</string>
+              <string>https://bitbucket.org/Matto_Destiny/zen-viewer-libs/downloads/libhunspell-1.3.2-windows-20120313.tar.bz2</string>
             </map>
             <key>name</key>
             <string>windows</string>
