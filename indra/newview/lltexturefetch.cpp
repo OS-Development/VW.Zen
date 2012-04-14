@@ -287,6 +287,11 @@ private:
 	U8 mImageCodec;
 
 	LLViewerAssetStats::duration_t mMetricsStartTime;
+	
+	//<FS:Ansariel> CURL timeout check
+	LLFrameTimer mHttpCallbackTimer;
+	S32 mHttpCallbackTimeoutCount;
+	//<FS:Ansariel> CURL timeout check
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -683,7 +688,10 @@ LLTextureFetchWorker::LLTextureFetchWorker(LLTextureFetch* fetcher,
 	  mLastPacket(-1),
 	  mTotalPackets(0),
 	  mImageCodec(IMG_CODEC_INVALID),
-	  mMetricsStartTime(0)
+	  // <FS:Ansariel> CURL timeout check
+	  mMetricsStartTime(0),
+	  mHttpCallbackTimeoutCount(0)
+	  // <FS:Ansariel> CURL timeout check
 {
 	mCanUseNET = mUrl.empty() ;
 
@@ -1216,6 +1224,8 @@ bool LLTextureFetchWorker::doWork(S32 param)
 				headers.push_back("Accept: image/x-j2c");
 				res = mFetcher->mCurlGetRequest->getByteRange(mUrl, headers, offset, mRequestedSize,
 															  new HTTPGetResponder(mFetcher, mID, LLTimer::getTotalTime(), mRequestedSize, offset, true));
+				
+				mHttpCallbackTimer.reset(); // <FS:Ansariel> CURL timeout check
 			}
 			if (!res)
 			{
@@ -1228,7 +1238,18 @@ bool LLTextureFetchWorker::doWork(S32 param)
 		}
 		else //can not use http fetch.
 		{
-			return true ; //abort
+			// Ansariel: roll back to try UDP
+			if(mCanUseNET)
+			{
+				mState = INIT ;
+				mCanUseHTTP = false ;
+				setPriority(LLWorkerThread::PRIORITY_HIGH | mWorkPriority);
+				return false ;
+			}
+			else
+			{
+				return true ; //abort
+			}
 		}
 	}
 	
@@ -1260,7 +1281,11 @@ bool LLTextureFetchWorker::doWork(S32 param)
 					// for a short time (~1s) to ease server load? Ideally the server would queue
 					// requests instead of returning 503... we already limit the number pending.
 					++mHTTPFailCount;
-					max_attempts = mHTTPFailCount+1; // Keep retrying
+					// Just increase the normal counter. We're gonna fallback to UDP
+					// if problem continues.
+					//max_attempts = mHTTPFailCount+1; // Keep retrying
+					const S32 HTTP_MAX_RETRY_COUNT = 3;
+					max_attempts = HTTP_MAX_RETRY_COUNT + 1;
 					LL_INFOS_ONCE("Texture") << "Texture server busy (503): " << mUrl << LL_ENDL;
 				}
 				else
@@ -1284,9 +1309,22 @@ bool LLTextureFetchWorker::doWork(S32 param)
 					}
 					else
 					{
-						resetFormattedData();
-						mState = DONE;
-						return true; // failed
+						// Ansariel: What's this? On any other HTTP failure except
+ 						// not found we simply give up? No way! Let's
+ 						// try UDP as fallback!
+						if (mCanUseNET)
+						{
+							mState = INIT;
+							mCanUseHTTP = false;
+							setPriority(LLWorkerThread::PRIORITY_HIGH | mWorkPriority);
+							return false;
+						}
+						else
+						{
+							resetFormattedData();
+							mState = DONE;
+							return true; // failed
+						}
 					}
 				}
 				else
@@ -1350,8 +1388,58 @@ bool LLTextureFetchWorker::doWork(S32 param)
 		}
 		else
 		{
-			setPriority(LLWorkerThread::PRIORITY_LOW | mWorkPriority);
-			return false;
+			// <FS:Ansariel> CURL Timeout Check - Credit:FS|Ansariel
+			// CURL timeout check: In case CURL does not
+			// fire the callback method, the fetch worker
+			// thread would be stuck in the queue.
+			//setPriority(LLWorkerThread::PRIORITY_LOW | mWorkPriority);
+			//return false;
+			const F32 HTTP_CALLBACK_TIMEOUT = 30.f;
+			const S32 MAX_HTTP_CALLBACK_TIMEOUTS = 3;
+			if (mHttpCallbackTimer.getElapsedTimeF32() > HTTP_CALLBACK_TIMEOUT)
+			{
+				mFetcher->removeFromHTTPQueue(mID);
+				mHttpCallbackTimeoutCount++;
+				if (mHttpCallbackTimeoutCount < MAX_HTTP_CALLBACK_TIMEOUTS)
+				{
+					// Maximum retries not reached. Try again via HTTP.
+					llwarns << "HTTP callback timeout for " << mID
+						<< " (Attempt " << mHttpCallbackTimeoutCount
+						<< "/" << MAX_HTTP_CALLBACK_TIMEOUTS << "). Retrying..." << llendl;
+					mState = SEND_HTTP_REQ;
+					return false;
+				}
+				else
+				{
+					mHttpCallbackTimer.stop();
+
+					// Maximum retries reached. Try via simulator
+					// fetch if possible. Abort if not.
+					if (mCanUseNET)
+					{
+						llwarns << "HTTP callback timeout limit reached for " << mID
+							<< ". Retrying via simulator fetch..." << llendl;
+						mState = INIT;
+						mCanUseHTTP = false;
+						setPriority(LLWorkerThread::PRIORITY_HIGH | mWorkPriority);
+						return false;
+					}
+					else
+					{
+						llwarns << "HTTP callback timeout limit reached for " << mID
+							<< ". No simulator fetch available. Aborting!" << llendl;
+						mState = DONE;
+						return true;
+					}
+				}
+			}
+			else
+			{
+				// Timeout not reached. Continue waiting...
+				setPriority(LLWorkerThread::PRIORITY_LOW | mWorkPriority);
+				return false;
+			}
+			// </FS:Ansariel> CURL timeout check
 		}
 	}
 	
